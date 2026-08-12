@@ -19,6 +19,8 @@ import { Route as ImpactRouteImport } from './routes/impact'
 import { Route as ReportRouteImport } from './routes/report'
 import { Route as SigninRouteImport } from './routes/signin'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminMapRouteImport } from './routes/admin.map'
+import { Route as AdminReportsRouteImport } from './routes/admin.reports'
 import { Route as ReportsIdRouteImport } from './routes/reports.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -71,6 +73,16 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminMapRoute = AdminMapRouteImport.update({
+  id: '/map',
+  path: '/map',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReportsRoute = AdminReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AdminRoute,
+} as any)
 const ReportsIdRoute = ReportsIdRouteImport.update({
   id: '/reports/$id',
   path: '/reports/$id',
@@ -87,6 +99,8 @@ export interface FileRoutesByFullPath {
   '/impact': typeof ImpactRoute
   '/report': typeof ReportRoute
   '/signin': typeof SigninRoute
+  '/admin/map': typeof AdminMapRoute
+  '/admin/reports': typeof AdminReportsRoute
   '/reports/$id': typeof ReportsIdRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -99,6 +113,8 @@ export interface FileRoutesByTo {
   '/impact': typeof ImpactRoute
   '/report': typeof ReportRoute
   '/signin': typeof SigninRoute
+  '/admin/map': typeof AdminMapRoute
+  '/admin/reports': typeof AdminReportsRoute
   '/reports/$id': typeof ReportsIdRoute
   '/admin': typeof AdminIndexRoute
 }
@@ -113,6 +129,8 @@ export interface FileRoutesById {
   '/impact': typeof ImpactRoute
   '/report': typeof ReportRoute
   '/signin': typeof SigninRoute
+  '/admin/map': typeof AdminMapRoute
+  '/admin/reports': typeof AdminReportsRoute
   '/reports/$id': typeof ReportsIdRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -128,6 +146,8 @@ export interface FileRouteTypes {
     | '/impact'
     | '/report'
     | '/signin'
+    | '/admin/map'
+    | '/admin/reports'
     | '/reports/$id'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
@@ -140,6 +160,8 @@ export interface FileRouteTypes {
     | '/impact'
     | '/report'
     | '/signin'
+    | '/admin/map'
+    | '/admin/reports'
     | '/reports/$id'
     | '/admin'
   id:
@@ -153,6 +175,8 @@ export interface FileRouteTypes {
     | '/impact'
     | '/report'
     | '/signin'
+    | '/admin/map'
+    | '/admin/reports'
     | '/reports/$id'
     | '/admin/'
   fileRoutesById: FileRoutesById
@@ -242,6 +266,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/map': {
+      id: '/admin/map'
+      path: '/map'
+      fullPath: '/admin/map'
+      preLoaderRoute: typeof AdminMapRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/reports': {
+      id: '/admin/reports'
+      path: '/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof AdminReportsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/reports/$id': {
       id: '/reports/$id'
       path: '/reports/$id'
@@ -253,10 +291,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminMapRoute: typeof AdminMapRoute
+  AdminReportsRoute: typeof AdminReportsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminMapRoute: AdminMapRoute,
+  AdminReportsRoute: AdminReportsRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
