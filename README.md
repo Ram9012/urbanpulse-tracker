@@ -39,7 +39,7 @@ bun run build    # production build
 
 ## Next step (backend)
 
-Enabling Lovable Cloud adds auth (citizen / staff / manager / field worker / admin),
+Adding a backend adds auth (citizen / staff / manager / field worker / admin),
 Postgres with row-level security, secure media storage, real notifications and the
 live AI classification endpoint. Suggested tables: `users`, `citizen_profiles`,
 `staff_profiles`, `departments`, `field_workers`, `reports`, `report_media`,

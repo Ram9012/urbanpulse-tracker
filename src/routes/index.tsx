@@ -3,7 +3,6 @@ import { useState } from "react";
 import {
   BRAND,
   CATEGORIES,
-  DEPARTMENTS,
   TESTIMONIALS,
   TIMELINE_STEPS,
   LANGUAGES,
@@ -524,48 +523,6 @@ function Home() {
         </p>
       </Section>
 
-      <Section
-        className="bg-navy text-navy-foreground"
-        eyebrow="For municipalities"
-        title="Give Every Department a Clearer Path to Action."
-        description="One console for intake, verification, routing, field assignment and performance reporting."
-      >
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            "Centralized report management",
-            "AI-assisted classification",
-            "Automated department routing",
-            "Field-worker assignment",
-            "Real-time notifications",
-            "Geographic hotspot analysis",
-            "Department performance reports",
-            "Duplicate report detection",
-            "Role-based access control",
-          ].map((f) => (
-            <div key={f} className="rounded-2xl border border-navy-foreground/12 bg-navy-foreground/6 p-5">
-              <p className="text-sm font-bold">{f}</p>
-            </div>
-          ))}
-        </div>
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          {DEPARTMENTS.slice(0, 3).map((d) => (
-            <div key={d.name} className="rounded-2xl bg-navy-foreground/6 p-5">
-              <p className="text-sm font-bold">{d.name}</p>
-              <p className="mt-2 text-xs opacity-70">
-                {d.open} open · {d.resolvedMonth} resolved this month · {d.avgDays} day average
-              </p>
-            </div>
-          ))}
-        </div>
-        <div className="mt-8 text-center">
-          <Link
-            to="/admin"
-            className="inline-flex min-h-12 items-center rounded-2xl bg-primary px-6 text-sm font-bold text-primary-foreground shadow-glow"
-          >
-            Explore the Municipal Dashboard
-          </Link>
-        </div>
-      </Section>
 
       <section className="relative overflow-hidden border-b border-border bg-surface py-20">
         <div aria-hidden="true" className="absolute inset-0 civic-grid-bg opacity-70" />
