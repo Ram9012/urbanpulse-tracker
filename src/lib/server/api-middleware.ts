@@ -13,6 +13,7 @@ import {
   addReport,
   transitionReportStatus,
   getNotifications,
+  resetToCleanState,
 } from "./status-engine";
 import { checkSupabaseStatus } from "./supabase-client";
 import { REPORTS } from "../civic-data";
@@ -137,6 +138,13 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       return Response.json(status, { status: 200 });
     }
 
+    // 8. Clean database (Purge old complaints and reset to single latest complaint)
+    if (pathname === "/api/admin/clean-database" && (request.method === "POST" || request.method === "GET")) {
+      const cleanResult = await resetToCleanState();
+      return Response.json(cleanResult, { status: 200 });
+    }
+
+
     return null;
   } catch (error: any) {
     console.error("[CivicPulse API Error]:", error);
@@ -242,6 +250,13 @@ export function civicPulseApiPlugin(): Plugin {
             const status = await checkSupabaseStatus();
             return sendJson(res, 200, status);
           }
+
+          // 8. Clean database
+          if (url.startsWith("/api/admin/clean-database")) {
+            const cleanResult = await resetToCleanState();
+            return sendJson(res, 200, cleanResult);
+          }
+
 
           return next();
         } catch (error: any) {

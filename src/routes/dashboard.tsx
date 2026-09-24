@@ -24,22 +24,69 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function Dashboard() {
-  const [reports, setReports] = useState<CivicReport[]>(REPORTS);
+  const [reports, setReports] = useState<CivicReport[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
+        const valid = stored.filter(
+          (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728",
+        );
+        if (valid.length > 0) {
+          const map = new Map<string, CivicReport>();
+          valid.forEach((r: CivicReport) => map.set(r.id, r));
+          REPORTS.forEach((r: CivicReport) => {
+            if (!map.has(r.id)) map.set(r.id, r);
+          });
+          return Array.from(map.values());
+        }
+      } catch {}
+    }
+    return REPORTS;
+  });
   const [notifications, setNotifications] = useState<any[]>(NOTIFICATIONS);
   const [view, setView] = useState<"list" | "map">("list");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [lastSynced, setLastSynced] = useState<string>("Just now");
 
-  // Fetch real-time live reports from backend
+  // Fetch real-time live reports from backend and sync with localStorage
   const fetchLiveReports = async () => {
     try {
       const res = await fetch("/api/status/reports");
+      let serverReports: CivicReport[] = [];
       if (res.ok) {
         const data = await res.json();
         if (data.reports && data.reports.length > 0) {
-          setReports(data.reports);
-          setLastSynced(new Date().toLocaleTimeString());
+          serverReports = data.reports.filter(
+            (r: CivicReport) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728",
+          );
+        }
+      }
+
+      // Merge with client localStorage
+      let localReports: CivicReport[] = [];
+      if (typeof window !== "undefined") {
+        try {
+          const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
+          localReports = stored.filter(
+            (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728",
+          );
+        } catch {}
+      }
+
+      const map = new Map<string, CivicReport>();
+      REPORTS.forEach((r) => map.set(r.id, r));
+      localReports.forEach((r) => map.set(r.id, r));
+      serverReports.forEach((r) => map.set(r.id, r));
+
+      const merged = Array.from(map.values());
+      if (merged.length > 0) {
+        setReports(merged);
+        setLastSynced(new Date().toLocaleTimeString());
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("civicpulse_client_reports", JSON.stringify(merged));
+          } catch {}
         }
       }
 
@@ -60,7 +107,14 @@ function Dashboard() {
     fetchLiveReports();
     // Live polling every 2.5 seconds for instant real-time sync with admin changes
     const interval = setInterval(fetchLiveReports, 2500);
-    return () => clearInterval(interval);
+    const handleNew = () => fetchLiveReports();
+    window.addEventListener("civicpulse_report_created", handleNew);
+    window.addEventListener("storage", handleNew);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("civicpulse_report_created", handleNew);
+      window.removeEventListener("storage", handleNew);
+    };
   }, []);
 
   const mine = reports.filter(

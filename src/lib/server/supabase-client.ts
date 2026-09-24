@@ -148,3 +148,54 @@ export async function saveStatusHistoryToSupabase(entry: StatusHistoryEntry): Pr
     return false;
   }
 }
+
+/**
+ * Clear old reports and history from Supabase, leaving only the latest one.
+ */
+export async function clearSupabaseAndSeedLatest(
+  latestReport: CivicReport,
+  historyEntry: StatusHistoryEntry,
+): Promise<{ success: boolean; message: string }> {
+  if (!SUPABASE_KEY) {
+    return {
+      success: true,
+      message: "Supabase key not configured in local environment; local storage cleaned.",
+    };
+  }
+
+  try {
+    // 1. Delete all status history from Supabase
+    await fetch(`${SUPABASE_URL}/rest/v1/report_status_history?id=neq.none`, {
+      method: "DELETE",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      },
+    });
+
+    // 2. Delete all previous reports from Supabase
+    await fetch(`${SUPABASE_URL}/rest/v1/reports?id=neq.none`, {
+      method: "DELETE",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      },
+    });
+
+    // 3. Insert the latest report and its initial history entry
+    await saveReportToSupabase(latestReport);
+    await saveStatusHistoryToSupabase(historyEntry);
+
+    return {
+      success: true,
+      message: "Supabase completely cleared of all previous complaints; latest report saved.",
+    };
+  } catch (err: any) {
+    console.warn("[Supabase Clear Error]:", err.message);
+    return {
+      success: false,
+      message: `Supabase clear error: ${err.message}`,
+    };
+  }
+}
+

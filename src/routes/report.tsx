@@ -355,6 +355,21 @@ function ReportPage() {
       address: locationData.address,
     };
 
+    // Save locally to persist permanently across browser and admin sessions
+    if (typeof window !== "undefined") {
+      try {
+        const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
+        const purged = stored.filter(
+          (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== newReport.id,
+        );
+        purged.unshift(newReport);
+        localStorage.setItem("civicpulse_client_reports", JSON.stringify(purged));
+        window.dispatchEvent(new CustomEvent("civicpulse_report_created", { detail: newReport }));
+      } catch (e) {
+        console.warn("Local storage save notice:", e);
+      }
+    }
+
     try {
       const res = await fetch("/api/status/submit", {
         method: "POST",
@@ -363,7 +378,8 @@ function ReportPage() {
       });
 
       if (res.ok) {
-        setSubmittedReport(newReport);
+        const data = await res.json().catch(() => ({}));
+        setSubmittedReport(data.report || newReport);
       } else {
         setSubmittedReport(newReport);
       }

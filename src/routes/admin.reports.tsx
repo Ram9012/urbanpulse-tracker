@@ -22,7 +22,25 @@ export const Route = createFileRoute("/admin/reports")({
 });
 
 function ReportsTable() {
-  const [reports, setReports] = useState<CivicReport[]>(REPORTS);
+  const [reports, setReports] = useState<CivicReport[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
+        const valid = stored.filter(
+          (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728",
+        );
+        if (valid.length > 0) {
+          const map = new Map<string, CivicReport>();
+          valid.forEach((r: CivicReport) => map.set(r.id, r));
+          REPORTS.forEach((r: CivicReport) => {
+            if (!map.has(r.id)) map.set(r.id, r);
+          });
+          return Array.from(map.values());
+        }
+      } catch {}
+    }
+    return REPORTS;
+  });
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState("all");
   const [assignFor, setAssignFor] = useState<string | null>(null);
@@ -34,6 +52,7 @@ function ReportsTable() {
   const [aiInsights, setAiInsights] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [purgingData, setPurgingData] = useState(false);
 
   // Admin Photo Upload & Live Camera Capture State
   const [evidenceModalReport, setEvidenceModalReport] = useState<CivicReport | null>(null);
@@ -268,14 +287,43 @@ function ReportsTable() {
     }
   };
 
-  // Fetch reports from status engine API
+  // Fetch reports from status engine API and sync with local storage
   const fetchReports = async () => {
     try {
       const res = await fetch("/api/status/reports");
+      let serverReports: CivicReport[] = [];
       if (res.ok) {
         const data = await res.json();
         if (data.reports) {
-          setReports(data.reports);
+          serverReports = data.reports.filter(
+            (r: CivicReport) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728",
+          );
+        }
+      }
+
+      // Merge with client localStorage
+      let localReports: CivicReport[] = [];
+      if (typeof window !== "undefined") {
+        try {
+          const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
+          localReports = stored.filter(
+            (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728",
+          );
+        } catch {}
+      }
+
+      const map = new Map<string, CivicReport>();
+      REPORTS.forEach((r) => map.set(r.id, r));
+      localReports.forEach((r) => map.set(r.id, r));
+      serverReports.forEach((r) => map.set(r.id, r));
+
+      const merged = Array.from(map.values());
+      if (merged.length > 0) {
+        setReports(merged);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("civicpulse_client_reports", JSON.stringify(merged));
+          } catch {}
         }
       }
     } catch (err) {
@@ -285,9 +333,42 @@ function ReportsTable() {
 
   useEffect(() => {
     fetchReports();
-    const timer = setInterval(fetchReports, 5000);
-    return () => clearInterval(timer);
+    const timer = setInterval(fetchReports, 3000);
+    const handleNewReport = () => fetchReports();
+    window.addEventListener("civicpulse_report_created", handleNewReport);
+    window.addEventListener("storage", handleNewReport);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("civicpulse_report_created", handleNewReport);
+      window.removeEventListener("storage", handleNewReport);
+    };
   }, []);
+
+  // Purge old complaints and reset database completely
+  const purgeAllOldComplaints = async () => {
+    if (!confirm("Are you sure you want to remove all previous complaints and keep only the latest one?")) {
+      return;
+    }
+    setPurgingData(true);
+    try {
+      const res = await fetch("/api/admin/clean-database", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("civicpulse_client_reports");
+        }
+        if (data.reports) {
+          setReports(data.reports);
+        }
+        setActionNotice("Database cleaned successfully. All previous complaints removed; only latest complaint active.");
+      }
+    } catch (err: any) {
+      setActionNotice(`Clean database notice: ${err.message}`);
+    } finally {
+      setPurgingData(false);
+    }
+  };
+
 
   // Status transition handler
   const transitionReport = async (reportId: string, newStatus: ReportStatus, comment?: string, workerName?: string, deptName?: string) => {
@@ -361,6 +442,15 @@ function ReportsTable() {
           </p>
         </div>
         <div className="ml-auto flex items-center gap-3">
+          <button
+            type="button"
+            onClick={purgeAllOldComplaints}
+            disabled={purgingData}
+            className="inline-flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/20 px-3.5 py-2 text-xs font-bold text-destructive shadow-sm hover:bg-destructive/20 transition disabled:opacity-50"
+            title="Remove all old mock/resolved data from Supabase and local storage, keeping only latest complaint"
+          >
+            <span>🧹</span> {purgingData ? "Cleaning Database…" : "Empty Old Complaints"}
+          </button>
           <button
             type="button"
             onClick={fetchAiWorkloadInsights}

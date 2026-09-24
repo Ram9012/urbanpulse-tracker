@@ -260,11 +260,23 @@ function ReportDetails() {
         const data = await res.json();
         if (data.report) setReport(data.report);
         if (data.history) setHistory(data.history);
+        return;
       }
     } catch (err) {
       console.warn("Live status fetch fallback:", err);
     }
+
+    if (typeof window !== "undefined") {
+      try {
+        const local = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
+        const found = local.find((r: any) => r.id.toLowerCase() === report.id.toLowerCase());
+        if (found) {
+          setReport((prev) => ({ ...prev, ...found }));
+        }
+      } catch {}
+    }
   };
+
 
   useEffect(() => {
     fetchLiveState();

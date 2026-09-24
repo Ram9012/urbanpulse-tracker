@@ -130,7 +130,7 @@ export function ActivityMap({ compact = false }: { compact?: boolean }) {
   const [category, setCategory] = useState<string>("all");
   const [status, setStatus] = useState<string>("all");
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<string | null>("CIV-10482");
+  const [selected, setSelected] = useState<string | null>("CIV-95674");
 
   const visible = REPORTS.filter(
     (r) =>

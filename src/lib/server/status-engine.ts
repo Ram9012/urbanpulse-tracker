@@ -11,7 +11,7 @@ import fs from "fs";
 import path from "path";
 import { CivicReport, Priority, ReportStatus } from "@/lib/civic-data";
 import { verifyResolutionEvidence } from "./ai-service";
-import { saveReportToSupabase, saveStatusHistoryToSupabase } from "./supabase-client";
+import { saveReportToSupabase, saveStatusHistoryToSupabase, clearSupabaseAndSeedLatest } from "./supabase-client";
 
 export type StatusHistoryEntry = {
   id: string;
@@ -251,17 +251,24 @@ export function getNotifications(): NotificationItem[] {
 export function addReport(newReport: CivicReport): CivicReport {
   loadFromDisk();
 
-  // Prepend to list
-  activeReports.unshift(newReport);
+  // If report already exists, update it in place; otherwise prepend
+  const idx = activeReports.findIndex(
+    (r) => r.id.toLowerCase() === newReport.id.toLowerCase()
+  );
+  if (idx >= 0) {
+    activeReports[idx] = { ...activeReports[idx], ...newReport };
+  } else {
+    activeReports.unshift(newReport);
+  }
 
   const historyEntry: StatusHistoryEntry = {
     id: `hist-${newReport.id}-${Date.now()}`,
     reportId: newReport.id,
     oldStatus: null,
-    newStatus: "submitted",
+    newStatus: newReport.status || "submitted",
     changedBy: newReport.anonymous ? "Anonymous Citizen" : "Citizen",
     role: "Citizen",
-    changedAt: newReport.createdAt,
+    changedAt: newReport.createdAt || new Date().toISOString(),
     comment: "Report created and submitted to municipal triage queue.",
     metadata: {
       mediaUrls: newReport.mediaUrls,
@@ -289,6 +296,83 @@ export function addReport(newReport: CivicReport): CivicReport {
   saveStatusHistoryToSupabase(historyEntry).catch(() => {});
 
   return newReport;
+}
+
+/**
+ * Remove all previous complaints and resolved items from storage & Supabase,
+ * leaving only the latest complaint in submitted status.
+ */
+export async function resetToCleanState(targetReport?: CivicReport) {
+  const latest: CivicReport = targetReport || {
+    id: "CIV-95674",
+    title: "Streetlight failure and dark stretch on Racecourse Road",
+    category: "electricity",
+    categoryLabel: "Streetlight & electricity",
+    description:
+      "Streetlight pole lamp failure near Racecourse Road, Rangoli Halla. Street is dark and creating safety hazard for commuters.",
+    ward: "Rangoli Halla",
+    area: "Racecourse Road, Rangoli Halla",
+    status: "submitted",
+    priority: "critical",
+    department: "Electrical Department",
+    createdAt: "2026-09-25T01:30:00Z",
+    updatedAt: "2026-09-25T01:30:00Z",
+    aiConfidence: 0.96,
+    duplicateProbability: 0.05,
+    upvotes: 1,
+    anonymous: true,
+    x: 42,
+    y: 50,
+    latitude: 13.0072,
+    longitude: 76.1023,
+    address: "Racecourse Road, Rangoli Halla, हासन",
+    mediaUrls: ["/media/evidence/streetlight_before.jpg"],
+    workerMediaUrls: [],
+    resolutionMediaUrls: [],
+  };
+
+  const initialHistory: StatusHistoryEntry = {
+    id: `hist-${latest.id}-1`,
+    reportId: latest.id,
+    oldStatus: null,
+    newStatus: "submitted",
+    changedBy: "Anonymous Citizen",
+    role: "Citizen",
+    changedAt: latest.createdAt,
+    comment: "Report created and submitted to municipal triage queue.",
+    metadata: {
+      mediaUrls: latest.mediaUrls,
+      address: latest.address,
+      latitude: latest.latitude,
+      longitude: latest.longitude,
+    },
+  };
+
+  const initialNotif: NotificationItem = {
+    id: `notif-${latest.id}-1`,
+    reportId: latest.id,
+    title: "Report Received",
+    message: `Your report ${latest.id} has been registered and is pending staff verification.`,
+    time: "Just now",
+    unread: true,
+    channel: "in_app",
+  };
+
+  activeReports = [latest];
+  statusHistories = [initialHistory];
+  activeNotifications = [initialNotif];
+
+  saveToDisk();
+
+  // Also clean Supabase if connected
+  const supabaseResult = await clearSupabaseAndSeedLatest(latest, initialHistory);
+
+  return {
+    success: true,
+    reports: activeReports,
+    history: statusHistories,
+    supabase: supabaseResult,
+  };
 }
 
 /**
