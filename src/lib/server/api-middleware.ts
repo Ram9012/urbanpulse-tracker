@@ -43,6 +43,107 @@ function sendJson(res: any, status: number, data: any) {
   res.end(JSON.stringify(data));
 }
 
+export async function handleApiRequest(request: Request): Promise<Response | null> {
+  const url = new URL(request.url);
+  const pathname = url.pathname;
+
+  if (!pathname.startsWith("/api/")) {
+    return null;
+  }
+
+  try {
+    // 1. AI Analysis of Report
+    if (pathname === "/api/ai/analyze" && request.method === "POST") {
+      const body = await request.json();
+      const { description, categoryName } = body;
+      const result = await analyzeReportDescription(description || "", categoryName);
+      return Response.json(result, { status: 200 });
+    }
+
+    // 2. Duplicate Detection Analysis
+    if (pathname === "/api/ai/duplicate-check" && request.method === "POST") {
+      const body = await request.json();
+      const { newDescription, existingReport } = body;
+      const result = await analyzeDuplicateReport(newDescription, existingReport);
+      return Response.json(result, { status: 200 });
+    }
+
+    // 3. Resolution Evidence Verification
+    if (pathname === "/api/ai/verify-resolution" && request.method === "POST") {
+      const body = await request.json();
+      const { originalReport, resolutionNotes, mediaLabels } = body;
+      const result = await verifyResolutionEvidence(originalReport, resolutionNotes, mediaLabels);
+      return Response.json(result, { status: 200 });
+    }
+
+    // 4. Admin Workload & Anomaly Analytics
+    if (pathname === "/api/ai/workload" && request.method === "POST") {
+      const body = await request.json();
+      const result = await generateWorkloadInsights(body.departmentData || {});
+      return Response.json(result, { status: 200 });
+    }
+
+    // 5. Municipal Search (SerpAPI / Zenserp)
+    if (pathname.startsWith("/api/search/municipal") && request.method === "GET") {
+      const q = url.searchParams.get("q") || "Hassan municipal council civic complaints";
+      const serpApiKey = process.env["SERPAPI_API_KEY"] || "09e538a7b57d3f0ad876a3e25dd5dd1ece56236a57dfadf95b86e5bbf3694b40";
+
+      const serpRes = await fetch(
+        `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(q)}&api_key=${serpApiKey}&num=3`
+      );
+      const data = await serpRes.json();
+      const results = (data.organic_results || []).slice(0, 3).map((r: any) => ({
+        title: r.title,
+        snippet: r.snippet,
+        link: r.link,
+      }));
+      return Response.json({ query: q, results }, { status: 200 });
+    }
+
+    // 6. Reports & Status Engine APIs
+    if (pathname === "/api/status/reports" && request.method === "GET") {
+      return Response.json({ reports: getAllReports() }, { status: 200 });
+    }
+
+    if (pathname.startsWith("/api/status/report") && request.method === "GET") {
+      const id = url.searchParams.get("id") || "";
+      const report = getReportById(id);
+      if (!report) {
+        return Response.json({ error: `Report ${id} not found` }, { status: 404 });
+      }
+      const history = getHistoryForReport(id);
+      return Response.json({ report, history }, { status: 200 });
+    }
+
+    if (pathname === "/api/status/submit" && request.method === "POST") {
+      const body = await request.json();
+      const newReport = addReport(body.report);
+      return Response.json({ success: true, report: newReport }, { status: 201 });
+    }
+
+    if (pathname === "/api/status/transition" && request.method === "POST") {
+      const body = await request.json();
+      const transitionResult = await transitionReportStatus(body);
+      return Response.json(transitionResult, { status: 200 });
+    }
+
+    if (pathname === "/api/notifications" && request.method === "GET") {
+      return Response.json({ notifications: getNotifications() }, { status: 200 });
+    }
+
+    // 7. Supabase Status Check
+    if (pathname === "/api/supabase/status" && request.method === "GET") {
+      const status = await checkSupabaseStatus();
+      return Response.json(status, { status: 200 });
+    }
+
+    return null;
+  } catch (error: any) {
+    console.error("[CivicPulse API Error]:", error);
+    return Response.json({ error: error.message || "Internal server error" }, { status: 500 });
+  }
+}
+
 export function civicPulseApiPlugin(): Plugin {
   return {
     name: "civicpulse-api-server",
