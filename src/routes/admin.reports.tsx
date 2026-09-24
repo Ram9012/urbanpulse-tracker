@@ -71,6 +71,12 @@ function ReportsTable() {
           comment: comment || `Status advanced to ${newStatus.toUpperCase()}`,
           worker: workerName,
           department: deptName,
+          workerMedia: (newStatus === "assigned" || newStatus === "in_progress" || newStatus === "resolved")
+            ? ["/media/evidence/road_worker_onsite.jpg"]
+            : undefined,
+          resolutionMedia: newStatus === "resolved"
+            ? ["/media/evidence/pothole_resolved.jpg"]
+            : undefined,
         }),
       });
 

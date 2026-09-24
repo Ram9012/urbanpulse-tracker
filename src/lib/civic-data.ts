@@ -140,6 +140,13 @@ export type CivicReport = {
   /** Percent coordinates on the illustrated demo map. */
   x: number;
   y: number;
+  mediaUrls?: string[];
+  workerMediaUrls?: string[];
+  resolutionMediaUrls?: string[];
+  latitude?: number;
+  longitude?: number;
+  address?: string;
+  resolutionNotes?: string;
 };
 
 export const REPORTS: CivicReport[] = [

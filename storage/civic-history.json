@@ -1,0 +1,330 @@
+[
+  {
+    "id": "hist-CIV-10482-1",
+    "reportId": "CIV-10482",
+    "oldStatus": null,
+    "newStatus": "submitted",
+    "changedBy": "Citizen",
+    "role": "Citizen",
+    "changedAt": "2026-08-09T09:12:00Z",
+    "comment": "Initial report submitted with geolocation and media."
+  },
+  {
+    "id": "hist-CIV-10482-2",
+    "reportId": "CIV-10482",
+    "oldStatus": "submitted",
+    "newStatus": "verified",
+    "changedBy": "A. Sharma (Municipal Dispatch)",
+    "role": "Staff",
+    "changedAt": "2026-08-09T09:42:00.000Z",
+    "comment": "Location and category confirmed by municipal triage staff."
+  },
+  {
+    "id": "hist-CIV-10482-3",
+    "reportId": "CIV-10482",
+    "oldStatus": "verified",
+    "newStatus": "assigned",
+    "changedBy": "K. Reddy (Operations)",
+    "role": "Staff",
+    "changedAt": "2026-08-09T11:12:00.000Z",
+    "comment": "Assigned to Public Works — Roads -> Worker: R. Manjunath."
+  },
+  {
+    "id": "hist-CIV-10482-4",
+    "reportId": "CIV-10482",
+    "oldStatus": "assigned",
+    "newStatus": "in_progress",
+    "changedBy": "R. Manjunath",
+    "role": "Worker",
+    "changedAt": "2026-08-10T09:12:00.000Z",
+    "comment": "Work crew arrived on site. Material prepared and remediation underway."
+  },
+  {
+    "id": "hist-CIV-10479-1",
+    "reportId": "CIV-10479",
+    "oldStatus": null,
+    "newStatus": "submitted",
+    "changedBy": "Anonymous Citizen",
+    "role": "Citizen",
+    "changedAt": "2026-08-08T18:02:00Z",
+    "comment": "Initial report submitted with geolocation and media."
+  },
+  {
+    "id": "hist-CIV-10479-2",
+    "reportId": "CIV-10479",
+    "oldStatus": "submitted",
+    "newStatus": "verified",
+    "changedBy": "A. Sharma (Municipal Dispatch)",
+    "role": "Staff",
+    "changedAt": "2026-08-08T18:32:00.000Z",
+    "comment": "Location and category confirmed by municipal triage staff."
+  },
+  {
+    "id": "hist-CIV-10479-3",
+    "reportId": "CIV-10479",
+    "oldStatus": "verified",
+    "newStatus": "assigned",
+    "changedBy": "K. Reddy (Operations)",
+    "role": "Staff",
+    "changedAt": "2026-08-08T20:02:00.000Z",
+    "comment": "Assigned to Electrical Department -> Worker: S. Latha."
+  },
+  {
+    "id": "hist-CIV-10475-1",
+    "reportId": "CIV-10475",
+    "oldStatus": null,
+    "newStatus": "submitted",
+    "changedBy": "Citizen",
+    "role": "Citizen",
+    "changedAt": "2026-08-11T05:45:00Z",
+    "comment": "Initial report submitted with geolocation and media."
+  },
+  {
+    "id": "hist-CIV-10475-2",
+    "reportId": "CIV-10475",
+    "oldStatus": "submitted",
+    "newStatus": "verified",
+    "changedBy": "A. Sharma (Municipal Dispatch)",
+    "role": "Staff",
+    "changedAt": "2026-08-11T06:15:00.000Z",
+    "comment": "Location and category confirmed by municipal triage staff."
+  },
+  {
+    "id": "hist-CIV-10468-1",
+    "reportId": "CIV-10468",
+    "oldStatus": null,
+    "newStatus": "submitted",
+    "changedBy": "Citizen",
+    "role": "Citizen",
+    "changedAt": "2026-08-12T02:15:00Z",
+    "comment": "Initial report submitted with geolocation and media."
+  },
+  {
+    "id": "hist-CIV-10441-1",
+    "reportId": "CIV-10441",
+    "oldStatus": null,
+    "newStatus": "submitted",
+    "changedBy": "Citizen",
+    "role": "Citizen",
+    "changedAt": "2026-07-28T07:30:00Z",
+    "comment": "Initial report submitted with geolocation and media."
+  },
+  {
+    "id": "hist-CIV-10441-2",
+    "reportId": "CIV-10441",
+    "oldStatus": "submitted",
+    "newStatus": "verified",
+    "changedBy": "A. Sharma (Municipal Dispatch)",
+    "role": "Staff",
+    "changedAt": "2026-07-28T08:00:00.000Z",
+    "comment": "Location and category confirmed by municipal triage staff."
+  },
+  {
+    "id": "hist-CIV-10441-3",
+    "reportId": "CIV-10441",
+    "oldStatus": "verified",
+    "newStatus": "assigned",
+    "changedBy": "K. Reddy (Operations)",
+    "role": "Staff",
+    "changedAt": "2026-07-28T09:30:00.000Z",
+    "comment": "Assigned to Public Works — Roads -> Worker: R. Manjunath."
+  },
+  {
+    "id": "hist-CIV-10441-4",
+    "reportId": "CIV-10441",
+    "oldStatus": "assigned",
+    "newStatus": "in_progress",
+    "changedBy": "R. Manjunath",
+    "role": "Worker",
+    "changedAt": "2026-07-29T07:30:00.000Z",
+    "comment": "Work crew arrived on site. Material prepared and remediation underway."
+  },
+  {
+    "id": "hist-CIV-10441-5",
+    "reportId": "CIV-10441",
+    "oldStatus": "in_progress",
+    "newStatus": "resolved",
+    "changedBy": "A. Sharma (Municipal Supervisor)",
+    "role": "Staff",
+    "changedAt": "2026-08-04T13:10:00Z",
+    "comment": "Field completion verified. Quality inspection passed."
+  },
+  {
+    "id": "hist-CIV-10437-1",
+    "reportId": "CIV-10437",
+    "oldStatus": null,
+    "newStatus": "submitted",
+    "changedBy": "Anonymous Citizen",
+    "role": "Citizen",
+    "changedAt": "2026-07-30T16:00:00Z",
+    "comment": "Initial report submitted with geolocation and media."
+  },
+  {
+    "id": "hist-CIV-10437-2",
+    "reportId": "CIV-10437",
+    "oldStatus": "submitted",
+    "newStatus": "verified",
+    "changedBy": "A. Sharma (Municipal Dispatch)",
+    "role": "Staff",
+    "changedAt": "2026-07-30T16:30:00.000Z",
+    "comment": "Location and category confirmed by municipal triage staff."
+  },
+  {
+    "id": "hist-CIV-10437-3",
+    "reportId": "CIV-10437",
+    "oldStatus": "verified",
+    "newStatus": "assigned",
+    "changedBy": "K. Reddy (Operations)",
+    "role": "Staff",
+    "changedAt": "2026-07-30T18:00:00.000Z",
+    "comment": "Assigned to Traffic Department -> Worker: K. Prakash."
+  },
+  {
+    "id": "hist-CIV-10437-4",
+    "reportId": "CIV-10437",
+    "oldStatus": "assigned",
+    "newStatus": "in_progress",
+    "changedBy": "K. Prakash",
+    "role": "Worker",
+    "changedAt": "2026-07-31T16:00:00.000Z",
+    "comment": "Work crew arrived on site. Material prepared and remediation underway."
+  },
+  {
+    "id": "hist-CIV-10437-5",
+    "reportId": "CIV-10437",
+    "oldStatus": "in_progress",
+    "newStatus": "resolved",
+    "changedBy": "A. Sharma (Municipal Supervisor)",
+    "role": "Staff",
+    "changedAt": "2026-08-02T09:25:00Z",
+    "comment": "Field completion verified. Quality inspection passed."
+  },
+  {
+    "id": "hist-CIV-10430-1",
+    "reportId": "CIV-10430",
+    "oldStatus": null,
+    "newStatus": "submitted",
+    "changedBy": "Citizen",
+    "role": "Citizen",
+    "changedAt": "2026-08-05T12:40:00Z",
+    "comment": "Initial report submitted with geolocation and media."
+  },
+  {
+    "id": "hist-CIV-10430-2",
+    "reportId": "CIV-10430",
+    "oldStatus": "submitted",
+    "newStatus": "verified",
+    "changedBy": "A. Sharma (Municipal Dispatch)",
+    "role": "Staff",
+    "changedAt": "2026-08-05T13:10:00.000Z",
+    "comment": "Location and category confirmed by municipal triage staff."
+  },
+  {
+    "id": "hist-CIV-10430-3",
+    "reportId": "CIV-10430",
+    "oldStatus": "verified",
+    "newStatus": "assigned",
+    "changedBy": "K. Reddy (Operations)",
+    "role": "Staff",
+    "changedAt": "2026-08-05T14:40:00.000Z",
+    "comment": "Assigned to Parks Department -> Worker: M. Nagaraj."
+  },
+  {
+    "id": "hist-CIV-10422-1",
+    "reportId": "CIV-10422",
+    "oldStatus": null,
+    "newStatus": "submitted",
+    "changedBy": "Citizen",
+    "role": "Citizen",
+    "changedAt": "2026-08-06T04:20:00Z",
+    "comment": "Initial report submitted with geolocation and media."
+  },
+  {
+    "id": "hist-CIV-10422-2",
+    "reportId": "CIV-10422",
+    "oldStatus": "submitted",
+    "newStatus": "verified",
+    "changedBy": "A. Sharma (Municipal Dispatch)",
+    "role": "Staff",
+    "changedAt": "2026-08-06T04:50:00.000Z",
+    "comment": "Location and category confirmed by municipal triage staff."
+  },
+  {
+    "id": "hist-CIV-10422-3",
+    "reportId": "CIV-10422",
+    "oldStatus": "verified",
+    "newStatus": "assigned",
+    "changedBy": "K. Reddy (Operations)",
+    "role": "Staff",
+    "changedAt": "2026-08-06T06:20:00.000Z",
+    "comment": "Assigned to Water Supply -> Worker: A. Firoz."
+  },
+  {
+    "id": "hist-CIV-10422-4",
+    "reportId": "CIV-10422",
+    "oldStatus": "assigned",
+    "newStatus": "in_progress",
+    "changedBy": "A. Firoz",
+    "role": "Worker",
+    "changedAt": "2026-08-07T04:20:00.000Z",
+    "comment": "Work crew arrived on site. Material prepared and remediation underway."
+  },
+  {
+    "id": "hist-CIV-95674-1",
+    "reportId": "CIV-95674",
+    "oldStatus": null,
+    "newStatus": "submitted",
+    "changedBy": "Citizen (Citizen)",
+    "role": "Citizen",
+    "changedAt": "2026-09-24T17:27:19.727Z",
+    "comment": "Report created and submitted to municipal triage queue.",
+    "metadata": {
+      "address": "Racecourse Road, Rangoli Halla, Hassan"
+    }
+  },
+  {
+    "id": "hist-CIV-95674-2",
+    "reportId": "CIV-95674",
+    "oldStatus": "submitted",
+    "newStatus": "verified",
+    "changedBy": "A. Sharma (Municipal Supervisor) (Staff)",
+    "role": "Staff",
+    "changedAt": "2026-09-24T17:57:19.727Z",
+    "comment": "Staff verified report location and confirmed category.",
+    "metadata": {
+      "department": "Public Works — Roads"
+    }
+  },
+  {
+    "id": "hist-CIV-95674-3",
+    "reportId": "CIV-95674",
+    "oldStatus": "verified",
+    "newStatus": "assigned",
+    "changedBy": "A. Sharma (Municipal Supervisor) (Staff)",
+    "role": "Staff",
+    "changedAt": "2026-09-24T18:12:19.727Z",
+    "comment": "Assigned to Public Works — Roads -> Worker: R. Manjunath",
+    "metadata": {
+      "department": "Public Works — Roads",
+      "worker": "R. Manjunath"
+    }
+  },
+  {
+    "id": "hist-CIV-95674-1790274775921",
+    "reportId": "CIV-95674",
+    "oldStatus": "verified",
+    "newStatus": "assigned",
+    "changedBy": "A. Sharma (Municipal Supervisor)",
+    "role": "Staff",
+    "changedAt": "2026-09-24T18:32:55.921Z",
+    "comment": "Assigned to Public Works — Worker R. Manjunath designated.",
+    "metadata": {
+      "department": "Public Works — Roads",
+      "worker": "R. Manjunath",
+      "workerMedia": [
+        "/media/evidence/road_worker_onsite.jpg"
+      ],
+      "aiVerification": null
+    }
+  }
+]

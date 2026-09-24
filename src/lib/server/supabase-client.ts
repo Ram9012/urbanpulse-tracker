@@ -5,6 +5,9 @@
  * Provides connection check, data sync, and fallback handling.
  */
 
+import { CivicReport } from "@/lib/civic-data";
+import { StatusHistoryEntry } from "./status-engine";
+
 const SUPABASE_URL = process.env["VITE_SUPABASE_URL"] || process.env["SUPABASE_URL"] || "https://wqwlqbozwcbcxjbxlqmh.supabase.co";
 const SUPABASE_KEY = process.env["SUPABASE_SERVICE_ROLE_KEY"] || process.env["VITE_SUPABASE_ANON_KEY"] || "";
 const SUPABASE_PROJECT_NAME = process.env["SUPABASE_PROJECT_NAME"] || "videoediting";
@@ -68,5 +71,80 @@ export async function checkSupabaseStatus(): Promise<SupabaseStatus> {
       hasKey: true,
       message: `Connection attempt error: ${err.message}`,
     };
+  }
+}
+
+/**
+ * Save / Upsert report to Supabase PostgreSQL
+ */
+export async function saveReportToSupabase(report: CivicReport): Promise<boolean> {
+  if (!SUPABASE_KEY) return false;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/reports`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates",
+      },
+      body: JSON.stringify({
+        id: report.id,
+        tracking_id: report.id,
+        title: report.title,
+        description: report.description,
+        category_id: report.category,
+        category_label: report.categoryLabel,
+        ward: report.ward,
+        area: report.area,
+        status: report.status.toUpperCase(),
+        priority: report.priority,
+        department_name: report.department,
+        worker_name: report.worker,
+        media_urls: report.mediaUrls || [],
+        resolution_notes: report.resolutionNotes,
+        resolution_media_urls: report.resolutionMediaUrls || [],
+        latitude: report.latitude,
+        longitude: report.longitude,
+        created_at: report.createdAt,
+        updated_at: report.updatedAt,
+      }),
+    });
+    return res.ok;
+  } catch (err: any) {
+    console.warn("[Supabase Sync Report Warning]:", err.message);
+    return false;
+  }
+}
+
+/**
+ * Save status history audit log to Supabase PostgreSQL
+ */
+export async function saveStatusHistoryToSupabase(entry: StatusHistoryEntry): Promise<boolean> {
+  if (!SUPABASE_KEY) return false;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/report_status_history`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: entry.id,
+        report_id: entry.reportId,
+        old_status: entry.oldStatus ? entry.oldStatus.toUpperCase() : null,
+        new_status: entry.newStatus.toUpperCase(),
+        changed_by: entry.changedBy,
+        role: entry.role,
+        changed_at: entry.changedAt,
+        comment: entry.comment,
+        metadata: entry.metadata || {},
+      }),
+    });
+    return res.ok;
+  } catch (err: any) {
+    console.warn("[Supabase Sync History Warning]:", err.message);
+    return false;
   }
 }

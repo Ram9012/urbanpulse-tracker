@@ -349,6 +349,10 @@ function ReportPage() {
       anonymous,
       x: 32,
       y: 45,
+      mediaUrls: mediaItems.map((m) => m.url),
+      latitude: locationData.lat,
+      longitude: locationData.lng,
+      address: locationData.address,
     };
 
     try {
