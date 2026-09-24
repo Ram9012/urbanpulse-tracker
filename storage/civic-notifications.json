@@ -1,5 +1,14 @@
 [
   {
+    "id": "notif-1790279269176",
+    "reportId": "CIV-10482",
+    "title": "Status: RESOLVED",
+    "message": "Report CIV-10482 has been verified and successfully resolved!",
+    "time": "Just now",
+    "unread": true,
+    "channel": "in_app"
+  },
+  {
     "id": "notif-1790276848586",
     "reportId": "CIV-54728",
     "title": "Status: RESOLVED",
