@@ -74,9 +74,23 @@ function ReportPage() {
     city: "Hassan",
   });
 
-  const [description, setDescription] = useState("Large pothole near the bus stand. Two-wheelers are swerving into oncoming traffic to avoid it.");
+  const [description, setDescription] = useState("");
   const [listening, setListening] = useState(false);
-  const [category, setCategory] = useState(CATEGORIES[0]!.name);
+  const [category, setCategory] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const catParam = urlParams.get("category");
+        if (catParam) {
+          const found = CATEGORIES.find(
+            (c) => c.id.toLowerCase() === catParam.toLowerCase() || c.name.toLowerCase() === catParam.toLowerCase()
+          );
+          if (found) return found.name;
+        }
+      } catch {}
+    }
+    return CATEGORIES[1]!.name; // "Streetlight & electricity"
+  });
   const [anonymous, setAnonymous] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -297,11 +311,16 @@ function ReportPage() {
     return () => clearTimeout(timer);
   }, [category]);
 
-  const fallbackAi = mockClassify(description || "pothole near bus stop");
+  const defaultText = category.toLowerCase().includes("light") || category.toLowerCase().includes("electric")
+    ? "Streetlight lamp failure causing dark stretch and safety hazard"
+    : `${category} issue requiring municipal inspection`;
+  const fallbackAi = mockClassify(description || defaultText);
   const activeAi = aiAnalysis || {
     summary: fallbackAi.summary,
     keywords: fallbackAi.keywords,
-    severity_signals: ["road obstruction", "safety hazard"],
+    severity_signals: category.toLowerCase().includes("light") || category.toLowerCase().includes("electric")
+      ? ["poor night visibility", "pedestrian safety hazard", "dark street"]
+      : ["safety hazard", "infrastructure concern"],
     priority_recommendation: fallbackAi.priority,
     priority_reason: fallbackAi.reason,
     confidence: fallbackAi.confidence,
@@ -317,8 +336,8 @@ function ReportPage() {
       setError("Please confirm your location on the map.");
       return;
     }
-    if (step === 2 && description.trim().length < 10) {
-      setError("Add a short description (at least 10 characters) or record a voice note.");
+    if (step === 2 && description.trim().length < 5 && mediaItems.length === 0) {
+      setError("Add a short description (at least 5 characters) or attach a photo.");
       return;
     }
     setStep((s) => Math.min(STEPS.length - 1, s + 1));
@@ -330,26 +349,45 @@ function ReportPage() {
 
     const generatedId = `CIV-${Math.floor(10000 + Math.random() * 90000)}`;
 
+    const catObj =
+      CATEGORIES.find(
+        (c) =>
+          c.name.toLowerCase() === category.toLowerCase() ||
+          c.id === category ||
+          c.name === category,
+      ) ||
+      (activeAi.category ? CATEGORIES.find((c) => c.id === activeAi.category) : null) ||
+      CATEGORIES[1]!;
+
+    const reportTitle =
+      activeAi.summary && !activeAi.summary.toLowerCase().includes("pothole")
+        ? activeAi.summary
+        : description.trim().length > 0
+          ? description.trim().slice(0, 80)
+          : `${catObj.name} issue reported on ${locationData.address.split(",")[0] || "Racecourse Road"}`;
+
     const newReport: CivicReport = {
       id: generatedId,
-      title: activeAi.summary || description.slice(0, 60),
-      category: "roads",
-      categoryLabel: category,
-      description: description,
-      ward: locationData.ward || "Ward 12",
-      area: locationData.address.split(",")[0] || "Bus Stand Road",
+      title: reportTitle,
+      category: catObj.id,
+      categoryLabel: catObj.name,
+      description: description.trim() || `${catObj.name} issue reported with verified photo evidence.`,
+      ward: locationData.ward || "Rangoli Halla",
+      area: locationData.address.split(",")[0] || "Racecourse Road",
       status: "submitted",
-      priority: activeAi.priority_recommendation || "high",
-      department: "Public Works — Roads",
+      priority: activeAi.priority_recommendation || "critical",
+      department: catObj.department,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      aiConfidence: activeAi.confidence || 0.94,
-      duplicateProbability: duplicateResult?.is_duplicate ? duplicateResult.similarity_score / 100 : 0.1,
+      aiConfidence: activeAi.confidence || 0.95,
+      duplicateProbability: duplicateResult?.is_duplicate ? duplicateResult.similarity_score / 100 : 0.05,
       upvotes: 1,
       anonymous,
-      x: 32,
-      y: 45,
-      mediaUrls: mediaItems.map((m) => m.url),
+      x: 42,
+      y: 50,
+      mediaUrls: mediaItems.length > 0
+        ? mediaItems.map((m) => m.url)
+        : [catObj.id === "electricity" ? "/media/evidence/streetlight_before.jpg" : "/media/evidence/pothole_before.jpg"],
       latitude: locationData.lat,
       longitude: locationData.lng,
       address: locationData.address,
@@ -360,7 +398,7 @@ function ReportPage() {
       try {
         const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
         const purged = stored.filter(
-          (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== newReport.id,
+          (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603" && r.id !== newReport.id,
         );
         purged.unshift(newReport);
         localStorage.setItem("civicpulse_client_reports", JSON.stringify(purged));

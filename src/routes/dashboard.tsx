@@ -29,7 +29,7 @@ function Dashboard() {
       try {
         const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
         const valid = stored.filter(
-          (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728",
+          (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
         );
         if (valid.length > 0) {
           const map = new Map<string, CivicReport>();
@@ -58,7 +58,7 @@ function Dashboard() {
         const data = await res.json();
         if (data.reports && data.reports.length > 0) {
           serverReports = data.reports.filter(
-            (r: CivicReport) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728",
+            (r: CivicReport) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
           );
         }
       }
@@ -69,7 +69,7 @@ function Dashboard() {
         try {
           const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
           localReports = stored.filter(
-            (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728",
+            (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
           );
         } catch {}
       }
@@ -217,11 +217,12 @@ function Dashboard() {
                   const hasWorkerMedia = r.workerMediaUrls && r.workerMediaUrls.length > 0;
                   const hasReportMedia = r.mediaUrls && r.mediaUrls.length > 0;
 
+                  const defaultImg = r.category === "electricity" ? "/media/evidence/streetlight_before.jpg" : "/media/evidence/pothole_before.jpg";
                   const thumb = (r.status === "resolved" && hasResolutionMedia ? r.resolutionMediaUrls![0] : null)
                     || (r.status === "in_progress" && hasWorkerMedia ? r.workerMediaUrls![0] : null)
                     || (hasResolutionMedia ? r.resolutionMediaUrls![0] : null)
                     || (hasWorkerMedia ? r.workerMediaUrls![0] : null)
-                    || (hasReportMedia ? r.mediaUrls![0] : "/media/evidence/pothole_before.jpg");
+                    || (hasReportMedia ? r.mediaUrls![0] : defaultImg);
 
                   const badge = r.status === "resolved"
                     ? { text: "✓ Verified Resolution Photo", cls: "bg-success text-success-foreground" }
@@ -246,7 +247,7 @@ function Dashboard() {
                             alt={r.title}
                             className="w-full h-full object-cover hover:scale-105 transition duration-300"
                             onError={(e) => {
-                              (e.target as any).src = "/media/evidence/pothole_before.jpg";
+                              (e.target as any).src = defaultImg;
                             }}
                           />
                           <span className={`absolute bottom-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded shadow backdrop-blur ${badge.cls}`}>

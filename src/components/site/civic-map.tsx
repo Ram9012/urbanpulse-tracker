@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { CATEGORIES, REPORTS, STATUS_META, type CivicReport } from "@/lib/civic-data";
@@ -127,12 +127,43 @@ export function MarkerPreviewCard({ report }: { report: CivicReport }) {
 
 /** Filterable community activity map used on the homepage and explorer. */
 export function ActivityMap({ compact = false }: { compact?: boolean }) {
+  const [reportsList, setReportsList] = useState<CivicReport[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
+        const valid = stored.filter(
+          (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
+        );
+        if (valid.length > 0) return valid;
+      } catch {}
+    }
+    return REPORTS;
+  });
   const [category, setCategory] = useState<string>("all");
   const [status, setStatus] = useState<string>("all");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>("CIV-95674");
 
-  const visible = REPORTS.filter(
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        const res = await fetch("/api/status/reports");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.reports && data.reports.length > 0) {
+            setReportsList(
+              data.reports.filter(
+                (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
+              ),
+            );
+          }
+        }
+      } catch {}
+    };
+    fetchReports();
+  }, []);
+
+  const visible = reportsList.filter(
     (r) =>
       (category === "all" || r.category === category) &&
       (status === "all" || r.status === status) &&

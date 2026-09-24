@@ -10,22 +10,26 @@ export const Route = createFileRoute("/reports/$id")({
     const report = getReport(params.id) || {
       id: params.id,
       title: "Civic Issue Report",
-      category: "roads",
-      categoryLabel: "Road & pothole",
+      category: "electricity",
+      categoryLabel: "Streetlight & electricity",
       description: "Reported civic issue registered in CivicPulse system.",
-      ward: "Ward 12",
-      area: "Bus Stand Road",
+      ward: "Rangoli Halla",
+      area: "Racecourse Road, Rangoli Halla",
       status: "submitted",
-      priority: "high",
-      department: "Public Works — Roads",
+      priority: "critical",
+      department: "Electrical Department",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      aiConfidence: 0.94,
-      duplicateProbability: 0.12,
+      aiConfidence: 0.95,
+      duplicateProbability: 0.05,
       upvotes: 1,
       anonymous: false,
-      x: 30,
-      y: 45,
+      x: 42,
+      y: 50,
+      latitude: 13.0072,
+      longitude: 76.1023,
+      address: "Racecourse Road, Rangoli Halla, हासन",
+      mediaUrls: ["/media/evidence/streetlight_before.jpg"],
     };
     return { initialReport: report };
   },
@@ -69,7 +73,11 @@ function ReportDetails() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   // Resolution & AI verification state
-  const [resolutionNotes, setResolutionNotes] = useState("Filled pothole with dense bitumen mix, compacted surface, and reopened lane.");
+  const [resolutionNotes, setResolutionNotes] = useState(() =>
+    initialReport.category === "electricity"
+      ? "Streetlight wiring repaired, lamp replaced, and illumination restored."
+      : "Filled pothole with dense bitumen mix, compacted surface, and reopened lane."
+  );
   const [aiVerification, setAiVerification] = useState<any>(null);
   const [verifyingAi, setVerifyingAi] = useState(false);
 
@@ -269,7 +277,9 @@ function ReportDetails() {
     if (typeof window !== "undefined") {
       try {
         const local = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
-        const found = local.find((r: any) => r.id.toLowerCase() === report.id.toLowerCase());
+        const found = local.find(
+          (r: any) => r.id.toLowerCase() === report.id.toLowerCase() && r.id !== "CIV-42603"
+        );
         if (found) {
           setReport((prev) => ({ ...prev, ...found }));
         }
@@ -427,138 +437,49 @@ function ReportDetails() {
           <div className="space-y-6">
 
             {/* Interactive Workflow Simulation Panel */}
-            <div className="surface-card p-5 border-2 border-primary/30 bg-primary/5 rounded-2xl">
-              <div className="flex items-center justify-between">
+            {/* Citizen Resolution Tracking Card */}
+            <div className="surface-card p-5 border border-primary/20 bg-primary/5 rounded-2xl">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h2 className="text-sm font-extrabold text-foreground flex items-center gap-2">
                     <span className="size-2.5 rounded-full bg-primary animate-pulse" />
-                    Status Machine Controller (Deterministic Workflow)
+                    Citizen Live Resolution Tracking
                   </h2>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Advance the report across each real-world stage. Every change records an immutable audit log.
+                    Your report is registered in the municipal queue with verified GPS and photographic evidence.
                   </p>
                 </div>
-                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-background border border-border">
-                  Current: {report.status.toUpperCase()}
+                <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-background border border-border flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-primary" />
+                  Status: {report.status.toUpperCase()}
                 </span>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                {report.status === "submitted" && (
-                  <button
-                    type="button"
-                    onClick={() => handleTransition("verified", "Staff verified report location and confirmed category.")}
-                    disabled={loading}
-                    className="min-h-10 px-4 rounded-xl bg-teal text-teal-foreground text-xs font-bold shadow hover:bg-teal/90 transition"
-                  >
-                    1. Verify Report (Staff)
-                  </button>
-                )}
+              <div className="mt-4 rounded-xl bg-background/80 p-3.5 border border-border/60 text-xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Assigned Department:</span>
+                  <strong className="text-foreground">{report.department || "Electrical Department"}</strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Triage Priority:</span>
+                  <span className="font-bold text-destructive uppercase">{report.priority}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Field Worker:</span>
+                  <span className="text-foreground">{report.worker ? report.worker : "Awaiting municipal assignment"}</span>
+                </div>
+              </div>
 
-                {(report.status === "submitted" || report.status === "verified") && (
-                  <button
-                    type="button"
-                    onClick={() => handleTransition("assigned", "Assigned to Public Works — Worker R. Manjunath designated.")}
-                    disabled={loading}
-                    className="min-h-10 px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow hover:bg-primary/90 transition"
-                  >
-                    2. Assign Field Worker (Dispatch)
-                  </button>
-                )}
-
-                {(report.status === "assigned") && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleTransition("in_progress", "Worker arrived on site. Material prepared and remediation underway.")}
-                      disabled={loading}
-                      className="min-h-10 px-4 rounded-xl bg-warning text-warning-foreground text-xs font-bold shadow hover:bg-warning/90 transition"
-                    >
-                      3. Start Work on Site (Field Worker)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => startCamera("worker")}
-                      disabled={loading}
-                      className="min-h-10 px-3.5 rounded-xl border border-warning/50 bg-warning/10 text-warning-foreground text-xs font-bold hover:bg-warning/20 transition flex items-center gap-1.5"
-                    >
-                      <span>📷</span> Snap On-Site Photo (Live Camera)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => workerFileInputRef.current?.click()}
-                      disabled={loading}
-                      className="min-h-10 px-3.5 rounded-xl border border-input bg-surface hover:bg-accent text-foreground text-xs font-bold transition flex items-center gap-1.5"
-                    >
-                      <span>🖼️</span> Upload Worker Photo
-                    </button>
-                  </div>
-                )}
-
-                {report.status === "in_progress" && (
-                  <div className="w-full space-y-3 pt-2">
-                    <div className="rounded-xl bg-background p-3.5 border border-border">
-                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                        <label className="block text-xs font-bold">Worker Completion Evidence & Notes:</label>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => startCamera("resolution")}
-                            className="px-2.5 py-1 rounded-lg bg-success/15 hover:bg-success/25 text-success text-xs font-bold flex items-center gap-1 transition"
-                          >
-                            <span>📸</span> Snap Resolution Photo
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => resolutionFileInputRef.current?.click()}
-                            className="px-2.5 py-1 rounded-lg border border-input bg-surface hover:bg-accent text-foreground text-xs font-bold flex items-center gap-1 transition"
-                          >
-                            <span>🖼️</span> Upload Photo
-                          </button>
-                        </div>
-                      </div>
-                      <textarea
-                        rows={2}
-                        value={resolutionNotes}
-                        onChange={(e) => setResolutionNotes(e.target.value)}
-                        className="w-full text-xs p-2.5 rounded-lg border border-input bg-surface outline-none focus:ring-2 focus:ring-primary/20"
-                        placeholder="Detail materials used, crew members, and final test remarks..."
-                      />
-                      <div className="mt-2.5 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={runAiEvidenceCheck}
-                          disabled={verifyingAi}
-                          className="min-h-9 px-3 rounded-lg bg-navy text-navy-foreground text-xs font-bold shadow hover:bg-navy/90 flex items-center gap-1.5"
-                        >
-                          {verifyingAi ? "AI Verifying…" : "⚡ 4. Run AI Evidence Check (Groq)"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleTransition("resolved", `Resolution approved. ${resolutionNotes}`, true)}
-                          disabled={loading}
-                          className="min-h-9 px-4 rounded-lg bg-success text-success-foreground text-xs font-bold shadow hover:bg-success/90"
-                        >
-                          5. Approve & Resolve Report (Supervisor)
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {report.status === "resolved" && (
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-success">✓ This civic issue has been officially resolved!</span>
-                    <button
-                      type="button"
-                      onClick={() => handleTransition("in_progress", "Citizen reopened: Issue recurred or was incomplete.")}
-                      disabled={loading}
-                      className="min-h-9 px-3 rounded-lg border border-destructive text-destructive text-xs font-bold hover:bg-destructive/10"
-                    >
-                      Reopen Report (Citizen)
-                    </button>
-                  </div>
-                )}
+              <div className="mt-4 pt-3 border-t border-border/50 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] text-muted-foreground">
+                  Are you a municipal officer or field worker?
+                </span>
+                <Link
+                  to="/admin/reports"
+                  className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                >
+                  Verify & Assign in Admin Dashboard →
+                </Link>
               </div>
             </div>
 
@@ -678,11 +599,11 @@ function ReportDetails() {
                   <div>
                     <div className="relative rounded-lg overflow-hidden border border-border aspect-square bg-black/10">
                       <img
-                        src={(report.mediaUrls && report.mediaUrls[0]) || "/media/evidence/pothole_before.jpg"}
+                        src={(report.mediaUrls && report.mediaUrls[0]) || (report.category === "electricity" ? "/media/evidence/streetlight_before.jpg" : "/media/evidence/pothole_before.jpg")}
                         alt="Original Issue"
                         className="w-full h-full object-cover hover:scale-105 transition duration-300"
                         onError={(e) => {
-                          (e.target as any).src = "/media/evidence/pothole_before.jpg";
+                          (e.target as any).src = report.category === "electricity" ? "/media/evidence/streetlight_before.jpg" : "/media/evidence/pothole_before.jpg";
                         }}
                       />
                       <span className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded bg-black/75 text-white backdrop-blur">
@@ -728,21 +649,13 @@ function ReportDetails() {
                       {report.worker ? `Crew assigned: ${report.worker}` : "Field worker verification"}
                     </p>
                   </div>
-                  <div className="mt-3 pt-2 border-t border-border flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => startCamera("worker")}
-                      className="flex-1 py-1.5 px-2 rounded-lg bg-warning/15 hover:bg-warning/25 text-warning-foreground font-bold text-[11px] flex items-center justify-center gap-1 transition"
-                    >
-                      <span>📷</span> Camera
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => workerFileInputRef.current?.click()}
-                      className="flex-1 py-1.5 px-2 rounded-lg bg-surface border border-border hover:bg-accent text-foreground font-bold text-[11px] flex items-center justify-center gap-1 transition"
-                    >
-                      <span>🖼️</span> Upload
-                    </button>
+                  <div className="mt-3 pt-2 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <span>🛠️</span> {report.worker ? `Assigned: ${report.worker}` : "Pending assignment"}
+                    </span>
+                    <Link to="/admin/reports" className="text-xs font-bold text-primary hover:underline">
+                      Staff portal →
+                    </Link>
                   </div>
                 </figure>
 
@@ -753,11 +666,11 @@ function ReportDetails() {
                       {report.status === "resolved" ? (
                         <>
                           <img
-                            src={(report.resolutionMediaUrls && report.resolutionMediaUrls[0]) || "/media/evidence/pothole_resolved.jpg"}
+                            src={(report.resolutionMediaUrls && report.resolutionMediaUrls[0]) || (report.category === "electricity" ? "/media/evidence/streetlight_before.jpg" : "/media/evidence/pothole_resolved.jpg")}
                             alt="Resolution Completed"
                             className="w-full h-full object-cover hover:scale-105 transition duration-300"
                             onError={(e) => {
-                              (e.target as any).src = "/media/evidence/pothole_resolved.jpg";
+                              (e.target as any).src = report.category === "electricity" ? "/media/evidence/streetlight_before.jpg" : "/media/evidence/pothole_resolved.jpg";
                             }}
                           />
                           <span className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded bg-success text-success-foreground shadow">
@@ -774,24 +687,18 @@ function ReportDetails() {
                     </div>
                     <figcaption className="mt-2.5 text-xs font-bold text-foreground">Resolution Photo</figcaption>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      {report.status === "resolved" ? "Final surface leveled and tested" : "Completion evidence"}
+                      {report.status === "resolved"
+                        ? (report.category === "electricity" ? "Streetlight lamp replaced and circuit verified" : "Final surface leveled and tested")
+                        : "Completion evidence"}
                     </p>
                   </div>
-                  <div className="mt-3 pt-2 border-t border-border flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => startCamera("resolution")}
-                      className="flex-1 py-1.5 px-2 rounded-lg bg-success/15 hover:bg-success/25 text-success font-bold text-[11px] flex items-center justify-center gap-1 transition"
-                    >
-                      <span>📸</span> Camera
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => resolutionFileInputRef.current?.click()}
-                      className="flex-1 py-1.5 px-2 rounded-lg bg-surface border border-border hover:bg-accent text-foreground font-bold text-[11px] flex items-center justify-center gap-1 transition"
-                    >
-                      <span>🖼️</span> Upload
-                    </button>
+                  <div className="mt-3 pt-2 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <span>✅</span> {report.status === "resolved" ? "Approved by supervisor" : "Awaiting completion"}
+                    </span>
+                    <Link to="/admin/reports" className="text-xs font-bold text-primary hover:underline">
+                      Staff portal →
+                    </Link>
                   </div>
                 </figure>
               </div>

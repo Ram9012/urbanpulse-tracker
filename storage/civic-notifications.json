@@ -1,5 +1,14 @@
 [
   {
+    "id": "notif-1790283704955",
+    "reportId": "CIV-95674",
+    "title": "Status: VERIFIED",
+    "message": "Report CIV-95674 was verified by municipal staff.",
+    "time": "Just now",
+    "unread": true,
+    "channel": "in_app"
+  },
+  {
     "id": "notif-CIV-95674-1",
     "reportId": "CIV-95674",
     "title": "Report Received",

@@ -27,7 +27,7 @@ function ReportsTable() {
       try {
         const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
         const valid = stored.filter(
-          (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728",
+          (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
         );
         if (valid.length > 0) {
           const map = new Map<string, CivicReport>();
@@ -183,11 +183,22 @@ function ReportsTable() {
     setEvidenceStatus(nextStatus);
     setEvidenceWorker(report.worker || FIELD_WORKERS[0]!.name);
     setEvidenceDept(report.department || DEPARTMENTS[0]!.name);
-    setEvidenceNotes(
-      nextStatus === "resolved"
-        ? "Remediation verified on site: pothole filled with dense bitumen and surface rolled flat."
-        : "Field crew arrived on site with materials. Remediation actively underway."
-    );
+
+    const defaultResolutionNote =
+      report.category === "electricity"
+        ? "Streetlight wiring repaired, lamp replaced, and illumination restored."
+        : report.category === "waste"
+          ? "Garbage cleared, waste bin sanitized, and area reopened."
+          : report.category === "water"
+            ? "Pipeline leak patched and water flow restored."
+            : "Remediation verified on site: issue resolved and inspection passed.";
+
+    const defaultInProgressNote =
+      report.category === "electricity"
+        ? "Electrical crew arrived on site with materials. Remediation underway."
+        : "Field crew arrived on site with materials. Remediation actively underway.";
+
+    setEvidenceNotes(nextStatus === "resolved" ? defaultResolutionNote : defaultInProgressNote);
     setEvidencePhotoUrl(null);
     setShowLiveCamera(false);
     setCameraError(null);
@@ -200,17 +211,20 @@ function ReportsTable() {
     const targetReport = evidenceModalReport;
     const targetId = targetReport.id;
     const newStatus = evidenceStatus;
-    const notes = evidenceNotes || (
-      newStatus === "resolved"
-        ? "Remediation verified on site: pothole filled with dense bitumen and surface rolled flat."
-        : "Field crew arrived on site with materials. Remediation actively underway."
-    );
+    const notes =
+      evidenceNotes ||
+      (newStatus === "resolved"
+        ? (targetReport.category === "electricity"
+            ? "Streetlight wiring repaired, lamp replaced, and illumination restored."
+            : "Remediation verified on site: issue resolved and inspection passed.")
+        : "Field crew arrived on site with materials. Remediation underway.");
 
-    const photo = evidencePhotoUrl || (
-      newStatus === "resolved"
-        ? "/media/evidence/pothole_resolved.jpg"
-        : "/media/evidence/road_worker_onsite.jpg"
-    );
+    const photo =
+      evidencePhotoUrl ||
+      (newStatus === "resolved"
+        ? (targetReport.category === "electricity" ? "/media/evidence/streetlight_before.jpg" : "/media/evidence/pothole_resolved.jpg")
+        : "/media/evidence/road_worker_onsite.jpg");
+
 
     // 1. Instant Optimistic State Update for Admin UI: updates badge, timestamps, notes, and photo proof immediately!
     setReports((prev) =>
@@ -296,7 +310,7 @@ function ReportsTable() {
         const data = await res.json();
         if (data.reports) {
           serverReports = data.reports.filter(
-            (r: CivicReport) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728",
+            (r: CivicReport) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
           );
         }
       }
@@ -307,7 +321,7 @@ function ReportsTable() {
         try {
           const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
           localReports = stored.filter(
-            (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728",
+            (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
           );
         } catch {}
       }
@@ -550,60 +564,88 @@ function ReportsTable() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <Link to="/reports/$id" params={{ id: r.id }} className="text-xs font-bold text-primary hover:underline mr-1">
-                        Timeline
-                      </Link>
-
-                      {/* Snap / Upload Photo Proof Modal Trigger */}
-                      <button
-                        type="button"
-                        onClick={() => openEvidenceModal(r)}
-                        className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-primary-foreground text-xs font-bold transition flex items-center gap-1"
-                        title="Upload or capture photo evidence for this report"
-                      >
-                        <span>📷</span> Photo Proof
-                      </button>
-
+                    <div className="flex flex-wrap items-center gap-1.5 min-w-[280px]">
                       {r.status === "submitted" && (
-                        <button
-                          type="button"
-                          onClick={() => transitionReport(r.id, "verified", "Verified by triage officer.")}
-                          className="px-2.5 py-1 rounded-lg bg-teal text-teal-foreground text-xs font-bold hover:bg-teal/90"
-                        >
-                          Verify
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => transitionReport(r.id, "verified", `Verified by municipal staff for ${r.department}.`)}
+                            className="px-3 py-1.5 rounded-xl bg-teal text-teal-foreground text-xs font-bold hover:bg-teal/90 shadow-sm flex items-center gap-1 transition"
+                            title="Verify report validity & jurisdiction"
+                          >
+                            <span>✓</span> 1. Verify Report (Staff)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAssignFor(r.id)}
+                            className="px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 shadow-sm flex items-center gap-1 transition"
+                            title="Assign field worker and dispatch work order"
+                          >
+                            <span>👤</span> 2. Assign Field Worker
+                          </button>
+                        </>
                       )}
 
-                      {(r.status === "submitted" || r.status === "verified") && (
+                      {r.status === "verified" && (
                         <button
                           type="button"
                           onClick={() => setAssignFor(r.id)}
-                          className="px-2.5 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90"
+                          className="px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 shadow-sm flex items-center gap-1 transition"
+                          title="Assign field worker and dispatch work order"
                         >
-                          Assign
+                          <span>👤</span> 2. Assign Field Worker (Dispatch)
                         </button>
                       )}
 
                       {r.status === "assigned" && (
-                        <button
-                          type="button"
-                          onClick={() => openEvidenceModal(r, "in_progress")}
-                          className="px-2.5 py-1 rounded-lg bg-warning text-warning-foreground text-xs font-bold hover:bg-warning/90 transition flex items-center gap-1"
-                        >
-                          <span>🛠️</span> Start Work
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => transitionReport(r.id, "in_progress", "Field crew deployed on site with materials.")}
+                            className="px-3 py-1.5 rounded-xl bg-warning text-warning-foreground text-xs font-bold hover:bg-warning/90 shadow-sm flex items-center gap-1 transition"
+                          >
+                            <span>🛠️</span> 3. Start Work on Site
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openEvidenceModal(r, "in_progress")}
+                            className="px-2.5 py-1.5 rounded-xl border border-warning/40 bg-warning/10 text-warning-foreground text-xs font-bold hover:bg-warning/20 transition flex items-center gap-1"
+                          >
+                            <span>📷</span> On-Site Photo
+                          </button>
+                        </>
                       )}
 
                       {r.status === "in_progress" && (
                         <button
                           type="button"
                           onClick={() => openEvidenceModal(r, "resolved")}
-                          className="px-2.5 py-1 rounded-lg bg-success text-success-foreground text-xs font-bold hover:bg-success/90 transition flex items-center gap-1"
+                          className="px-3 py-1.5 rounded-xl bg-success text-success-foreground text-xs font-bold hover:bg-success/90 shadow-sm flex items-center gap-1 transition"
+                          title="Mark resolved and upload inspection photo proof"
                         >
-                          <span>✓</span> Resolve
+                          <span>✅</span> 4. Verify & Resolve (Upload Proof)
                         </button>
                       )}
+
+                      {r.status === "resolved" && (
+                        <span className="px-2.5 py-1 rounded-lg bg-success/15 text-success font-bold text-xs flex items-center gap-1">
+                          ✓ Officially Resolved
+                        </span>
+                      )}
+
+                      {/* Snap / Upload Photo Proof Modal Trigger */}
+                      <button
+                        type="button"
+                        onClick={() => openEvidenceModal(r)}
+                        className="px-2.5 py-1.5 rounded-xl bg-muted/70 hover:bg-muted text-foreground border border-border text-xs font-semibold transition flex items-center gap-1 ml-auto"
+                        title="Upload or capture photo evidence for this report"
+                      >
+                        <span>📷</span> Photo
+                      </button>
+
+                      <Link to="/reports/$id" params={{ id: r.id }} className="text-xs font-bold text-primary hover:underline ml-1">
+                        Timeline →
+                      </Link>
                     </div>
                   </td>
                 </tr>
