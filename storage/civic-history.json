@@ -326,5 +326,33 @@
       ],
       "aiVerification": null
     }
+  },
+  {
+    "id": "hist-CIV-95674-1790275827236",
+    "reportId": "CIV-95674",
+    "oldStatus": "assigned",
+    "newStatus": "resolved",
+    "changedBy": "A. Sharma (Municipal Supervisor)",
+    "role": "Staff",
+    "changedAt": "2026-09-24T18:50:26.542Z",
+    "comment": "Remediation verified on site: pothole filled with dense bitumen and surface rolled flat.",
+    "metadata": {
+      "department": "Public Works — Roads",
+      "worker": "R. Manjunath",
+      "resolutionNotes": "Remediation verified on site: pothole filled with dense bitumen and surface rolled flat.",
+      "workerMedia": [
+        "/media/evidence/road_worker_onsite.jpg"
+      ],
+      "resolutionMedia": [
+        "/media/evidence/pothole_resolved.jpg"
+      ],
+      "aiVerification": {
+        "consistent": true,
+        "confidence": 85,
+        "assessment": "The worker's notes describe a standard and appropriate remediation method (bitumen fill and rolling) for the reported pothole. The location context (Racecourse Road) aligns with the original report. The presence of a single media item labeled 'pothole_resolved.jpg' suggests visual confirmation of the repair. While the specific image content cannot be visually verified in this text-based analysis, the textual description is technically sound and directly addresses the 'significant road damage' and 'deep pothole' mentioned in the complaint. There are no obvious contradictions between the problem and the proposed solution.",
+        "recommendation": "send_for_staff_approval",
+        "flags": []
+      }
+    }
   }
 ]

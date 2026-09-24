@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { SiteLayout } from "@/components/site/site-layout";
 import { PriorityBadge, Section, StatusBadge } from "@/components/site/primitives";
 import { REPORTS, formatDateTime, getReport, CivicReport, ReportStatus, FIELD_WORKERS } from "@/lib/civic-data";
@@ -78,6 +78,110 @@ function ReportDetails() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
+
+  // Real Photo Upload & Live Camera Capture for Worker / Admin
+  const [targetSlot, setTargetSlot] = useState<"worker" | "resolution" | null>(null);
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const videoStreamRef = useRef<HTMLVideoElement>(null);
+  const streamTrackRef = useRef<MediaStream | null>(null);
+  const workerFileInputRef = useRef<HTMLInputElement>(null);
+  const resolutionFileInputRef = useRef<HTMLInputElement>(null);
+
+  const startCamera = async (slot: "worker" | "resolution") => {
+    setTargetSlot(slot);
+    setShowCameraModal(true);
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      streamTrackRef.current = stream;
+      if (videoStreamRef.current) {
+        videoStreamRef.current.srcObject = stream;
+        videoStreamRef.current.play();
+      }
+    } catch (err: any) {
+      console.warn("Camera error:", err);
+      setCameraError(`Camera error: ${err.message}. You can upload an image file instead.`);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamTrackRef.current) {
+      streamTrackRef.current.getTracks().forEach((t) => t.stop());
+      streamTrackRef.current = null;
+    }
+    setShowCameraModal(false);
+  };
+
+  const capturePhoto = () => {
+    if (!videoStreamRef.current || !targetSlot) return;
+    const video = videoStreamRef.current;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+      uploadEvidencePhoto(targetSlot, dataUrl);
+    }
+    stopCamera();
+  };
+
+  const handleFileSelect = (slot: "worker" | "resolution", e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      if (dataUrl) {
+        uploadEvidencePhoto(slot, dataUrl);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const uploadEvidencePhoto = async (slot: "worker" | "resolution", photoUrl: string) => {
+    setLoading(true);
+    setActionMessage(null);
+    try {
+      const newStatus = slot === "resolution" ? "resolved" : "in_progress";
+      const res = await fetch("/api/status/transition", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportId: report.id,
+          newStatus,
+          changedBy: slot === "resolution" ? "A. Sharma (Municipal Supervisor)" : (report.worker || "R. Manjunath"),
+          role: slot === "resolution" ? "Staff" : "Worker",
+          comment: slot === "resolution"
+            ? "Supervisor verified & uploaded resolution photo."
+            : "Field crew on site — uploaded live on-site remediation photo.",
+          workerMedia: slot === "worker" ? [photoUrl] : report.workerMediaUrls,
+          resolutionMedia: slot === "resolution" ? [photoUrl] : report.resolutionMediaUrls,
+          worker: report.worker || "R. Manjunath",
+          department: report.department || "Public Works — Roads",
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setReport(data.report);
+        if (data.historyEntry) {
+          setHistory((prev) => [...prev, data.historyEntry]);
+        }
+        setActionMessage(slot === "resolution" ? "Resolution photo verified & uploaded live!" : "On-site worker photo uploaded live!");
+      }
+    } catch (err: any) {
+      setActionMessage(`Error uploading photo: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fetch live state from Status Engine
   const fetchLiveState = async () => {
@@ -264,27 +368,64 @@ function ReportDetails() {
                 )}
 
                 {(report.status === "assigned") && (
-                  <button
-                    type="button"
-                    onClick={() => handleTransition("in_progress", "Worker arrived on site. Material prepared and remediation underway.")}
-                    disabled={loading}
-                    className="min-h-10 px-4 rounded-xl bg-warning text-warning-foreground text-xs font-bold shadow hover:bg-warning/90 transition"
-                  >
-                    3. Start Work on Site (Field Worker)
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleTransition("in_progress", "Worker arrived on site. Material prepared and remediation underway.")}
+                      disabled={loading}
+                      className="min-h-10 px-4 rounded-xl bg-warning text-warning-foreground text-xs font-bold shadow hover:bg-warning/90 transition"
+                    >
+                      3. Start Work on Site (Field Worker)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => startCamera("worker")}
+                      disabled={loading}
+                      className="min-h-10 px-3.5 rounded-xl border border-warning/50 bg-warning/10 text-warning-foreground text-xs font-bold hover:bg-warning/20 transition flex items-center gap-1.5"
+                    >
+                      <span>📷</span> Snap On-Site Photo (Live Camera)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => workerFileInputRef.current?.click()}
+                      disabled={loading}
+                      className="min-h-10 px-3.5 rounded-xl border border-input bg-surface hover:bg-accent text-foreground text-xs font-bold transition flex items-center gap-1.5"
+                    >
+                      <span>🖼️</span> Upload Worker Photo
+                    </button>
+                  </div>
                 )}
 
                 {report.status === "in_progress" && (
                   <div className="w-full space-y-3 pt-2">
-                    <div className="rounded-xl bg-background p-3 border border-border">
-                      <label className="block text-xs font-bold mb-1">Worker Completion Evidence & Notes:</label>
+                    <div className="rounded-xl bg-background p-3.5 border border-border">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <label className="block text-xs font-bold">Worker Completion Evidence & Notes:</label>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => startCamera("resolution")}
+                            className="px-2.5 py-1 rounded-lg bg-success/15 hover:bg-success/25 text-success text-xs font-bold flex items-center gap-1 transition"
+                          >
+                            <span>📸</span> Snap Resolution Photo
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => resolutionFileInputRef.current?.click()}
+                            className="px-2.5 py-1 rounded-lg border border-input bg-surface hover:bg-accent text-foreground text-xs font-bold flex items-center gap-1 transition"
+                          >
+                            <span>🖼️</span> Upload Photo
+                          </button>
+                        </div>
+                      </div>
                       <textarea
                         rows={2}
                         value={resolutionNotes}
                         onChange={(e) => setResolutionNotes(e.target.value)}
-                        className="w-full text-xs p-2 rounded-lg border border-input bg-surface"
+                        className="w-full text-xs p-2.5 rounded-lg border border-input bg-surface outline-none focus:ring-2 focus:ring-primary/20"
+                        placeholder="Detail materials used, crew members, and final test remarks..."
                       />
-                      <div className="mt-2 flex flex-wrap gap-2">
+                      <div className="mt-2.5 flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={runAiEvidenceCheck}
@@ -488,9 +629,22 @@ function ReportDetails() {
                       {report.worker ? `Crew assigned: ${report.worker}` : "Field worker verification"}
                     </p>
                   </div>
-                  <span className="mt-2 inline-block text-[10px] font-semibold text-warning-foreground">
-                    {report.status === "in_progress" || report.status === "resolved" ? "✓ Ground Work Verified" : "Pending Field Crew"}
-                  </span>
+                  <div className="mt-3 pt-2 border-t border-border flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => startCamera("worker")}
+                      className="flex-1 py-1.5 px-2 rounded-lg bg-warning/15 hover:bg-warning/25 text-warning-foreground font-bold text-[11px] flex items-center justify-center gap-1 transition"
+                    >
+                      <span>📷</span> Camera
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => workerFileInputRef.current?.click()}
+                      className="flex-1 py-1.5 px-2 rounded-lg bg-surface border border-border hover:bg-accent text-foreground font-bold text-[11px] flex items-center justify-center gap-1 transition"
+                    >
+                      <span>🖼️</span> Upload
+                    </button>
+                  </div>
                 </figure>
 
                 {/* 3. Resolution Photo (After Resolution) */}
@@ -524,9 +678,22 @@ function ReportDetails() {
                       {report.status === "resolved" ? "Final surface leveled and tested" : "Completion evidence"}
                     </p>
                   </div>
-                  <span className="mt-2 inline-block text-[10px] font-semibold text-success">
-                    {report.status === "resolved" ? "✓ 100% Resolved & Inspected" : "Pending Resolution"}
-                  </span>
+                  <div className="mt-3 pt-2 border-t border-border flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => startCamera("resolution")}
+                      className="flex-1 py-1.5 px-2 rounded-lg bg-success/15 hover:bg-success/25 text-success font-bold text-[11px] flex items-center justify-center gap-1 transition"
+                    >
+                      <span>📸</span> Camera
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => resolutionFileInputRef.current?.click()}
+                      className="flex-1 py-1.5 px-2 rounded-lg bg-surface border border-border hover:bg-accent text-foreground font-bold text-[11px] flex items-center justify-center gap-1 transition"
+                    >
+                      <span>🖼️</span> Upload
+                    </button>
+                  </div>
                 </figure>
               </div>
             </div>
@@ -632,6 +799,93 @@ function ReportDetails() {
                   ))
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Hidden File Inputs for Worker / Resolution Evidence */}
+        <input
+          type="file"
+          ref={workerFileInputRef}
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => handleFileSelect("worker", e)}
+        />
+        <input
+          type="file"
+          ref={resolutionFileInputRef}
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => handleFileSelect("resolution", e)}
+        />
+
+        {/* Live Camera Viewfinder Modal */}
+        {showCameraModal && (
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="surface-card max-w-lg w-full p-6 rounded-2xl shadow-2xl animate-rise-in">
+              <div className="flex items-center justify-between pb-3 border-b border-border">
+                <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                  <span>📷</span> Live Camera — {targetSlot === "worker" ? "Worker On-Site Evidence" : "Supervisor Resolution Evidence"}
+                </h3>
+                <button
+                  type="button"
+                  onClick={stopCamera}
+                  className="size-8 rounded-full border border-border flex items-center justify-center font-bold hover:bg-accent text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {cameraError ? (
+                <div className="mt-4 p-4 rounded-xl bg-destructive/10 text-destructive text-xs space-y-3">
+                  <p>{cameraError}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      stopCamera();
+                      if (targetSlot === "worker") workerFileInputRef.current?.click();
+                      else resolutionFileInputRef.current?.click();
+                    }}
+                    className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-bold text-xs"
+                  >
+                    Upload Image File Instead
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-4">
+                  <div className="relative rounded-2xl overflow-hidden bg-black aspect-video flex items-center justify-center border border-border">
+                    <video
+                      ref={videoStreamRef}
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-4 border-2 border-dashed border-white/50 rounded-xl pointer-events-none flex items-center justify-center">
+                      <span className="text-white/80 text-xs font-semibold bg-black/50 px-3 py-1 rounded-full backdrop-blur">
+                        {targetSlot === "worker" ? "Focus on active remediation work" : "Focus on completed repaired issue"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={capturePhoto}
+                      className="px-6 py-2.5 rounded-full bg-primary text-primary-foreground font-bold text-sm shadow-lg hover:scale-105 transition flex items-center gap-2"
+                    >
+                      <span className="size-3.5 rounded-full bg-white animate-pulse" />
+                      Capture & Upload Photo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={stopCamera}
+                      className="px-4 py-2.5 rounded-full border border-border text-sm font-semibold hover:bg-accent"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

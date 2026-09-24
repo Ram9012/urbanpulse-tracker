@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { DemoDataNote, PriorityBadge, StatusBadge } from "@/components/site/primitives";
 import { CATEGORIES, DEPARTMENTS, FIELD_WORKERS, REPORTS, formatDate, CivicReport, ReportStatus } from "@/lib/civic-data";
 
@@ -34,6 +34,134 @@ function ReportsTable() {
   const [aiInsights, setAiInsights] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+
+  // Admin Photo Upload & Live Camera Capture State
+  const [evidenceModalReport, setEvidenceModalReport] = useState<CivicReport | null>(null);
+  const [evidenceStatus, setEvidenceStatus] = useState<"in_progress" | "resolved">("in_progress");
+  const [evidencePhotoUrl, setEvidencePhotoUrl] = useState<string | null>(null);
+  const [evidenceNotes, setEvidenceNotes] = useState("");
+  const [evidenceWorker, setEvidenceWorker] = useState(FIELD_WORKERS[0]!.name);
+  const [evidenceDept, setEvidenceDept] = useState(DEPARTMENTS[0]!.name);
+  const [showLiveCamera, setShowLiveCamera] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [submittingEvidence, setSubmittingEvidence] = useState(false);
+
+  const videoStreamRef = useRef<HTMLVideoElement>(null);
+  const streamTrackRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const startCamera = async () => {
+    setShowLiveCamera(true);
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      streamTrackRef.current = stream;
+      if (videoStreamRef.current) {
+        videoStreamRef.current.srcObject = stream;
+        videoStreamRef.current.play();
+      }
+    } catch (err: any) {
+      console.warn("Camera error:", err);
+      setCameraError(`Camera error: ${err.message}. You can choose an image file instead.`);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamTrackRef.current) {
+      streamTrackRef.current.getTracks().forEach((t) => t.stop());
+      streamTrackRef.current = null;
+    }
+    setShowLiveCamera(false);
+  };
+
+  const capturePhoto = () => {
+    if (!videoStreamRef.current) return;
+    const video = videoStreamRef.current;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+      setEvidencePhotoUrl(dataUrl);
+    }
+    stopCamera();
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      if (dataUrl) {
+        setEvidencePhotoUrl(dataUrl);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const openEvidenceModal = (report: CivicReport, preferredStatus?: "in_progress" | "resolved") => {
+    const nextStatus = preferredStatus || (report.status === "in_progress" ? "resolved" : "in_progress");
+    setEvidenceModalReport(report);
+    setEvidenceStatus(nextStatus);
+    setEvidenceWorker(report.worker || FIELD_WORKERS[0]!.name);
+    setEvidenceDept(report.department || DEPARTMENTS[0]!.name);
+    setEvidenceNotes(
+      nextStatus === "resolved"
+        ? "Remediation verified on site: pothole filled with dense bitumen and surface rolled flat."
+        : "Field crew arrived on site with materials. Remediation actively underway."
+    );
+    setEvidencePhotoUrl(null);
+    setShowLiveCamera(false);
+    setCameraError(null);
+  };
+
+  const submitEvidenceStatus = async () => {
+    if (!evidenceModalReport) return;
+    setSubmittingEvidence(true);
+    try {
+      const photo = evidencePhotoUrl || (
+        evidenceStatus === "resolved"
+          ? "/media/evidence/pothole_resolved.jpg"
+          : "/media/evidence/road_worker_onsite.jpg"
+      );
+
+      const res = await fetch("/api/status/transition", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportId: evidenceModalReport.id,
+          newStatus: evidenceStatus,
+          changedBy: "A. Sharma (Municipal Supervisor)",
+          role: "Staff",
+          comment: evidenceNotes || `Admin updated status to ${evidenceStatus.toUpperCase()} with visual evidence.`,
+          worker: evidenceWorker,
+          department: evidenceDept,
+          workerMedia: evidenceStatus === "in_progress" ? [photo] : evidenceModalReport.workerMediaUrls,
+          resolutionMedia: evidenceStatus === "resolved" ? [photo] : evidenceModalReport.resolutionMediaUrls,
+          resolutionNotes: evidenceStatus === "resolved" ? evidenceNotes : undefined,
+          runAiCheck: evidenceStatus === "resolved",
+        }),
+      });
+
+      if (res.ok) {
+        setActionNotice(`Report ${evidenceModalReport.id} successfully updated to ${evidenceStatus.toUpperCase()} with visual proof!`);
+        setEvidenceModalReport(null);
+        stopCamera();
+        fetchReports();
+      }
+    } catch (err: any) {
+      setActionNotice(`Error saving evidence: ${err.message}`);
+    } finally {
+      setSubmittingEvidence(false);
+    }
+  };
 
   // Fetch reports from status engine API
   const fetchReports = async () => {
@@ -227,10 +355,20 @@ function ReportsTable() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Link to="/reports/$id" params={{ id: r.id }} className="text-xs font-bold text-primary hover:underline">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Link to="/reports/$id" params={{ id: r.id }} className="text-xs font-bold text-primary hover:underline mr-1">
                         Timeline
                       </Link>
+
+                      {/* Snap / Upload Photo Proof Modal Trigger */}
+                      <button
+                        type="button"
+                        onClick={() => openEvidenceModal(r)}
+                        className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-primary-foreground text-xs font-bold transition flex items-center gap-1"
+                        title="Upload or capture photo evidence for this report"
+                      >
+                        <span>📷</span> Photo Proof
+                      </button>
 
                       {r.status === "submitted" && (
                         <button
@@ -255,20 +393,20 @@ function ReportsTable() {
                       {r.status === "assigned" && (
                         <button
                           type="button"
-                          onClick={() => transitionReport(r.id, "in_progress", "Worker arrived on site.")}
-                          className="px-2.5 py-1 rounded-lg bg-warning text-warning-foreground text-xs font-bold hover:bg-warning/90"
+                          onClick={() => openEvidenceModal(r, "in_progress")}
+                          className="px-2.5 py-1 rounded-lg bg-warning text-warning-foreground text-xs font-bold hover:bg-warning/90 transition flex items-center gap-1"
                         >
-                          Start Work
+                          <span>🛠️</span> Start Work
                         </button>
                       )}
 
                       {r.status === "in_progress" && (
                         <button
                           type="button"
-                          onClick={() => transitionReport(r.id, "resolved", "Field remediation completed.")}
-                          className="px-2.5 py-1 rounded-lg bg-success text-success-foreground text-xs font-bold hover:bg-success/90"
+                          onClick={() => openEvidenceModal(r, "resolved")}
+                          className="px-2.5 py-1 rounded-lg bg-success text-success-foreground text-xs font-bold hover:bg-success/90 transition flex items-center gap-1"
                         >
-                          Resolve
+                          <span>✓</span> Resolve
                         </button>
                       )}
                     </div>
@@ -390,6 +528,257 @@ function ReportsTable() {
             ) : (
               <p className="text-xs text-muted-foreground py-4 text-center">Click re-analyze to fetch insights.</p>
             )}
+          </div>
+        </div>
+      )}
+      {/* Hidden File Input for Admin Photo Evidence Upload */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
+
+      {/* Admin Visual Evidence & Status Upload Modal */}
+      {evidenceModalReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Upload Visual Evidence"
+            className="surface-card w-full max-w-xl p-6 rounded-2xl shadow-2xl animate-rise-in max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📸</span>
+                <div>
+                  <h2 className="font-display text-base font-extrabold text-foreground">
+                    Admin Status & Visual Evidence Upload
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    {evidenceModalReport.id}: {evidenceModalReport.title}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEvidenceModalReport(null);
+                  stopCamera();
+                }}
+                className="size-8 rounded-full border border-border flex items-center justify-center font-bold hover:bg-accent text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              {/* Select Status Target */}
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1.5">
+                  1. Select Target Workflow Status:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEvidenceStatus("in_progress");
+                      setEvidenceNotes("Field crew arrived on site with materials. Remediation actively underway.");
+                    }}
+                    className={`p-3 rounded-xl border text-left transition flex flex-col justify-between ${
+                      evidenceStatus === "in_progress"
+                        ? "border-warning bg-warning/10 text-foreground ring-2 ring-warning/30"
+                        : "border-border bg-background hover:bg-accent text-muted-foreground"
+                    }`}
+                  >
+                    <span className="text-xs font-bold flex items-center gap-1.5">
+                      <span>🛠️</span> 4. Work in Progress
+                    </span>
+                    <span className="text-[10px] mt-1 text-muted-foreground">Upload worker on-site proof</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEvidenceStatus("resolved");
+                      setEvidenceNotes("Remediation verified on site: pothole filled with dense bitumen and surface rolled flat.");
+                    }}
+                    className={`p-3 rounded-xl border text-left transition flex flex-col justify-between ${
+                      evidenceStatus === "resolved"
+                        ? "border-success bg-success/10 text-foreground ring-2 ring-success/30"
+                        : "border-border bg-background hover:bg-accent text-muted-foreground"
+                    }`}
+                  >
+                    <span className="text-xs font-bold flex items-center gap-1.5">
+                      <span>✓</span> 5. Officially Resolved
+                    </span>
+                    <span className="text-[10px] mt-1 text-muted-foreground">Upload resolution completion proof</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Upload or Camera Capture Options (Identical to user report flow) */}
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1.5">
+                  2. Capture or Upload Visual Proof:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={startCamera}
+                    className="p-3 rounded-xl border border-dashed border-primary/50 bg-primary/5 hover:bg-primary/10 transition flex items-center justify-center gap-2 group text-primary font-bold text-xs"
+                  >
+                    <span className="text-lg group-hover:scale-110 transition">📷</span>
+                    <span>Use Live Camera</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-3 rounded-xl border border-dashed border-input bg-surface hover:bg-accent transition flex items-center justify-center gap-2 group text-foreground font-bold text-xs"
+                  >
+                    <span className="text-lg group-hover:scale-110 transition">🖼️</span>
+                    <span>Upload Image File</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Live Camera Viewfinder */}
+              {showLiveCamera && (
+                <div className="p-3 rounded-2xl bg-black border border-border space-y-3">
+                  {cameraError ? (
+                    <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-xs">
+                      <p>{cameraError}</p>
+                    </div>
+                  ) : (
+                    <div className="relative rounded-xl overflow-hidden aspect-video bg-neutral-900 flex items-center justify-center">
+                      <video ref={videoStreamRef} playsInline muted className="w-full h-full object-cover" />
+                      <div className="absolute inset-4 border border-dashed border-white/60 rounded-xl pointer-events-none flex items-center justify-center">
+                        <span className="text-[11px] font-semibold text-white/80 bg-black/50 px-2.5 py-0.5 rounded-full backdrop-blur">
+                          Align on-site evidence
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={capturePhoto}
+                      className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-bold text-xs flex items-center gap-1.5 shadow"
+                    >
+                      <span className="size-2.5 rounded-full bg-white animate-pulse" />
+                      Capture Snapshot
+                    </button>
+                    <button
+                      type="button"
+                      onClick={stopCamera}
+                      className="px-3 py-2 rounded-xl border border-border text-xs font-semibold hover:bg-white/10 text-white"
+                    >
+                      Cancel Camera
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Real Evidence Photo Preview */}
+              {evidencePhotoUrl && (
+                <div className="p-3 rounded-xl border border-success/30 bg-success/5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={evidencePhotoUrl}
+                      alt="Captured evidence"
+                      className="size-16 rounded-lg object-cover border border-border"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-success flex items-center gap-1">
+                        <span>✓</span> Photo Evidence Attached
+                      </span>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Will be stored into Supabase and visual evidence archive.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEvidencePhotoUrl(null)}
+                    className="text-xs text-destructive hover:underline font-semibold"
+                  >
+                    ✕ Remove
+                  </button>
+                </div>
+              )}
+
+              {/* Worker & Department Assignment */}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-muted-foreground">Department</span>
+                  <select
+                    value={evidenceDept}
+                    onChange={(e) => setEvidenceDept(e.target.value)}
+                    className="h-10 w-full rounded-xl border border-input bg-surface px-3 text-xs"
+                  >
+                    {DEPARTMENTS.map((d) => (
+                      <option key={d.name} value={d.name}>{d.name}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-muted-foreground">Field Crew / Supervisor</span>
+                  <select
+                    value={evidenceWorker}
+                    onChange={(e) => setEvidenceWorker(e.target.value)}
+                    className="h-10 w-full rounded-xl border border-input bg-surface px-3 text-xs"
+                  >
+                    {FIELD_WORKERS.map((w) => (
+                      <option key={w.name} value={w.name}>{w.name}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              {/* Supervisor Remarks / Notes */}
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1">
+                  3. Field Remediation / Inspection Notes:
+                </label>
+                <textarea
+                  rows={2}
+                  value={evidenceNotes}
+                  onChange={(e) => setEvidenceNotes(e.target.value)}
+                  className="w-full text-xs p-2.5 rounded-xl border border-input bg-surface outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="Describe work completed, machinery deployed, or approval remarks..."
+                />
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="mt-4 pt-3 border-t border-border flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEvidenceModalReport(null);
+                    stopCamera();
+                  }}
+                  className="min-h-10 rounded-xl border border-border px-4 text-xs font-bold hover:bg-accent"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={submitEvidenceStatus}
+                  disabled={submittingEvidence}
+                  className={`min-h-10 rounded-xl px-5 text-xs font-bold shadow transition flex items-center gap-1.5 ${
+                    evidenceStatus === "resolved"
+                      ? "bg-success text-success-foreground hover:bg-success/90"
+                      : "bg-warning text-warning-foreground hover:bg-warning/90"
+                  }`}
+                >
+                  {submittingEvidence ? "Updating…" : `✓ Submit ${evidenceStatus === "resolved" ? "Resolution" : "In-Progress"} & Photo`}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

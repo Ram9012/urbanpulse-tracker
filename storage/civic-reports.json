@@ -7,12 +7,12 @@
     "description": "Road damage and deep pothole causing traffic obstruction and vehicle hazard near Racecourse Road, Rangoli Halla.",
     "ward": "Suramangalam",
     "area": "Racecourse Road, Rangoli Halla",
-    "status": "assigned",
+    "status": "resolved",
     "priority": "critical",
     "department": "Public Works — Roads",
     "worker": "R. Manjunath",
     "createdAt": "2026-09-24T17:27:19.725Z",
-    "updatedAt": "2026-09-24T18:32:55.921Z",
+    "updatedAt": "2026-09-24T18:50:26.542Z",
     "aiConfidence": 0.98,
     "duplicateProbability": 0.08,
     "upvotes": 12,
@@ -30,7 +30,8 @@
     ],
     "resolutionMediaUrls": [
       "/media/evidence/pothole_resolved.jpg"
-    ]
+    ],
+    "resolutionNotes": "Remediation verified on site: pothole filled with dense bitumen and surface rolled flat."
   },
   {
     "id": "CIV-10482",

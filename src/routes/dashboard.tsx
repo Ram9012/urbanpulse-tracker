@@ -159,8 +159,21 @@ function Dashboard() {
             ) : (
               <ul className="grid gap-4 sm:grid-cols-2">
                 {mine.map((r) => {
-                  const hasRealMedia = r.mediaUrls && r.mediaUrls.length > 0;
-                  const thumb = hasRealMedia ? r.mediaUrls![0] : "/media/evidence/pothole_before.jpg";
+                  const hasResolutionMedia = r.resolutionMediaUrls && r.resolutionMediaUrls.length > 0;
+                  const hasWorkerMedia = r.workerMediaUrls && r.workerMediaUrls.length > 0;
+                  const hasReportMedia = r.mediaUrls && r.mediaUrls.length > 0;
+
+                  const thumb = (r.status === "resolved" && hasResolutionMedia ? r.resolutionMediaUrls![0] : null)
+                    || (r.status === "in_progress" && hasWorkerMedia ? r.workerMediaUrls![0] : null)
+                    || (hasResolutionMedia ? r.resolutionMediaUrls![0] : null)
+                    || (hasWorkerMedia ? r.workerMediaUrls![0] : null)
+                    || (hasReportMedia ? r.mediaUrls![0] : "/media/evidence/pothole_before.jpg");
+
+                  const badge = r.status === "resolved"
+                    ? { text: "✓ Verified Resolution Photo", cls: "bg-success text-success-foreground" }
+                    : (r.status === "in_progress" || hasWorkerMedia)
+                      ? { text: "🛠️ Active On-Site Photo", cls: "bg-warning text-warning-foreground" }
+                      : { text: "📷 Original Complaint Photo", cls: "bg-black/75 text-white" };
 
                   return (
                     <li key={r.id} className="surface-card p-5 rounded-2xl transition-all hover:shadow-lift flex flex-col justify-between border border-border">
@@ -182,12 +195,27 @@ function Dashboard() {
                               (e.target as any).src = "/media/evidence/pothole_before.jpg";
                             }}
                           />
-                          <span className="absolute bottom-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded bg-black/70 text-white backdrop-blur">
-                            📷 Visual Evidence
+                          <span className={`absolute bottom-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded shadow backdrop-blur ${badge.cls}`}>
+                            {badge.text}
                           </span>
                         </div>
 
-                        <h3 className="mt-3 text-sm font-bold leading-snug text-foreground">{r.title}</h3>
+                        {/* Mini Evidence Progress Strip */}
+                        <div className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+                          <span className="px-1.5 py-0.5 rounded bg-muted/60">1. Original Photo ✓</span>
+                          {hasWorkerMedia ? (
+                            <span className="px-1.5 py-0.5 rounded bg-warning/20 text-warning-foreground font-bold">2. On-Site ✓</span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded bg-muted/30 opacity-60">2. On-Site —</span>
+                          )}
+                          {hasResolutionMedia ? (
+                            <span className="px-1.5 py-0.5 rounded bg-success/20 text-success font-bold">3. Resolved ✓</span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded bg-muted/30 opacity-60">3. Resolved —</span>
+                          )}
+                        </div>
+
+                        <h3 className="mt-2.5 text-sm font-bold leading-snug text-foreground">{r.title}</h3>
 
                         <dl className="mt-2.5 space-y-1 text-xs text-muted-foreground">
                           <div className="flex gap-1.5"><dt className="font-semibold text-foreground">Category:</dt><dd>{r.categoryLabel}</dd></div>
