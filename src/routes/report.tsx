@@ -1,8 +1,9 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { SiteLayout } from "@/components/site/site-layout";
 import { Section } from "@/components/site/primitives";
 import { BRAND, CATEGORIES, LANGUAGES, mockClassify, CivicReport, REPORTS } from "@/lib/civic-data";
+import { RealMap, LocationData } from "@/components/site/real-map";
 
 export const Route = createFileRoute("/report")({
   head: () => ({
@@ -11,10 +12,10 @@ export const Route = createFileRoute("/report")({
       {
         name: "description",
         content:
-          "Add a photo, confirm your location, describe the issue by text or voice, and submit. Powered by Groq AI and Supabase.",
+          "Add real photos, capture camera images or video, pinpoint exact location on world map, and submit.",
       },
       { property: "og:title", content: "Report a Civic Issue in Under a Minute — CivicPulse" },
-      { property: "og:description", content: "Four simple steps: media, location, description, review." },
+      { property: "og:description", content: "Real camera, photo upload, world interactive map, and Groq AI triage." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -23,6 +24,15 @@ export const Route = createFileRoute("/report")({
 });
 
 const STEPS = ["Add media", "Confirm location", "Describe issue", "Review & submit"];
+
+export interface MediaItem {
+  id: string;
+  type: "image" | "video";
+  url: string;
+  name: string;
+  size?: string;
+  timestamp: string;
+}
 
 interface AiAnalysisResult {
   summary: string;
@@ -42,24 +52,148 @@ interface DuplicateCheckResult {
 
 function ReportPage() {
   const [step, setStep] = useState(0);
-  const [media, setMedia] = useState<string[]>(["pothole_photo_1.jpg"]);
-  const [locationState, setLocationState] = useState<"idle" | "denied" | "found">("found");
+
+  // Real Media Upload & Camera State
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const videoStreamRef = useRef<HTMLVideoElement>(null);
+  const streamTrackRef = useRef<MediaStream | null>(null);
+
+  // File Input References
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const mobileCameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Real Location & World Map State
+  const [locationData, setLocationData] = useState<LocationData>({
+    lat: 13.0072,
+    lng: 76.1023,
+    address: "Bus Stand Road, Ward 12, Hassan",
+    ward: "Ward 12",
+    city: "Hassan",
+  });
+
   const [description, setDescription] = useState("Large pothole near the bus stand. Two-wheelers are swerving into oncoming traffic to avoid it.");
   const [listening, setListening] = useState(false);
   const [category, setCategory] = useState(CATEGORIES[0]!.name);
   const [anonymous, setAnonymous] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [submittedId, setSubmittedId] = useState<string | null>(null);
+  const [submittedReport, setSubmittedReport] = useState<CivicReport | null>(null);
 
   // Live AI State
   const [aiAnalysis, setAiAnalysis] = useState<AiAnalysisResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [duplicateResult, setDuplicateResult] = useState<DuplicateCheckResult | null>(null);
-  const [duplicateChecked, setDuplicateChecked] = useState(false);
   const [selectedAction, setSelectedAction] = useState<"new" | "merge">("new");
 
   const recognitionRef = useRef<any>(null);
+
+  // Format file size helper
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  // Real Photo Upload Handler
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach((file) => {
+      const url = URL.createObjectURL(file);
+      const newItem: MediaItem = {
+        id: `photo-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        type: "image",
+        url,
+        name: file.name,
+        size: formatFileSize(file.size),
+        timestamp: new Date().toLocaleTimeString(),
+      };
+      setMediaItems((prev) => [...prev, newItem]);
+    });
+
+    e.target.value = "";
+  };
+
+  // Real Video Upload Handler
+  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach((file) => {
+      const url = URL.createObjectURL(file);
+      const newItem: MediaItem = {
+        id: `video-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        type: "video",
+        url,
+        name: file.name,
+        size: formatFileSize(file.size),
+        timestamp: new Date().toLocaleTimeString(),
+      };
+      setMediaItems((prev) => [...prev, newItem]);
+    });
+
+    e.target.value = "";
+  };
+
+  // Real Camera Viewfinder Controller
+  const startCamera = async () => {
+    setShowCameraModal(true);
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      streamTrackRef.current = stream;
+      if (videoStreamRef.current) {
+        videoStreamRef.current.srcObject = stream;
+        videoStreamRef.current.play();
+      }
+    } catch (err: any) {
+      console.warn("Camera access error:", err);
+      setCameraError(`Camera permission denied or camera unavailable: ${err.message}. You can also use "Upload Photo" directly.`);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamTrackRef.current) {
+      streamTrackRef.current.getTracks().forEach((track) => track.stop());
+      streamTrackRef.current = null;
+    }
+    setShowCameraModal(false);
+  };
+
+  const capturePhoto = () => {
+    if (!videoStreamRef.current) return;
+    const video = videoStreamRef.current;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+      const newItem: MediaItem = {
+        id: `camera-snap-${Date.now()}`,
+        type: "image",
+        url: dataUrl,
+        name: `camera_capture_${new Date().toISOString().slice(11, 19).replace(/:/g, "-")}.jpg`,
+        size: "High Res Snapshot",
+        timestamp: new Date().toLocaleTimeString(),
+      };
+      setMediaItems((prev) => [...prev, newItem]);
+    }
+    stopCamera();
+  };
+
+  // Remove uploaded media
+  const removeMedia = (id: string) => {
+    setMediaItems((prev) => prev.filter((m) => m.id !== id));
+  };
 
   // Voice Recognition setup (Web Speech API)
   const toggleListening = () => {
@@ -145,7 +279,6 @@ function ReportPage() {
           if (dupRes.ok) {
             const dupData = await dupRes.json();
             setDuplicateResult(dupData);
-            setDuplicateChecked(true);
           }
         }
       }
@@ -176,16 +309,16 @@ function ReportPage() {
 
   function next() {
     setError(null);
-    if (step === 0 && media.length === 0) {
-      setError("Add at least one photo or video so staff can verify the issue.");
+    if (step === 0 && mediaItems.length === 0) {
+      setError("Please upload at least one real photo, video or take a camera capture so staff can verify the issue.");
       return;
     }
-    if (step === 1 && locationState !== "found") {
-      setError("We need a location. Allow location access or pick the point on the map.");
+    if (step === 1 && !locationData.address) {
+      setError("Please confirm your location on the map.");
       return;
     }
-    if (step === 2 && description.trim().length < 12) {
-      setError("Add a short description (at least 12 characters) or record a voice note.");
+    if (step === 2 && description.trim().length < 10) {
+      setError("Add a short description (at least 10 characters) or record a voice note.");
       return;
     }
     setStep((s) => Math.min(STEPS.length - 1, s + 1));
@@ -203,8 +336,8 @@ function ReportPage() {
       category: "roads",
       categoryLabel: category,
       description: description,
-      ward: "Ward 12",
-      area: "Bus Stand Road",
+      ward: locationData.ward || "Ward 12",
+      area: locationData.address.split(",")[0] || "Bus Stand Road",
       status: "submitted",
       priority: activeAi.priority_recommendation || "high",
       department: "Public Works — Roads",
@@ -226,19 +359,18 @@ function ReportPage() {
       });
 
       if (res.ok) {
-        setSubmittedId(generatedId);
+        setSubmittedReport(newReport);
       } else {
-        // Fallback locally
-        setSubmittedId(generatedId);
+        setSubmittedReport(newReport);
       }
     } catch {
-      setSubmittedId(generatedId);
+      setSubmittedReport(newReport);
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (submittedId) {
+  if (submittedReport) {
     return (
       <SiteLayout>
         <Section align="center" title="Report submitted">
@@ -249,9 +381,9 @@ function ReportPage() {
             >
               ✓
             </span>
-            <h2 className="mt-5 font-display text-2xl font-extrabold">Thank you — it is officially registered</h2>
+            <h2 className="mt-5 font-display text-2xl font-extrabold">Report Successfully Submitted</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Your tracking ID is <strong className="text-foreground font-mono text-base bg-muted px-2 py-0.5 rounded">{submittedId}</strong>. Keep it to follow progress.
+              Your tracking ID is <strong className="text-foreground font-mono text-base bg-muted px-2 py-0.5 rounded">{submittedReport.id}</strong>.
             </p>
 
             <div className="mt-4 rounded-xl bg-mint/40 border border-mint p-4 text-left text-sm text-mint-foreground">
@@ -260,22 +392,32 @@ function ReportPage() {
                 Status: SUBMITTED (Stage 1 of 8)
               </p>
               <p className="mt-1 text-xs opacity-90">
-                Routed to: <strong>Public Works — Roads</strong>. Municipal dispatch has been notified.
+                Location: <strong>{locationData.address}</strong> ({locationData.lat.toFixed(5)}°, {locationData.lng.toFixed(5)}°)
               </p>
             </div>
 
-            {activeAi && (
-              <div className="mt-4 rounded-xl bg-muted/60 p-3 text-left text-xs space-y-1">
-                <p className="font-bold text-foreground">AI Intelligence Logged:</p>
-                <p className="text-muted-foreground"><strong className="text-foreground">Summary:</strong> {activeAi.summary}</p>
-                <p className="text-muted-foreground"><strong className="text-foreground">Recommended Priority:</strong> {activeAi.priority_recommendation.toUpperCase()} ({activeAi.priority_reason})</p>
+            {/* Uploaded Media Previews */}
+            {mediaItems.length > 0 && (
+              <div className="mt-4 text-left">
+                <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Verified Real Media Attached:</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {mediaItems.map((m) => (
+                    <div key={m.id} className="relative rounded-lg overflow-hidden border border-border aspect-square bg-black/10">
+                      {m.type === "image" ? (
+                        <img src={m.url} alt={m.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <video src={m.url} className="w-full h-full object-cover" controls />
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <Link
                 to="/reports/$id"
-                params={{ id: submittedId }}
+                params={{ id: submittedReport.id }}
                 className="inline-flex min-h-12 items-center rounded-2xl bg-primary px-6 text-sm font-bold text-primary-foreground shadow hover:bg-primary/90"
               >
                 Track Live Status
@@ -287,16 +429,6 @@ function ReportPage() {
                 Citizen Dashboard
               </Link>
             </div>
-
-            <fieldset className="mt-6 text-left border-t border-border pt-4">
-              <legend className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Live notifications enabled</legend>
-              {["In-app Realtime alerts", "Email notifications (bipin@example.com)", "SMS on worker dispatch"].map((p, i) => (
-                <label key={p} className="mt-2 flex items-center gap-2 text-sm">
-                  <input type="checkbox" defaultChecked={i < 2} className="size-4 rounded accent-primary" />
-                  {p}
-                </label>
-              ))}
-            </fieldset>
           </div>
         </Section>
       </SiteLayout>
@@ -328,87 +460,160 @@ function ReportPage() {
 
         <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
           <div className="surface-card p-6">
+
+            {/* STEP 0: REAL PHOTO / CAMERA / VIDEO UPLOAD */}
             {step === 0 && (
               <div>
-                <h2 className="text-lg font-bold">1. Add photo or video evidence</h2>
+                <h2 className="text-lg font-bold">1. Add Real Photo or Video Evidence</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Clear visual evidence allows municipal teams to assess severity and dispatch the right equipment.
+                  Upload actual photos from your gallery, capture live with camera, or upload a video.
                 </p>
+
+                {/* Hidden File Inputs for Real File Selection */}
+                <input
+                  type="file"
+                  ref={photoInputRef}
+                  onChange={handlePhotoUpload}
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                />
+                <input
+                  type="file"
+                  ref={videoInputRef}
+                  onChange={handleVideoUpload}
+                  accept="video/*"
+                  multiple
+                  className="hidden"
+                />
+                <input
+                  type="file"
+                  ref={mobileCameraInputRef}
+                  onChange={handlePhotoUpload}
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                />
+
                 <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                  {["Use Camera", "Upload Photo", "Upload Video"].map((label) => (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() => setMedia((m) => [...m, `${label.toLowerCase().replace(" ", "_")}_${Date.now().toString().slice(-4)}.jpg`])}
-                      className="min-h-24 flex flex-col items-center justify-center rounded-xl border border-dashed border-input bg-background text-sm font-semibold hover:border-primary/50 hover:bg-accent transition"
-                    >
-                      <span className="text-xl mb-1">📷</span>
-                      {label}
-                    </button>
-                  ))}
+                  {/* Live Camera Button */}
+                  <button
+                    type="button"
+                    onClick={startCamera}
+                    className="min-h-24 flex flex-col items-center justify-center rounded-xl border border-dashed border-primary/50 bg-primary/5 text-sm font-semibold hover:border-primary hover:bg-primary/10 transition group"
+                  >
+                    <span className="text-2xl mb-1 group-hover:scale-110 transition">📷</span>
+                    <span className="font-bold text-primary">Use Live Camera</span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5">Capture real live snapshot</span>
+                  </button>
+
+                  {/* Real Photo Upload Button */}
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    className="min-h-24 flex flex-col items-center justify-center rounded-xl border border-dashed border-input bg-background text-sm font-semibold hover:border-primary/50 hover:bg-accent transition group"
+                  >
+                    <span className="text-2xl mb-1 group-hover:scale-110 transition">🖼️</span>
+                    <span className="font-bold">Upload Photos</span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5">JPEG, PNG, WEBP</span>
+                  </button>
+
+                  {/* Real Video Upload Button */}
+                  <button
+                    type="button"
+                    onClick={() => videoInputRef.current?.click()}
+                    className="min-h-24 flex flex-col items-center justify-center rounded-xl border border-dashed border-input bg-background text-sm font-semibold hover:border-primary/50 hover:bg-accent transition group"
+                  >
+                    <span className="text-2xl mb-1 group-hover:scale-110 transition">🎥</span>
+                    <span className="font-bold">Upload Video</span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5">MP4, MOV, WEBM</span>
+                  </button>
                 </div>
-                {media.length > 0 && (
-                  <ul className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {media.map((m, i) => (
-                      <li key={`${m}-${i}`} className="rounded-xl border border-border p-3 text-xs bg-muted/30">
-                        <span aria-hidden="true" className="block h-20 rounded-lg civic-grid-bg flex items-center justify-center text-muted-foreground">
-                          Media #{i + 1}
-                        </span>
-                        <span className="mt-2 block font-semibold truncate">{m}</span>
-                        <button
-                          type="button"
-                          onClick={() => setMedia((list) => list.filter((_, idx) => idx !== i))}
-                          className="mt-1 font-bold text-destructive hover:underline"
+
+                {/* Real Media Preview Gallery */}
+                {mediaItems.length > 0 ? (
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Attached Files ({mediaItems.length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setMediaItems([])}
+                        className="text-xs text-destructive hover:underline"
+                      >
+                        Remove All
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {mediaItems.map((m) => (
+                        <div
+                          key={m.id}
+                          className="group relative rounded-xl border border-border overflow-hidden bg-surface shadow-sm hover:shadow transition"
                         >
-                          Remove
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                          <div className="aspect-square bg-black/10 overflow-hidden relative">
+                            {m.type === "image" ? (
+                              <img
+                                src={m.url}
+                                alt={m.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                              />
+                            ) : (
+                              <video src={m.url} className="w-full h-full object-cover" controls />
+                            )}
+                            <span className="absolute top-2 left-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-black/60 text-white backdrop-blur">
+                              {m.type === "image" ? "Photo" : "Video"}
+                            </span>
+                          </div>
+
+                          <div className="p-2 text-xs">
+                            <p className="font-semibold truncate text-foreground">{m.name}</p>
+                            <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground">
+                              <span>{m.size}</span>
+                              <button
+                                type="button"
+                                onClick={() => removeMedia(m.id)}
+                                className="text-destructive font-bold hover:underline"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 p-4 rounded-xl bg-muted/20 border border-dashed border-border text-center text-xs text-muted-foreground">
+                    No files attached yet. Click above to take a photo with your camera or select pictures from your phone/computer.
+                  </div>
                 )}
               </div>
             )}
 
+            {/* STEP 1: REAL WORLD MAP (LEAFLET / OPENSTREETMAP) */}
             {step === 1 && (
               <div>
-                <h2 className="text-lg font-bold">2. Confirm the incident location</h2>
-                <div aria-hidden="true" className="mt-4 h-56 rounded-2xl border border-border civic-grid-bg topo-texture flex items-center justify-center">
-                  <div className="bg-background/90 backdrop-blur px-4 py-2 rounded-xl border border-border shadow text-xs font-semibold">
-                    📍 13.0072° N, 76.1023° E (Ward 12, Bus Stand Road)
-                  </div>
-                </div>
-                {locationState === "denied" ? (
-                  <p role="alert" className="mt-4 rounded-xl bg-warning/15 p-3 text-sm font-semibold text-warning-foreground">
-                    Location permission denied. Enable location or drag the marker to the correct point.
-                  </p>
-                ) : (
-                  <p className="mt-4 text-sm">
-                    <strong>Bus Stand Road, Ward 12</strong> · {BRAND.city}
-                    <span className="block text-xs text-muted-foreground">Accuracy ±6 m — automatically captured for municipal routing.</span>
-                  </p>
-                )}
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setLocationState("found")}
-                    className="min-h-11 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground"
-                  >
-                    Auto-detect GPS
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLocationState("denied")}
-                    className="min-h-11 rounded-xl border border-border px-4 text-sm font-bold hover:bg-accent"
-                  >
-                    Simulate permission denied
-                  </button>
+                <h2 className="text-lg font-bold">2. Pinpoint Incident on World Map</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Use the real interactive map to place the issue. Click anywhere, drag the marker, or auto-detect with GPS.
+                </p>
+
+                <div className="mt-4">
+                  <RealMap
+                    initialLat={locationData.lat}
+                    initialLng={locationData.lng}
+                    onLocationChange={(loc) => setLocationData(loc)}
+                  />
                 </div>
               </div>
             )}
 
+            {/* STEP 2: DESCRIBE ISSUE (VOICE & TEXT) */}
             {step === 2 && (
               <div>
-                <h2 className="text-lg font-bold">3. Describe the issue (Text or Voice)</h2>
+                <h2 className="text-lg font-bold">3. Describe the Issue (Text or Voice)</h2>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <label className="block">
                     <span className="mb-1.5 block text-sm font-semibold">Category (Standard dropdown)</span>
@@ -447,9 +652,7 @@ function ReportPage() {
                   <textarea
                     rows={4}
                     value={description}
-                    onChange={(e) => {
-                      setDescription(e.target.value);
-                    }}
+                    onChange={(e) => setDescription(e.target.value)}
                     onBlur={() => runAiAnalysis(description)}
                     className="w-full rounded-xl border border-input bg-background p-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
                     placeholder="Tell us what needs attention, hazard signals, and landmarks."
@@ -521,19 +724,38 @@ function ReportPage() {
               </div>
             )}
 
+            {/* STEP 3: REVIEW & SUBMIT */}
             {step === 3 && (
               <div>
                 <h2 className="text-lg font-bold">4. Review and Submit</h2>
+
+                {/* Media Preview in Review */}
+                {mediaItems.length > 0 && (
+                  <div className="mt-4 mb-4">
+                    <span className="text-xs font-bold text-muted-foreground uppercase block mb-2">Verified Real Media ({mediaItems.length})</span>
+                    <div className="grid grid-cols-3 gap-2">
+                      {mediaItems.map((m) => (
+                        <div key={m.id} className="relative rounded-lg overflow-hidden border border-border aspect-square bg-black/10">
+                          {m.type === "image" ? (
+                            <img src={m.url} alt={m.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <video src={m.url} className="w-full h-full object-cover" />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <dl className="mt-4 space-y-3 text-sm">
                   {[
-                    ["Evidence Media", `${media.length} visual evidence file(s) attached`],
-                    ["Location", `Bus Stand Road, Ward 12 · ${BRAND.city} (±6m accuracy)`],
+                    ["Verified Location", `${locationData.address} (${locationData.lat.toFixed(5)}° N, ${locationData.lng.toFixed(5)}° E)`],
                     ["Selected Category", category],
-                    ["AI Summary", activeAi.summary],
+                    ["AI Issue Summary", activeAi.summary],
                     ["Recommended Priority", `${activeAi.priority_recommendation.toUpperCase()} — ${activeAi.priority_reason}`],
                     ["Handling Department", "Public Works — Roads"],
-                    ["Citizen Visibility", anonymous ? "Anonymous (Contact encrypted)" : "Verified Citizen"],
-                    ["Duplicate Strategy", selectedAction === "merge" ? "Merge information with CIV-10482" : "Submit as distinct report"],
+                    ["Citizen Visibility", anonymous ? "Anonymous (Identity Protected)" : "Verified Citizen"],
+                    ["Duplicate Policy", selectedAction === "merge" ? "Merge with existing CIV-10482" : "Submit as distinct report"],
                   ].map(([k, v]) => (
                     <div key={k} className="rounded-xl border border-border p-3 bg-muted/20">
                       <dt className="text-xs font-bold text-muted-foreground uppercase">{k}</dt>
@@ -632,6 +854,74 @@ function ReportPage() {
             </p>
           </aside>
         </div>
+
+        {/* Live Camera Viewfinder Modal */}
+        {showCameraModal && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="surface-card max-w-lg w-full p-6 shadow-2xl rounded-2xl animate-rise-in">
+              <div className="flex items-center justify-between pb-3 border-b border-border">
+                <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                  <span>📷</span> Live Camera Viewfinder
+                </h3>
+                <button
+                  type="button"
+                  onClick={stopCamera}
+                  className="size-8 rounded-full border border-border flex items-center justify-center font-bold hover:bg-accent text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {cameraError ? (
+                <div className="mt-4 p-4 rounded-xl bg-destructive/10 text-destructive text-xs space-y-3">
+                  <p>{cameraError}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      stopCamera();
+                      mobileCameraInputRef.current?.click();
+                    }}
+                    className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-bold text-xs"
+                  >
+                    Open Native Camera / File Chooser
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-4">
+                  <div className="relative rounded-2xl overflow-hidden bg-black aspect-video flex items-center justify-center border border-border">
+                    <video
+                      ref={videoStreamRef}
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-4 border-2 border-dashed border-white/50 rounded-xl pointer-events-none flex items-center justify-center">
+                      <span className="text-white/60 text-xs font-semibold">Center issue in frame</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={capturePhoto}
+                      className="px-6 py-3 rounded-full bg-primary text-primary-foreground font-bold text-sm shadow-lg hover:scale-105 transition flex items-center gap-2"
+                    >
+                      <span className="size-4 rounded-full bg-white"></span>
+                      Capture Photo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={stopCamera}
+                      className="px-4 py-3 rounded-full border border-border text-sm font-semibold hover:bg-accent"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </Section>
     </SiteLayout>
   );

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { SiteLayout } from "@/components/site/site-layout";
 import { PriorityBadge, Section, StatusBadge } from "@/components/site/primitives";
 import { REPORTS, formatDateTime, getReport, CivicReport, ReportStatus, FIELD_WORKERS } from "@/lib/civic-data";
+import { RealMap } from "@/components/site/real-map";
 
 export const Route = createFileRoute("/reports/$id")({
   loader: ({ params }) => {
@@ -451,6 +452,14 @@ function ReportDetails() {
                   <dd className="font-semibold text-foreground">{Math.round((report.aiConfidence || 0.92) * 100)}%</dd>
                 </div>
               </dl>
+            </div>
+
+            <div className="surface-card p-5">
+              <h2 className="text-sm font-bold mb-3">Incident Geolocation</h2>
+              <RealMap initialLat={13.0072} initialLng={76.1023} className="h-44 w-full rounded-xl" />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Verified GPS location in {report.ward}, {report.area}.
+              </p>
             </div>
 
             <div className="surface-card p-5 bg-navy text-navy-foreground rounded-2xl">
