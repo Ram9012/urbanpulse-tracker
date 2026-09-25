@@ -162,8 +162,8 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
     // 10. Authentication & User Management
     if (pathname === "/api/auth/login" && request.method === "POST") {
       const body = await request.json().catch(() => ({}));
-      const { username, password } = body;
-      const authResult = await authenticateUser(username, password);
+      const { username, password, clientBackupUser } = body;
+      const authResult = await authenticateUser(username, password, clientBackupUser);
       return Response.json(authResult, { status: authResult.success ? 200 : 401 });
     }
 
@@ -311,8 +311,8 @@ export function civicPulseApiPlugin(): Plugin {
           // 10. Authentication & User Management
           if (url === "/api/auth/login" && req.method === "POST") {
             const body = await parseJsonBody(req).catch(() => ({}));
-            const { username, password } = body;
-            const authResult = await authenticateUser(username, password);
+            const { username, password, clientBackupUser } = body;
+            const authResult = await authenticateUser(username, password, clientBackupUser);
             return sendJson(res, authResult.success ? 200 : 401, authResult);
           }
 

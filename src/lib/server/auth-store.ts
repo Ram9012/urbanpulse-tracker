@@ -31,6 +31,7 @@ export type SafeUser = {
 const IS_VERCEL = Boolean(process.env["VERCEL"] || process.env["AWS_LAMBDA_FUNCTION_NAME"]);
 const STORAGE_DIR = IS_VERCEL ? path.join("/tmp", "civic-storage") : path.join(process.cwd(), "storage");
 const USERS_FILE = path.join(STORAGE_DIR, "civic-users.json");
+const BUNDLED_USERS_FILE = path.join(process.cwd(), "storage", "civic-users.json");
 
 export function hashPassword(raw: string): string {
   return crypto.createHash("sha256").update(raw.trim()).digest("hex");
@@ -63,7 +64,17 @@ function ensureStorage() {
       fs.mkdirSync(STORAGE_DIR, { recursive: true });
     }
     if (!fs.existsSync(USERS_FILE)) {
-      fs.writeFileSync(USERS_FILE, JSON.stringify([DEFAULT_ADMIN], null, 2), "utf-8");
+      let initialSeed = [DEFAULT_ADMIN];
+      if (fs.existsSync(BUNDLED_USERS_FILE)) {
+        try {
+          const raw = fs.readFileSync(BUNDLED_USERS_FILE, "utf-8");
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            initialSeed = parsed;
+          }
+        } catch {}
+      }
+      fs.writeFileSync(USERS_FILE, JSON.stringify(initialSeed, null, 2), "utf-8");
     }
   } catch (err: any) {
     console.warn("[Auth Store Storage Warning]:", err.message);
@@ -71,16 +82,30 @@ function ensureStorage() {
 }
 
 export function initializeAuthStore(): void {
-  if (initialized) return;
   ensureStorage();
 
   try {
+    // 1. Load from runtime storage file
     if (fs.existsSync(USERS_FILE)) {
       const data = fs.readFileSync(USERS_FILE, "utf-8");
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed) && parsed.length > 0) {
         cachedUsers = parsed;
       }
+    }
+    // 2. Merge any users from repo bundled storage file
+    if (fs.existsSync(BUNDLED_USERS_FILE) && BUNDLED_USERS_FILE !== USERS_FILE) {
+      try {
+        const bundledData = fs.readFileSync(BUNDLED_USERS_FILE, "utf-8");
+        const bundledParsed = JSON.parse(bundledData);
+        if (Array.isArray(bundledParsed)) {
+          for (const u of bundledParsed) {
+            if (!cachedUsers.some((x) => x.username.toLowerCase() === u.username.toLowerCase())) {
+              cachedUsers.push(u);
+            }
+          }
+        }
+      } catch {}
     }
   } catch (err: any) {
     console.warn("[Auth Store Load Warning]:", err.message);
@@ -111,6 +136,11 @@ function persistUsersToDisk() {
   try {
     ensureStorage();
     fs.writeFileSync(USERS_FILE, JSON.stringify(cachedUsers, null, 2), "utf-8");
+    if (!IS_VERCEL && BUNDLED_USERS_FILE !== USERS_FILE && fs.existsSync(path.dirname(BUNDLED_USERS_FILE))) {
+      try {
+        fs.writeFileSync(BUNDLED_USERS_FILE, JSON.stringify(cachedUsers, null, 2), "utf-8");
+      } catch {}
+    }
   } catch (err: any) {
     console.warn("[Auth Store Persist Warning]:", err.message);
   }
@@ -128,10 +158,19 @@ export function toSafeUser(user: AppUser): SafeUser {
 
 /**
  * Authenticate either admin or registered user with a single username and password.
+ * Supports clientBackupUser to reliably recover user sessions across serverless lambda containers.
  */
 export async function authenticateUser(
   rawUsername: string,
   rawPassword: string,
+  clientBackupUser?: {
+    id?: string;
+    username: string;
+    password?: string;
+    passwordHash?: string;
+    role?: UserRole;
+    displayName?: string;
+  },
 ): Promise<{ success: boolean; user?: SafeUser; error?: string }> {
   initializeAuthStore();
 
@@ -160,10 +199,10 @@ export async function authenticateUser(
     }
   }
 
-  // Check local cache
+  // 1. Check local cache
   let user = cachedUsers.find((u) => u.username.toLowerCase() === username.toLowerCase());
 
-  // If not found in cache, check Supabase
+  // 2. If not found in cache, check Supabase
   if (!user) {
     try {
       const remoteUser = await fetchUserFromSupabase(username);
@@ -173,6 +212,24 @@ export async function authenticateUser(
         persistUsersToDisk();
       }
     } catch {}
+  }
+
+  // 3. If not found in current container, recover from clientBackupUser if provided and valid
+  if (!user && clientBackupUser && clientBackupUser.username.toLowerCase() === username.toLowerCase()) {
+    const rawPass = clientBackupUser.password || password;
+    const storedHash = clientBackupUser.passwordHash || hashPassword(rawPass);
+    const restoredUser: AppUser = {
+      id: clientBackupUser.id || `USR-${Date.now().toString(36).toUpperCase()}`,
+      username: clientBackupUser.username,
+      passwordHash: storedHash,
+      role: clientBackupUser.role || "citizen",
+      displayName: clientBackupUser.displayName || clientBackupUser.username,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    cachedUsers.push(restoredUser);
+    persistUsersToDisk();
+    user = restoredUser;
   }
 
   if (!user) {

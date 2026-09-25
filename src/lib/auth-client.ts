@@ -79,47 +79,94 @@ export async function loginUser(
     return { success: true, user: adminUser };
   }
 
+  // Check client-side backup user
+  const backupUsers = getStoredBackupUsers();
+  const localMatch = backupUsers.find(
+    (u) => u.username.toLowerCase() === username.toLowerCase(),
+  );
+
   try {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({
+        username,
+        password,
+        clientBackupUser: localMatch
+          ? {
+              id: localMatch.id,
+              username: localMatch.username,
+              password: localMatch.password,
+              displayName: localMatch.displayName,
+              role: "citizen",
+            }
+          : undefined,
+      }),
     });
 
     const data = await res.json().catch(() => ({}));
 
     if (res.ok && data.success && data.user) {
       setStoredUser(data.user);
+      saveBackupUser({
+        id: data.user.id,
+        username: data.user.username,
+        password: password,
+        displayName: data.user.displayName,
+      });
       return { success: true, user: data.user };
     }
 
-    return {
-      success: false,
-      error: data.error || "Invalid username or password. Please verify your credentials.",
-    };
-  } catch (err: any) {
-    // If server unreachable, check client-side backup user
-    const backupUsers = getStoredBackupUsers();
-    const found = backupUsers.find(
-      (u) => u.username.toLowerCase() === username.toLowerCase() && u.password === password,
-    );
-    if (found) {
-      const user: AuthUser = {
-        id: found.id,
-        username: found.username,
-        role: "citizen",
-        displayName: found.displayName || found.username,
-      };
-      setStoredUser(user);
-      return { success: true, user };
+    // If server said user not found, but we have this user locally in client cache
+    if (localMatch) {
+      if (localMatch.password === password) {
+        const user: AuthUser = {
+          id: localMatch.id,
+          username: localMatch.username,
+          role: "citizen",
+          displayName: localMatch.displayName || localMatch.username,
+        };
+        setStoredUser(user);
+        return { success: true, user };
+      } else {
+        return {
+          success: false,
+          error: "Incorrect password. Please try again.",
+        };
+      }
     }
 
     return {
       success: false,
-      error: err.message || "Unable to reach server. Please check your network connection.",
+      error: data.error || `Account with username "${username}" not found. Please create an account first.`,
+    };
+  } catch (err: any) {
+    // If server unreachable, check client-side backup user
+    if (localMatch) {
+      if (localMatch.password === password) {
+        const user: AuthUser = {
+          id: localMatch.id,
+          username: localMatch.username,
+          role: "citizen",
+          displayName: localMatch.displayName || localMatch.username,
+        };
+        setStoredUser(user);
+        return { success: true, user };
+      } else {
+        return {
+          success: false,
+          error: "Incorrect password. Please try again.",
+        };
+      }
+    }
+
+    return {
+      success: false,
+      error: `Account with username "${username}" not found. Please create an account first.`,
     };
   }
 }
+
 
 export async function registerCitizen(
   rawUsername: string,
@@ -226,10 +273,13 @@ function saveBackupUser(u: { id: string; username: string; password: string; dis
   if (typeof window === "undefined") return;
   try {
     const users = getStoredBackupUsers();
-    if (!users.some((x) => x.username.toLowerCase() === u.username.toLowerCase())) {
+    const idx = users.findIndex((x) => x.username.toLowerCase() === u.username.toLowerCase());
+    if (idx !== -1) {
+      users[idx] = { ...users[idx], ...u };
+    } else {
       users.push(u);
-      localStorage.setItem("civicpulse_client_users", JSON.stringify(users));
     }
+    localStorage.setItem("civicpulse_client_users", JSON.stringify(users));
   } catch {}
 }
 

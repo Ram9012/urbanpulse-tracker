@@ -123,10 +123,11 @@ function UnifiedAuthPage() {
       setLoading(false);
 
       if (res.success && res.user) {
-        setSuccess(`✓ Account "${cleanUsername}" created successfully! Redirecting to your Citizen Dashboard...`);
-        window.setTimeout(() => {
-          navigate({ to: "/dashboard" });
-        }, 1000);
+        setSuccess(`✓ Account "${cleanUsername}" created! Your credentials are filled below. Click "Sign In to Dashboard" to log in, or continue directly.`);
+        setMode("signin");
+        setUsername(cleanUsername);
+        setPassword(password);
+        setConfirmPassword("");
       } else {
         setError(res.error || "Failed to create account. Please try another username.");
       }
@@ -406,10 +407,22 @@ function UnifiedAuthPage() {
                 {success && (
                   <div
                     role="status"
-                    className="flex items-start gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 animate-in fade-in"
+                    className="flex flex-col gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 animate-in fade-in"
                   >
-                    <span className="text-sm">✓</span>
-                    <span className="flex-1">{success}</span>
+                    <div className="flex items-start gap-2.5">
+                      <span className="text-sm">✓</span>
+                      <span className="flex-1">{success}</span>
+                    </div>
+                    {isAuthenticated && user && (
+                      <div className="mt-1 flex items-center gap-2">
+                        <Link
+                          to={user.role === "admin" ? "/admin" : "/dashboard"}
+                          className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-bold text-white hover:bg-emerald-700 transition-colors shadow-sm"
+                        >
+                          Go directly to {user.role === "admin" ? "Admin Portal" : "My Dashboard"} →
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 )}
 
