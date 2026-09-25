@@ -62,6 +62,7 @@ function Explore() {
   const [confirmed, setConfirmed] = useState<Record<string, boolean>>({});
   const [query, setQuery] = useState("");
   const [deleteNotice, setDeleteNotice] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Sync with live backend reports and client storage safely
   const fetchReports = async () => {
@@ -153,11 +154,6 @@ function Explore() {
   }, []);
 
   const handleDeleteReport = async (reportId: string) => {
-    const confirmDelete = window.confirm(
-      `Are you sure you want to permanently delete report ${reportId} from the database and Supabase?`
-    );
-    if (!confirmDelete) return;
-
     // 1. Mark in client persistent deleted set immediately
     markReportDeleted(reportId);
 
@@ -332,14 +328,36 @@ function Explore() {
                     <span aria-hidden="true">▲</span>
                     {confirmed[r.id] ? "Confirmed" : "Confirm"} ({r.upvotes + (confirmed[r.id] ? 1 : 0)})
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteReport(r.id)}
-                    className="inline-flex min-h-10 items-center gap-1 rounded-xl border border-destructive/40 bg-destructive/5 px-2.5 text-xs font-bold text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors shadow-sm"
-                    title="Permanently delete this report from database & Supabase"
-                  >
-                    <span aria-hidden="true">🗑️</span> Delete
-                  </button>
+                  {deleteConfirmId === r.id ? (
+                    <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteConfirmId(null);
+                          handleDeleteReport(r.id);
+                        }}
+                        className="inline-flex min-h-9 items-center justify-center rounded-lg bg-destructive px-2.5 text-xs font-bold text-white hover:brightness-110 transition active:scale-95 shadow-xs"
+                      >
+                        Confirm Delete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteConfirmId(null)}
+                        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-border bg-background px-2 text-xs font-semibold text-muted-foreground hover:bg-muted transition"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setDeleteConfirmId(r.id)}
+                      className="inline-flex min-h-10 items-center gap-1 rounded-xl border border-destructive/40 bg-destructive/5 px-2.5 text-xs font-bold text-destructive hover:bg-destructive hover:text-white transition-colors shadow-sm"
+                      title="Permanently delete this report from database & Supabase"
+                    >
+                      <span aria-hidden="true">🗑️</span> Delete
+                    </button>
+                  )}
                   <Link
                     to="/reports/$id"
                     params={{ id: r.id }}

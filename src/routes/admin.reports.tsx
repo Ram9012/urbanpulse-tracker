@@ -70,6 +70,7 @@ function ReportsTable() {
   const [aiLoading, setAiLoading] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [purgingData, setPurgingData] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Admin Photo Upload & Live Camera Capture State
   const [evidenceModalReport, setEvidenceModalReport] = useState<CivicReport | null>(null);
@@ -470,11 +471,6 @@ function ReportsTable() {
 
   // Permanently delete single report from server, disk and Supabase
   const deleteReportRecord = async (reportId: string) => {
-    const confirmDelete = window.confirm(
-      `Are you sure you want to permanently delete report ${reportId} from municipal records and Supabase?`
-    );
-    if (!confirmDelete) return;
-
     // 1. Mark as deleted in persistent client storage immediately
     markReportDeleted(reportId);
 
@@ -847,14 +843,36 @@ function ReportsTable() {
                       </button>
 
                       {/* Delete Report Button */}
-                      <button
-                        type="button"
-                        onClick={() => deleteReportRecord(r.id)}
-                        className="px-2.5 py-1.5 rounded-xl border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground text-xs font-bold transition flex items-center gap-1 shadow-sm"
-                        title="Permanently delete this report from municipal queue & Supabase"
-                      >
-                        <span>🗑️</span> Delete
-                      </button>
+                      {deleteConfirmId === r.id ? (
+                        <div className="flex items-center gap-1 animate-in fade-in duration-150">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeleteConfirmId(null);
+                              deleteReportRecord(r.id);
+                            }}
+                            className="px-2 py-1 rounded-lg bg-destructive text-white hover:brightness-110 text-xs font-bold transition shadow-xs"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirmId(null)}
+                            className="px-2 py-1 rounded-lg border border-border bg-background text-muted-foreground hover:bg-muted text-xs font-semibold transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmId(r.id)}
+                          className="px-2.5 py-1.5 rounded-xl border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive hover:text-white text-xs font-bold transition flex items-center gap-1 shadow-sm"
+                          title="Permanently delete this report from municipal queue & Supabase"
+                        >
+                          <span>🗑️</span> Delete
+                        </button>
+                      )}
 
                       <Link to="/reports/$id" params={{ id: r.id }} className="text-xs font-bold text-primary hover:underline ml-1">
                         Timeline →

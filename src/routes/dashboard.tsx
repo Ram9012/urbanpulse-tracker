@@ -67,6 +67,7 @@ function Dashboard() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [lastSynced, setLastSynced] = useState<string>("Just now");
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Fetch real-time live reports from backend and sync with localStorage
   const fetchLiveReports = async () => {
@@ -193,11 +194,6 @@ function Dashboard() {
   }, []);
 
   const handleDeleteReport = async (reportId: string) => {
-    const confirmDelete = window.confirm(
-      `Are you sure you want to permanently delete report ${reportId} from the database and Supabase?`
-    );
-    if (!confirmDelete) return;
-
     // 1. Immediately mark deleted in client persistent storage
     markReportDeleted(reportId);
 
@@ -475,14 +471,36 @@ function Dashboard() {
                       <div className="mt-4 pt-3 border-t border-border flex items-center justify-between gap-2">
                         <PriorityBadge priority={r.priority} />
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteReport(r.id)}
-                            className="inline-flex min-h-9 px-2.5 items-center justify-center rounded-xl border border-destructive/40 bg-destructive/5 text-destructive hover:bg-destructive hover:text-destructive-foreground text-xs font-bold transition shadow-sm"
-                            title="Delete report permanently from Supabase & system"
-                          >
-                            <span>🗑️</span>
-                          </button>
+                          {deleteConfirmId === r.id ? (
+                            <div className="flex items-center gap-1 animate-in fade-in duration-150">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDeleteConfirmId(null);
+                                  handleDeleteReport(r.id);
+                                }}
+                                className="inline-flex min-h-8 px-2 items-center justify-center rounded-lg bg-destructive text-white hover:brightness-110 text-xs font-bold transition shadow-xs"
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirmId(null)}
+                                className="inline-flex min-h-8 px-2 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground hover:bg-muted text-xs font-semibold transition"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirmId(r.id)}
+                              className="inline-flex min-h-9 px-2.5 items-center justify-center rounded-xl border border-destructive/40 bg-destructive/5 text-destructive hover:bg-destructive hover:text-white text-xs font-bold transition shadow-sm"
+                              title="Delete report permanently from Supabase & system"
+                            >
+                              <span>🗑️</span>
+                            </button>
+                          )}
                           <Link
                             to="/reports/$id"
                             params={{ id: r.id }}

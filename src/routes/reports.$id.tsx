@@ -80,12 +80,9 @@ function ReportDetails() {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   const handleDeleteThisReport = async () => {
-    const confirmDelete = window.confirm(
-      `Are you sure you want to permanently delete report ${report.id} from the database and Supabase?`
-    );
-    if (!confirmDelete) return;
 
     try {
       markReportDeleted(report.id);
@@ -559,14 +556,33 @@ function ReportDetails() {
             {report.area} · {report.ward} · Hassan Municipal Corporation
           </span>
           <div className="ml-auto flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleDeleteThisReport}
-              className="inline-flex items-center gap-1 text-xs font-bold text-destructive bg-destructive/10 border border-destructive/30 px-3 py-1.5 rounded-xl hover:bg-destructive hover:text-destructive-foreground transition shadow-sm"
-              title="Permanently delete this report from Supabase & system"
-            >
-              <span>🗑️</span> Delete Report
-            </button>
+            {isConfirmingDelete ? (
+              <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
+                <button
+                  type="button"
+                  onClick={handleDeleteThisReport}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-white bg-destructive px-3 py-1.5 rounded-xl hover:brightness-110 transition shadow-sm"
+                >
+                  Yes, Confirm Delete
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmingDelete(false)}
+                  className="inline-flex items-center text-xs font-semibold text-muted-foreground bg-background border border-border px-2.5 py-1.5 rounded-xl hover:bg-muted transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsConfirmingDelete(true)}
+                className="inline-flex items-center gap-1 text-xs font-bold text-destructive bg-destructive/10 border border-destructive/30 px-3 py-1.5 rounded-xl hover:bg-destructive hover:text-white transition shadow-sm"
+                title="Permanently delete this report from Supabase & system"
+              >
+                <span>🗑️</span> Delete Report
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {

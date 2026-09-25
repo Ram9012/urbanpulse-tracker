@@ -44,6 +44,7 @@ export function SocietyMap({
   const [upvotes, setUpvotes] = useState<Record<string, number>>({});
   const [userGps, setUserGps] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   const leafletContainerRef = useRef<HTMLDivElement>(null);
   const leafletInstanceRef = useRef<any>(null);
@@ -69,12 +70,14 @@ export function SocietyMap({
 
   // Auto-recover selection if current report is deleted or filtered out
   useEffect(() => {
+    setIsConfirmingDelete(false);
     if (selectedReportId && !reports.some((r) => r.id === selectedReportId)) {
       setSelectedReportId(filteredReports[0]?.id || reports[0]?.id || null);
     }
   }, [reports, filteredReports, selectedReportId]);
 
   const handleSelect = (r: CivicReport) => {
+    setIsConfirmingDelete(false);
     setSelectedReportId(r.id);
     if (onSelectReport) onSelectReport(r);
 
@@ -568,15 +571,46 @@ export function SocietyMap({
                   View Live Status & Timeline →
                 </Link>
                 {onDeleteReport && (
-                  <button
-                    type="button"
-                    onClick={() => onDeleteReport(selectedReport.id)}
-                    className="w-full inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-destructive/35 bg-destructive/10 px-3 text-xs font-bold text-destructive hover:bg-destructive hover:text-white transition active:scale-95 shadow-xs"
-                    title="Permanently delete this report from municipal records and Supabase"
-                  >
-                    <span>🗑️</span>
-                    <span>Delete This Report Permanently</span>
-                  </button>
+                  isConfirmingDelete ? (
+                    <div className="flex flex-col gap-2 rounded-2xl border border-destructive/40 bg-destructive/10 p-3 animate-in fade-in duration-200">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-destructive">
+                        <span>⚠️</span>
+                        <span>Permanently delete {selectedReport.id}?</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-tight">
+                        This cannot be undone. This problem will be permanently erased from the map, database, and Supabase.
+                      </p>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsConfirmingDelete(false);
+                            onDeleteReport(selectedReport.id);
+                          }}
+                          className="flex-1 inline-flex min-h-8 items-center justify-center rounded-lg bg-destructive px-3 text-xs font-bold text-white shadow hover:brightness-110 transition active:scale-95"
+                        >
+                          Yes, Delete Permanently
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsConfirmingDelete(false)}
+                          className="inline-flex min-h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted transition"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsConfirmingDelete(true)}
+                      className="w-full inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-destructive/35 bg-destructive/10 px-3 text-xs font-bold text-destructive hover:bg-destructive hover:text-white transition active:scale-95 shadow-xs"
+                      title="Permanently delete this report from municipal records and Supabase"
+                    >
+                      <span>🗑️</span>
+                      <span>Delete This Report Permanently</span>
+                    </button>
+                  )
                 )}
               </div>
             </div>
