@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SiteLayout } from "@/components/site/site-layout";
 import { DemoDataNote, Section, StatusBadge, PriorityBadge } from "@/components/site/primitives";
 import { ActivityMap } from "@/components/site/civic-map";
-import { CATEGORIES, REPORTS, formatDate } from "@/lib/civic-data";
+import { CATEGORIES, REPORTS, formatDate, CivicReport } from "@/lib/civic-data";
 
 export const Route = createFileRoute("/explore")({
   head: () => ({
@@ -28,12 +28,109 @@ export const Route = createFileRoute("/explore")({
 });
 
 function Explore() {
+  const [reportsList, setReportsList] = useState<CivicReport[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
+        if (Array.isArray(stored) && stored.length > 0) {
+          const map = new Map<string, CivicReport>();
+          stored.forEach((r: CivicReport) => map.set(r.id, r));
+          REPORTS.forEach((r: CivicReport) => {
+            if (!map.has(r.id)) map.set(r.id, r);
+          });
+          return Array.from(map.values());
+        }
+      } catch {}
+    }
+    return REPORTS;
+  });
+
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState("all");
   const [confirmed, setConfirmed] = useState<Record<string, boolean>>({});
   const [query, setQuery] = useState("");
+  const [deleteNotice, setDeleteNotice] = useState<string | null>(null);
 
-  const list = REPORTS.filter(
+  // Sync with live backend reports
+  const fetchReports = async () => {
+    try {
+      const res = await fetch("/api/status/reports");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.reports) && data.reports.length > 0) {
+          setReportsList(data.reports);
+          return;
+        }
+      }
+    } catch {}
+
+    if (typeof window !== "undefined") {
+      try {
+        const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
+        if (Array.isArray(stored) && stored.length > 0) {
+          const map = new Map<string, CivicReport>();
+          stored.forEach((r: CivicReport) => map.set(r.id, r));
+          REPORTS.forEach((r: CivicReport) => {
+            if (!map.has(r.id)) map.set(r.id, r);
+          });
+          setReportsList(Array.from(map.values()));
+        }
+      } catch {}
+    }
+  };
+
+  useEffect(() => {
+    fetchReports();
+    const handleUpdate = () => fetchReports();
+    window.addEventListener("civicpulse_report_created", handleUpdate);
+    window.addEventListener("civicpulse_report_deleted", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener("civicpulse_report_created", handleUpdate);
+      window.removeEventListener("civicpulse_report_deleted", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
+
+  const handleDeleteReport = async (reportId: string) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to permanently delete report ${reportId} from the database and Supabase?`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const res = await fetch("/api/reports/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportId }),
+      });
+
+      // Remove from state immediately
+      setReportsList((prev) => prev.filter((r) => r.id !== reportId));
+
+      // Remove from localStorage
+      if (typeof window !== "undefined") {
+        try {
+          const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
+          const filtered = stored.filter((r: any) => r.id !== reportId);
+          localStorage.setItem("civicpulse_client_reports", JSON.stringify(filtered));
+
+          const queue = JSON.parse(localStorage.getItem("civic_reports_queue") || "[]");
+          const filteredQueue = queue.filter((r: any) => r.id !== reportId);
+          localStorage.setItem("civic_reports_queue", JSON.stringify(filteredQueue));
+
+          window.dispatchEvent(new Event("civicpulse_report_deleted"));
+        } catch {}
+      }
+
+      setDeleteNotice(`✓ Report ${reportId} permanently deleted from Supabase & system records.`);
+      setTimeout(() => setDeleteNotice(null), 5000);
+    } catch (err: any) {
+      alert(`Delete failed: ${err.message}`);
+    }
+  };
+
+  const list = reportsList.filter(
     (r) =>
       (category === "all" || r.category === category) &&
       (status === "all" || r.status === status) &&
@@ -51,6 +148,13 @@ function Explore() {
       </Section>
 
       <Section className="bg-surface border-y border-border" align="left" title="Report list">
+        {deleteNotice && (
+          <div className="mb-4 rounded-xl bg-destructive/10 border border-destructive/30 p-3 text-sm font-semibold text-destructive flex items-center justify-between">
+            <span>{deleteNotice}</span>
+            <button onClick={() => setDeleteNotice(null)} className="text-xs font-bold underline">✕</button>
+          </div>
+        )}
+
         <div className="mb-5 flex flex-wrap items-end gap-3">
           <label className="min-w-56 flex-1">
             <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">Search</span>
@@ -132,20 +236,28 @@ function Explore() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   <PriorityBadge priority={r.priority} />
                 </div>
-                <div className="mt-4 flex items-center gap-2 pt-1">
+                <div className="mt-4 flex flex-wrap items-center gap-2 pt-2 border-t border-border">
                   <button
                     type="button"
                     onClick={() => setConfirmed((c) => ({ ...c, [r.id]: !c[r.id] }))}
                     aria-pressed={!!confirmed[r.id]}
-                    className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-border px-3 text-sm font-bold transition-colors hover:bg-accent"
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-border px-3 text-xs font-bold transition-colors hover:bg-accent"
                   >
                     <span aria-hidden="true">▲</span>
                     {confirmed[r.id] ? "Confirmed" : "Confirm"} ({r.upvotes + (confirmed[r.id] ? 1 : 0)})
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteReport(r.id)}
+                    className="inline-flex min-h-10 items-center gap-1 rounded-xl border border-destructive/40 bg-destructive/5 px-2.5 text-xs font-bold text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors shadow-sm"
+                    title="Permanently delete this report from database & Supabase"
+                  >
+                    <span aria-hidden="true">🗑️</span> Delete
+                  </button>
                   <Link
                     to="/reports/$id"
                     params={{ id: r.id }}
-                    className="ml-auto text-sm font-bold text-primary hover:underline"
+                    className="ml-auto text-xs font-bold text-primary hover:underline"
                   >
                     View details →
                   </Link>

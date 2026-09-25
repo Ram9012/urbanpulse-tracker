@@ -11,7 +11,12 @@ import fs from "fs";
 import path from "path";
 import { CivicReport, Priority, ReportStatus } from "@/lib/civic-data";
 import { verifyResolutionEvidence } from "./ai-service";
-import { saveReportToSupabase, saveStatusHistoryToSupabase, clearSupabaseAndSeedLatest } from "./supabase-client";
+import {
+  saveReportToSupabase,
+  saveStatusHistoryToSupabase,
+  clearSupabaseAndSeedLatest,
+  deleteReportFromSupabase,
+} from "./supabase-client";
 
 export type StatusHistoryEntry = {
   id: string;
@@ -513,3 +518,29 @@ export async function transitionReportStatus(params: {
     message: `Status transitioned to ${params.newStatus}`,
   };
 }
+
+/**
+ * Delete a report permanently from active cache, disk storage, and Supabase.
+ */
+export async function deleteReport(reportId: string): Promise<{ success: boolean; id: string; supabaseDeleted?: boolean }> {
+  loadFromDisk();
+  const idLower = reportId.toLowerCase();
+  activeReports = activeReports.filter((r) => r.id.toLowerCase() !== idLower);
+  statusHistories = statusHistories.filter((h) => h.reportId.toLowerCase() !== idLower);
+  activeNotifications = activeNotifications.filter((n) => n.reportId.toLowerCase() !== idLower);
+  saveToDisk();
+
+  let supabaseDeleted = false;
+  try {
+    supabaseDeleted = await deleteReportFromSupabase(reportId);
+  } catch (err: any) {
+    console.warn(`[Delete Report Warning for ${reportId}]:`, err.message);
+  }
+
+  return {
+    success: true,
+    id: reportId,
+    supabaseDeleted,
+  };
+}
+

@@ -199,3 +199,45 @@ export async function clearSupabaseAndSeedLatest(
   }
 }
 
+/**
+ * Delete a specific report and its status history from Supabase PostgreSQL
+ */
+export async function deleteReportFromSupabase(reportId: string): Promise<boolean> {
+  if (!SUPABASE_KEY) {
+    console.info(`[Supabase Delete]: No API key in local environment, skipped remote delete for ${reportId}.`);
+    return true;
+  }
+
+  try {
+    // 1. Delete associated status history records
+    await fetch(`${SUPABASE_URL}/rest/v1/report_status_history?report_id=eq.${encodeURIComponent(reportId)}`, {
+      method: "DELETE",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      },
+    });
+
+    // 2. Delete the report from reports table
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/reports?id=eq.${encodeURIComponent(reportId)}`, {
+      method: "DELETE",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      },
+    });
+
+    if (res.ok) {
+      console.info(`[Supabase Delete]: Successfully deleted report ${reportId} from Supabase.`);
+      return true;
+    } else {
+      console.warn(`[Supabase Delete Warning]: HTTP ${res.status} when deleting ${reportId}`);
+      return false;
+    }
+  } catch (err: any) {
+    console.warn(`[Supabase Delete Error for ${reportId}]:`, err.message);
+    return false;
+  }
+}
+
+

@@ -14,6 +14,7 @@ import {
   transitionReportStatus,
   getNotifications,
   resetToCleanState,
+  deleteReport,
 } from "./status-engine";
 import { checkSupabaseStatus } from "./supabase-client";
 import { REPORTS } from "../civic-data";
@@ -144,6 +145,17 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       return Response.json(cleanResult, { status: 200 });
     }
 
+    // 9. Delete specific report from database & Supabase
+    if ((pathname === "/api/reports/delete" || pathname === "/api/status/delete") && (request.method === "POST" || request.method === "DELETE")) {
+      const body = await request.json().catch(() => ({}));
+      const id = body.reportId || body.id || url.searchParams.get("id");
+      if (!id) {
+        return Response.json({ error: "Missing reportId" }, { status: 400 });
+      }
+      const deleteResult = await deleteReport(id);
+      return Response.json(deleteResult, { status: 200 });
+    }
+
 
     return null;
   } catch (error: any) {
@@ -257,6 +269,23 @@ export function civicPulseApiPlugin(): Plugin {
             return sendJson(res, 200, cleanResult);
           }
 
+          // 9. Delete specific report from database & Supabase
+          if (
+            (url === "/api/reports/delete" ||
+              url.startsWith("/api/reports/delete") ||
+              url === "/api/status/delete" ||
+              url.startsWith("/api/status/delete")) &&
+            (req.method === "POST" || req.method === "DELETE")
+          ) {
+            const body = await parseJsonBody(req).catch(() => ({}));
+            const idMatch = url.match(/[?&]id=([^&]+)/);
+            const id = body.reportId || body.id || (idMatch && idMatch[1] ? decodeURIComponent(idMatch[1]) : "");
+            if (!id) {
+              return sendJson(res, 400, { error: "Missing reportId" });
+            }
+            const deleteResult = await deleteReport(id);
+            return sendJson(res, 200, deleteResult);
+          }
 
           return next();
         } catch (error: any) {

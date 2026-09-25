@@ -1,6 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "name": "urbanpulse-tracker",
   "framework": null,
   "buildCommand": "NITRO_PRESET=vercel vite build"
 }

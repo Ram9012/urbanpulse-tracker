@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, notFound } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { SiteLayout } from "@/components/site/site-layout";
 import { PriorityBadge, Section, StatusBadge } from "@/components/site/primitives";
@@ -67,10 +67,45 @@ function getStageIndex(status: ReportStatus): number {
 
 function ReportDetails() {
   const { initialReport } = Route.useLoaderData();
+  const navigate = useNavigate();
   const [report, setReport] = useState<CivicReport>(initialReport);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  const handleDeleteThisReport = async () => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to permanently delete report ${report.id} from the database and Supabase?`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      await fetch("/api/reports/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportId: report.id }),
+      });
+
+      if (typeof window !== "undefined") {
+        try {
+          const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
+          const filtered = stored.filter((r: any) => r.id !== report.id);
+          localStorage.setItem("civicpulse_client_reports", JSON.stringify(filtered));
+
+          const queue = JSON.parse(localStorage.getItem("civic_reports_queue") || "[]");
+          const filteredQueue = queue.filter((r: any) => r.id !== report.id);
+          localStorage.setItem("civic_reports_queue", JSON.stringify(filteredQueue));
+
+          window.dispatchEvent(new Event("civicpulse_report_deleted"));
+        } catch {}
+      }
+
+      alert(`✓ Report ${report.id} permanently deleted from Supabase & municipal records.`);
+      navigate({ to: "/explore" });
+    } catch (err: any) {
+      alert(`Delete error: ${err.message}`);
+    }
+  };
 
   // Resolution & AI verification state
   const [resolutionNotes, setResolutionNotes] = useState(() =>
@@ -413,16 +448,26 @@ function ReportDetails() {
           <span className="text-sm text-muted-foreground">
             {report.area} · {report.ward} · Hassan Municipal Corporation
           </span>
-          <button
-            type="button"
-            onClick={() => {
-              setShowSearchModal(true);
-              runMunicipalSearch();
-            }}
-            className="ml-auto inline-flex items-center gap-1.5 text-xs font-bold text-primary bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-xl hover:bg-primary/20 transition"
-          >
-            🔍 Official Municipal Guidelines (SerpAPI)
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDeleteThisReport}
+              className="inline-flex items-center gap-1 text-xs font-bold text-destructive bg-destructive/10 border border-destructive/30 px-3 py-1.5 rounded-xl hover:bg-destructive hover:text-destructive-foreground transition shadow-sm"
+              title="Permanently delete this report from Supabase & system"
+            >
+              <span>🗑️</span> Delete Report
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowSearchModal(true);
+                runMunicipalSearch();
+              }}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-primary bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-xl hover:bg-primary/20 transition"
+            >
+              🔍 Official Guidelines
+            </button>
+          </div>
         </div>
 
         {/* Action feedback alert */}

@@ -103,19 +103,59 @@ function Dashboard() {
     }
   };
 
+  const [deleteNotice, setDeleteNotice] = useState<string | null>(null);
+
   useEffect(() => {
     fetchLiveReports();
     // Live polling every 2.5 seconds for instant real-time sync with admin changes
     const interval = setInterval(fetchLiveReports, 2500);
     const handleNew = () => fetchLiveReports();
     window.addEventListener("civicpulse_report_created", handleNew);
+    window.addEventListener("civicpulse_report_deleted", handleNew);
     window.addEventListener("storage", handleNew);
     return () => {
       clearInterval(interval);
       window.removeEventListener("civicpulse_report_created", handleNew);
+      window.removeEventListener("civicpulse_report_deleted", handleNew);
       window.removeEventListener("storage", handleNew);
     };
   }, []);
+
+  const handleDeleteReport = async (reportId: string) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to permanently delete report ${reportId} from the database and Supabase?`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      await fetch("/api/reports/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportId }),
+      });
+
+      setReports((prev) => prev.filter((r) => r.id !== reportId));
+
+      if (typeof window !== "undefined") {
+        try {
+          const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
+          const filtered = stored.filter((r: any) => r.id !== reportId);
+          localStorage.setItem("civicpulse_client_reports", JSON.stringify(filtered));
+
+          const queue = JSON.parse(localStorage.getItem("civic_reports_queue") || "[]");
+          const filteredQueue = queue.filter((r: any) => r.id !== reportId);
+          localStorage.setItem("civic_reports_queue", JSON.stringify(filteredQueue));
+
+          window.dispatchEvent(new Event("civicpulse_report_deleted"));
+        } catch {}
+      }
+
+      setDeleteNotice(`✓ Report ${reportId} permanently deleted from Supabase.`);
+      setTimeout(() => setDeleteNotice(null), 5000);
+    } catch (err: any) {
+      alert(`Delete error: ${err.message}`);
+    }
+  };
 
   const mine = reports.filter(
     (r) =>
@@ -152,6 +192,13 @@ function Dashboard() {
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_340px]">
           <div>
+            {deleteNotice && (
+              <div className="mb-4 rounded-xl bg-destructive/10 border border-destructive/30 p-3 text-sm font-semibold text-destructive flex items-center justify-between">
+                <span>{deleteNotice}</span>
+                <button onClick={() => setDeleteNotice(null)} className="text-xs font-bold underline">✕</button>
+              </div>
+            )}
+
             <div className="mb-4 flex flex-wrap items-end gap-3">
               <label className="min-w-48 flex-1">
                 <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">Search my reports</span>
@@ -285,13 +332,23 @@ function Dashboard() {
 
                       <div className="mt-4 pt-3 border-t border-border flex items-center justify-between gap-2">
                         <PriorityBadge priority={r.priority} />
-                        <Link
-                          to="/reports/$id"
-                          params={{ id: r.id }}
-                          className="inline-flex min-h-9 px-4 items-center justify-center rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground text-xs font-bold transition"
-                        >
-                          Live Status & Timeline →
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteReport(r.id)}
+                            className="inline-flex min-h-9 px-2.5 items-center justify-center rounded-xl border border-destructive/40 bg-destructive/5 text-destructive hover:bg-destructive hover:text-destructive-foreground text-xs font-bold transition shadow-sm"
+                            title="Delete report permanently from Supabase & system"
+                          >
+                            <span>🗑️</span>
+                          </button>
+                          <Link
+                            to="/reports/$id"
+                            params={{ id: r.id }}
+                            className="inline-flex min-h-9 px-3 items-center justify-center rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground text-xs font-bold transition"
+                          >
+                            Live Status & Timeline →
+                          </Link>
+                        </div>
                       </div>
                     </li>
                   );

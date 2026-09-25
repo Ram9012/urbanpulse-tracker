@@ -41,7 +41,56 @@ interface AiAnalysisResult {
   priority_recommendation: "critical" | "high" | "medium" | "low";
   priority_reason: string;
   confidence: number;
+  category_mismatch?: boolean;
+  detected_category?: string;
+  suggested_description?: string;
+  source?: string;
 }
+
+const CATEGORY_TEMPLATES: Record<string, { label: string; text: string }[]> = {
+  "Streetlight & electricity": [
+    {
+      label: "💡 Streetlights Out",
+      text: "Six streetlights between the school gate and the water tank have been unlit for four nights. The entire stretch is in complete darkness, creating severe safety risks.",
+    },
+    {
+      label: "💡 Broken Lamp Post",
+      text: "A streetlight post has a damaged fixture and flickering bulb near the junction, causing low visibility and accident risk at night.",
+    },
+    {
+      label: "⚡ Exposed Wire Hazard",
+      text: "An exposed electrical cable is dangling from the utility pole near the pedestrian sidewalk. Poses high risk of electrical shock.",
+    },
+  ],
+  "Road damage": [
+    {
+      label: "🚧 Large Pothole",
+      text: "A deep pothole has formed on the left lane right before the bus stop. Two-wheelers are swerving into oncoming traffic to avoid it.",
+    },
+    {
+      label: "🚧 Broken Footpath",
+      text: "Repaired footpath near the school has collapsed paving slabs, forcing pedestrians to walk on the busy vehicular road.",
+    },
+  ],
+  "Drainage & storm water": [
+    {
+      label: "🌊 Overflowing Drain",
+      text: "Drain overflowing after night rain at the junction, flooding the road with foul water and blocking pedestrian access.",
+    },
+  ],
+  "Garbage & sanitation": [
+    {
+      label: "🗑️ Garbage Piling Up",
+      text: "Waste has not been collected for three days beside the market gate. Spreading onto the footpath and smelling strongly.",
+    },
+  ],
+  "Traffic & public safety": [
+    {
+      label: "🚦 Traffic Signal Stuck",
+      text: "Traffic signal stuck on amber on the main circle, causing severe vehicular gridlock and near-miss collisions.",
+    },
+  ],
+};
 
 interface DuplicateCheckResult {
   is_duplicate: boolean;
@@ -74,7 +123,9 @@ function ReportPage() {
     city: "Hassan",
   });
 
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(
+    "Six streetlights between the school gate and the water tank have been off for four nights. The stretch is dark and hazardous."
+  );
   const [listening, setListening] = useState(false);
   const [category, setCategory] = useState<string>(() => {
     if (typeof window !== "undefined") {
@@ -99,6 +150,7 @@ function ReportPage() {
   // Live AI State
   const [aiAnalysis, setAiAnalysis] = useState<AiAnalysisResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
   const [duplicateResult, setDuplicateResult] = useState<DuplicateCheckResult | null>(null);
   const [selectedAction, setSelectedAction] = useState<"new" | "merge">("new");
 
@@ -256,27 +308,36 @@ function ReportPage() {
     }
   };
 
-  // Trigger Live AI Analysis via backend API
-  const runAiAnalysis = async (textToAnalyze: string) => {
-    if (!textToAnalyze || textToAnalyze.trim().length < 10) return;
+  // Trigger Live AI Analysis via backend API (Groq Qwen Engine)
+  const runAiAnalysis = async (textToAnalyze: string, explicitCategory?: string) => {
+    const activeCategory = explicitCategory || category;
+    if (!textToAnalyze || textToAnalyze.trim().length < 5) return;
     setAiLoading(true);
+    setAiNotice("⚡ Groq Qwen AI analyzing description...");
     try {
       const res = await fetch("/api/ai/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           description: textToAnalyze,
-          categoryName: category,
+          categoryName: activeCategory,
         }),
       });
 
       if (res.ok) {
         const data = await res.json();
         setAiAnalysis(data);
+        setAiNotice(`✓ Groq AI Analysis updated (${data.source || "Groq Qwen"})`);
+        setTimeout(() => setAiNotice(null), 4000);
 
-        // Also run duplicate check against nearby existing report CIV-10482
-        const existingCandidate = REPORTS[0];
-        if (existingCandidate) {
+        // Duplicate check: ONLY against reports with matching category!
+        const matchingReports = REPORTS.filter(
+          (r) =>
+            r.categoryLabel.toLowerCase().includes(activeCategory.toLowerCase().slice(0, 4)) ||
+            r.category.toLowerCase().includes(activeCategory.toLowerCase().slice(0, 4))
+        );
+        const existingCandidate = matchingReports[0];
+        if (existingCandidate && !data.category_mismatch) {
           const dupRes = await fetch("/api/ai/duplicate-check", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -292,38 +353,71 @@ function ReportPage() {
           });
           if (dupRes.ok) {
             const dupData = await dupRes.json();
-            setDuplicateResult(dupData);
+            if (dupData.is_duplicate) {
+              setDuplicateResult(dupData);
+            } else {
+              setDuplicateResult(null);
+            }
           }
+        } else {
+          setDuplicateResult(null);
         }
       }
     } catch (err: any) {
       console.warn("AI analysis network fallback:", err);
+      setAiNotice("Analyzed with fallback engine");
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const handleCategoryChange = (newCat: string) => {
+    setCategory(newCat);
+    const isPotholeText = description.toLowerCase().includes("pothole") || description.toLowerCase().includes("road");
+    const isLightCat = newCat.toLowerCase().includes("light") || newCat.toLowerCase().includes("electr");
+    if (!description || (isLightCat && isPotholeText)) {
+      const defaultTpl =
+        CATEGORY_TEMPLATES[newCat]?.[0]?.text ||
+        "Six streetlights between the school gate and the water tank have been unlit for four nights. The entire stretch is dark.";
+      setDescription(defaultTpl);
+      runAiAnalysis(defaultTpl, newCat);
+    } else {
+      runAiAnalysis(description, newCat);
     }
   };
 
   // Run initial AI analysis on mount
   useEffect(() => {
     const timer = setTimeout(() => {
-      runAiAnalysis(description);
+      runAiAnalysis(description, category);
     }, 400);
     return () => clearTimeout(timer);
-  }, [category]);
+  }, []);
 
-  const defaultText = category.toLowerCase().includes("light") || category.toLowerCase().includes("electric")
-    ? "Streetlight lamp failure causing dark stretch and safety hazard"
-    : `${category} issue requiring municipal inspection`;
+  const defaultText =
+    category.toLowerCase().includes("light") || category.toLowerCase().includes("electric")
+      ? "Six streetlights unlit for four nights causing dark stretch and safety hazard"
+      : `${category} issue requiring municipal inspection`;
   const fallbackAi = mockClassify(description || defaultText);
-  const activeAi = aiAnalysis || {
-    summary: fallbackAi.summary,
-    keywords: fallbackAi.keywords,
-    severity_signals: category.toLowerCase().includes("light") || category.toLowerCase().includes("electric")
-      ? ["poor night visibility", "pedestrian safety hazard", "dark street"]
-      : ["safety hazard", "infrastructure concern"],
-    priority_recommendation: fallbackAi.priority,
-    priority_reason: fallbackAi.reason,
-    confidence: fallbackAi.confidence,
+  const activeAi: AiAnalysisResult = {
+    summary:
+      aiAnalysis?.summary ||
+      (category.toLowerCase().includes("light") || category.toLowerCase().includes("electric")
+        ? "Streetlight outage causing total darkness and safety hazard along the roadway."
+        : fallbackAi.summary),
+    keywords: aiAnalysis?.keywords?.length ? aiAnalysis.keywords : fallbackAi.keywords,
+    severity_signals: aiAnalysis?.severity_signals?.length
+      ? aiAnalysis.severity_signals
+      : category.toLowerCase().includes("light") || category.toLowerCase().includes("electric")
+        ? ["poor night visibility", "pedestrian safety hazard", "dark street"]
+        : ["safety hazard", "infrastructure concern"],
+    priority_recommendation: aiAnalysis?.priority_recommendation || fallbackAi.priority,
+    priority_reason: aiAnalysis?.priority_reason || fallbackAi.reason,
+    confidence: aiAnalysis?.confidence || fallbackAi.confidence,
+    category_mismatch: aiAnalysis?.category_mismatch,
+    detected_category: aiAnalysis?.detected_category,
+    suggested_description: aiAnalysis?.suggested_description,
+    source: aiAnalysis?.source || "Groq Qwen AI Engine",
   };
 
   function next() {
@@ -677,7 +771,7 @@ function ReportPage() {
                     <span className="mb-1.5 block text-sm font-semibold">Category (Standard dropdown)</span>
                     <select
                       value={category}
-                      onChange={(e) => setCategory(e.target.value)}
+                      onChange={(e) => handleCategoryChange(e.target.value)}
                       className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-medium"
                     >
                       {CATEGORIES.map((c) => (
@@ -695,24 +789,106 @@ function ReportPage() {
                   </label>
                 </div>
 
+                {/* Quick Templates for Category */}
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs font-semibold text-muted-foreground mr-1">Quick templates:</span>
+                  {(CATEGORY_TEMPLATES[category] || CATEGORY_TEMPLATES["Streetlight & electricity"]).map((tpl) => (
+                    <button
+                      key={tpl.label}
+                      type="button"
+                      onClick={() => {
+                        setDescription(tpl.text);
+                        runAiAnalysis(tpl.text, category);
+                      }}
+                      className="px-2.5 py-1 rounded-lg border border-border bg-muted/40 hover:bg-primary hover:text-primary-foreground hover:border-primary text-xs font-semibold transition shadow-sm"
+                      title="Click to insert this realistic issue description"
+                    >
+                      {tpl.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Category Mismatch Detected Banner */}
+                {activeAi.category_mismatch && (
+                  <div className="mt-4 rounded-2xl border-2 border-amber-500/60 bg-amber-500/10 p-4 text-xs shadow-sm animate-fade-in">
+                    <div className="flex items-start gap-3">
+                      <span className="text-xl">⚠️</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-foreground text-sm">Groq AI Mismatch Detected</span>
+                          <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-foreground font-bold text-[10px]">
+                            Qwen AI
+                          </span>
+                        </div>
+                        <p className="mt-1.5 text-muted-foreground text-xs leading-relaxed">
+                          You selected category <strong className="text-foreground">"{category}"</strong>, but your description describes{" "}
+                          <strong className="text-foreground">"{activeAi.detected_category || "Road damage"}"</strong>.
+                        </p>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const repl =
+                                activeAi.suggested_description ||
+                                CATEGORY_TEMPLATES[category]?.[0]?.text ||
+                                "Six streetlights between the school gate and water tank have been unlit for four nights. The stretch is dark and hazardous.";
+                              setDescription(repl);
+                              runAiAnalysis(repl, category);
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition shadow-sm text-xs"
+                          >
+                            ✨ Replace with {category} Description
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const targetCat = activeAi.detected_category || "Road damage";
+                              const matched = CATEGORIES.find(
+                                (c) =>
+                                  c.name.toLowerCase().includes(targetCat.toLowerCase()) ||
+                                  targetCat.toLowerCase().includes(c.id)
+                              );
+                              const newCatName = matched ? matched.name : targetCat;
+                              setCategory(newCatName);
+                              runAiAnalysis(description, newCatName);
+                            }}
+                            className="px-3 py-1.5 rounded-xl border border-border bg-background font-bold hover:bg-accent transition text-xs"
+                          >
+                            🔄 Switch Category to {activeAi.detected_category || "Road damage"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <label className="mt-4 block">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-sm font-semibold">Description</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold">Description</span>
+                      {aiNotice && (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-teal/15 text-teal animate-pulse">
+                          {aiNotice}
+                        </span>
+                      )}
+                    </div>
                     <button
                       type="button"
-                      onClick={() => runAiAnalysis(description)}
+                      onClick={() => runAiAnalysis(description, category)}
                       disabled={aiLoading}
-                      className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                      className="text-xs font-bold text-primary hover:underline flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 transition"
+                      title="Re-analyze description with Groq Qwen AI"
                     >
-                      {aiLoading ? "AI Analyzing…" : "⚡ Re-analyze with Groq"}
+                      <span className={aiLoading ? "animate-spin" : ""}>⚡</span>
+                      {aiLoading ? "AI Analyzing with Groq…" : "Re-analyze with Groq"}
                     </button>
                   </div>
                   <textarea
                     rows={4}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    onBlur={() => runAiAnalysis(description)}
-                    className="w-full rounded-xl border border-input bg-background p-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    onBlur={() => runAiAnalysis(description, category)}
+                    className="w-full rounded-xl border border-input bg-background p-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none leading-relaxed"
                     placeholder="Tell us what needs attention, hazard signals, and landmarks."
                   />
                 </label>
@@ -864,8 +1040,14 @@ function ReportPage() {
           {/* AI Decision Support Panel */}
           <aside className="surface-card h-fit bg-navy p-6 text-navy-foreground shadow-lg rounded-2xl">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-bold uppercase tracking-wider text-teal">Groq AI Advisory Layer</p>
-              {aiLoading && <span className="size-2 rounded-full bg-teal animate-ping" />}
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-teal">Groq AI Advisory Layer</p>
+                <span className="px-1.5 py-0.5 rounded bg-teal/20 text-teal text-[10px] font-bold">Qwen 27B</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-teal animate-pulse" />
+                <span className="text-[10px] text-teal font-semibold">Live AI</span>
+              </div>
             </div>
 
             <h3 className="mt-3 text-base font-bold">
@@ -873,6 +1055,17 @@ function ReportPage() {
             </h3>
 
             <div className="mt-4 space-y-3 text-xs">
+              {activeAi.category_mismatch && (
+                <div className="rounded-xl bg-amber-500/20 border border-amber-400/40 p-3 text-[11px] text-amber-200">
+                  <span className="font-bold flex items-center gap-1.5 text-white">
+                    <span>⚠️</span> Category Mismatch Detected
+                  </span>
+                  <p className="mt-1 opacity-90 leading-tight">
+                    Issue text appears to describe <strong>{activeAi.detected_category}</strong> rather than {category}.
+                  </p>
+                </div>
+              )}
+
               <div className="rounded-xl bg-navy-foreground/10 p-3">
                 <span className="font-bold text-teal block uppercase tracking-wider text-[10px]">AI Issue Summary</span>
                 <p className="mt-1 text-white font-medium">{activeAi.summary}</p>

@@ -383,6 +383,46 @@ function ReportsTable() {
     }
   };
 
+  // Permanently delete single report from server, disk and Supabase
+  const deleteReportRecord = async (reportId: string) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to permanently delete report ${reportId} from municipal records and Supabase?`
+    );
+    if (!confirmDelete) return;
+
+    setActionNotice(`Deleting report ${reportId} from Supabase...`);
+    try {
+      await fetch("/api/reports/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportId }),
+      });
+
+      // Optimistically remove from state
+      setReports((prev) => prev.filter((r) => r.id !== reportId));
+
+      // Remove from client local storage
+      if (typeof window !== "undefined") {
+        try {
+          const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
+          const filtered = stored.filter((r: any) => r.id !== reportId);
+          localStorage.setItem("civicpulse_client_reports", JSON.stringify(filtered));
+
+          const queue = JSON.parse(localStorage.getItem("civic_reports_queue") || "[]");
+          const filteredQueue = queue.filter((r: any) => r.id !== reportId);
+          localStorage.setItem("civic_reports_queue", JSON.stringify(filteredQueue));
+
+          window.dispatchEvent(new Event("civicpulse_report_deleted"));
+        } catch {}
+      }
+
+      setActionNotice(`✓ Report ${reportId} permanently deleted from municipal queue & Supabase.`);
+      setTimeout(() => setActionNotice(null), 5000);
+    } catch (err: any) {
+      setActionNotice(`Delete failed: ${err.message}`);
+    }
+  };
+
 
   // Status transition handler
   const transitionReport = async (reportId: string, newStatus: ReportStatus, comment?: string, workerName?: string, deptName?: string) => {
@@ -641,6 +681,16 @@ function ReportsTable() {
                         title="Upload or capture photo evidence for this report"
                       >
                         <span>📷</span> Photo
+                      </button>
+
+                      {/* Delete Report Button */}
+                      <button
+                        type="button"
+                        onClick={() => deleteReportRecord(r.id)}
+                        className="px-2.5 py-1.5 rounded-xl border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground text-xs font-bold transition flex items-center gap-1 shadow-sm"
+                        title="Permanently delete this report from municipal queue & Supabase"
+                      >
+                        <span>🗑️</span> Delete
                       </button>
 
                       <Link to="/reports/$id" params={{ id: r.id }} className="text-xs font-bold text-primary hover:underline ml-1">
