@@ -3,6 +3,8 @@ import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { BRAND, LANGUAGES } from "@/lib/civic-data";
 import { BrandMark } from "./primitives";
+import { useAuth } from "@/lib/auth-client";
+
 
 const NAV = [
   { to: "/", label: "Home" },
@@ -44,6 +46,7 @@ function AnnouncementBar() {
 function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [menu, setMenu] = useState(false);
+  const { user, isAuthenticated, logout } = useAuth();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -89,12 +92,36 @@ function Navbar() {
         </ul>
 
         <div className="ml-auto flex items-center gap-2">
-          <Link
-            to="/signin"
-            className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-accent sm:inline-flex"
-          >
-            Sign In
-          </Link>
+          {isAuthenticated && user ? (
+            <div className="hidden sm:flex items-center gap-2">
+              <Link
+                to={user.role === "admin" ? "/admin" : "/dashboard"}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-muted/60 px-3 py-1.5 text-xs font-bold text-foreground transition-colors hover:bg-accent"
+              >
+                <span>{user.role === "admin" ? "🛡️" : "👤"}</span>
+                <span>{user.username}</span>
+                <span className="rounded bg-primary/10 px-1 py-0.5 text-[10px] text-primary uppercase">
+                  {user.role}
+                </span>
+              </Link>
+              <button
+                type="button"
+                onClick={logout}
+                className="rounded-xl border border-border/80 px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                title="Sign out of CivicPulse"
+              >
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <Link
+              to="/signin"
+              className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-accent sm:inline-flex"
+            >
+              Sign In
+            </Link>
+          )}
+
           <Link
             to="/report"
             className="inline-flex min-h-11 items-center rounded-xl bg-warm px-4 text-sm font-bold text-warm-foreground shadow-soft transition-all hover:shadow-lift hover:brightness-105"
@@ -116,18 +143,40 @@ function Navbar() {
       {menu && (
         <div className="border-t border-border bg-surface lg:hidden">
           <ul className="container-page grid gap-1 py-3">
-            {[...NAV, { to: "/signin", label: "Sign In" }, { to: "/dashboard", label: "My Dashboard" }].map(
-              (item) => (
-                <li key={item.to}>
-                  <Link
-                    to={item.to}
-                    onClick={() => setMenu(false)}
-                    className="block rounded-xl px-3 py-3 text-base font-semibold transition-colors hover:bg-accent"
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ),
+            {[
+              ...NAV,
+              ...(isAuthenticated && user
+                ? [
+                    {
+                      to: user.role === "admin" ? "/admin" : "/dashboard",
+                      label: user.role === "admin" ? "🛡️ Admin Portal" : `👤 My Dashboard (${user.username})`,
+                    },
+                  ]
+                : [{ to: "/signin", label: "Sign In" }]),
+            ].map((item) => (
+              <li key={item.to}>
+                <Link
+                  to={item.to}
+                  onClick={() => setMenu(false)}
+                  className="block rounded-xl px-3 py-3 text-base font-semibold transition-colors hover:bg-accent"
+                >
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+            {isAuthenticated && (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    logout();
+                    setMenu(false);
+                  }}
+                  className="w-full text-left rounded-xl px-3 py-3 text-base font-semibold text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  Sign Out
+                </button>
+              </li>
             )}
           </ul>
         </div>

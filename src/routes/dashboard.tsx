@@ -4,6 +4,8 @@ import { SiteLayout } from "@/components/site/site-layout";
 import { DemoDataNote, PriorityBadge, Section, Stat, StatusBadge } from "@/components/site/primitives";
 import { ActivityMap } from "@/components/site/civic-map";
 import { NOTIFICATIONS, REPORTS, formatDate, CivicReport } from "@/lib/civic-data";
+import { useAuth } from "@/lib/auth-client";
+
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -24,6 +26,7 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function Dashboard() {
+  const { user, isAuthenticated, logout } = useAuth();
   const [reports, setReports] = useState<CivicReport[]>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -199,6 +202,57 @@ function Dashboard() {
   return (
     <SiteLayout>
       <Section align="left" eyebrow="Citizen Dashboard" title="My Civic Reports">
+        {isAuthenticated && user ? (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-teal/30 bg-teal/5 p-4 animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-teal/15 text-lg">
+                {user.role === "admin" ? "🛡️" : "👤"}
+              </div>
+              <div>
+                <p className="font-bold text-sm text-foreground">
+                  Welcome back, {user.displayName || user.username}!
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Signed in as <span className="font-semibold text-foreground">{user.username}</span> · Role:{" "}
+                  <span className="font-semibold text-primary uppercase">{user.role}</span>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {user.role === "admin" && (
+                <Link
+                  to="/admin"
+                  className="rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:opacity-90 transition-opacity"
+                >
+                  Go to Admin Portal →
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={logout}
+                className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors"
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-muted/40 p-4">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="text-base">💡</span>
+              <span>
+                You are browsing in guest mode. <strong>Sign In</strong> or <strong>Create an Account</strong> to track your reports and get notified.
+              </span>
+            </div>
+            <Link
+              to="/signin"
+              className="rounded-xl bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground hover:opacity-90 transition-opacity"
+            >
+              Sign In / Create Account →
+            </Link>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center gap-3">
           <div className="inline-flex items-center gap-2 rounded-xl bg-teal/10 border border-teal/20 px-3 py-1 text-xs font-semibold text-teal-foreground">
             <span className="inline-block size-2 rounded-full bg-teal animate-ping" />

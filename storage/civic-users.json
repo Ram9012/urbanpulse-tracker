@@ -1,0 +1,29 @@
+[
+  {
+    "id": "USR-ADMIN-01",
+    "username": "admin",
+    "passwordHash": "admin123",
+    "role": "admin",
+    "displayName": "Municipal Administrator",
+    "createdAt": "2026-09-25T15:31:06.017Z",
+    "updatedAt": "2026-09-25T15:31:06.018Z"
+  },
+  {
+    "id": "USR-MUH4DO9R-6405",
+    "username": "bipinyadav",
+    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "role": "citizen",
+    "displayName": "Bipin Yadav",
+    "createdAt": "2026-09-25T15:32:41.636Z",
+    "updatedAt": "2026-09-25T15:32:41.637Z"
+  },
+  {
+    "id": "USR-MUH4KAWM-8756",
+    "username": "rahul_kumar",
+    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "role": "citizen",
+    "displayName": "rahul_kumar",
+    "createdAt": "2026-09-25T15:37:50.907Z",
+    "updatedAt": "2026-09-25T15:37:50.908Z"
+  }
+]

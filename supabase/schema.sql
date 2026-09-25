@@ -197,3 +197,35 @@ CREATE POLICY "System can insert status history" ON public.report_status_history
 -- Notifications readable by owner
 CREATE POLICY "Users read own notifications" ON public.notifications
   FOR SELECT USING (auth.uid() = user_id OR user_id IS NULL);
+
+-- 9. Application Users Table (Unified Auth for Citizen & Admin)
+CREATE TABLE IF NOT EXISTS public.app_users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  username TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'citizen', -- 'admin', 'citizen', 'staff'
+  display_name TEXT,
+  phone TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Seed default admin account
+INSERT INTO public.app_users (username, password_hash, role, display_name)
+VALUES ('admin', 'admin123', 'admin', 'Municipal Administrator')
+ON CONFLICT (username) DO NOTHING;
+
+-- App users RLS
+ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public read app_users" ON public.app_users
+  FOR SELECT USING (true);
+
+CREATE POLICY "Public insert app_users" ON public.app_users
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Users update own app_users" ON public.app_users
+  FOR UPDATE USING (true);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE public.app_users;
+

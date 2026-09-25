@@ -240,4 +240,81 @@ export async function deleteReportFromSupabase(reportId: string): Promise<boolea
   }
 }
 
+/**
+ * Save user to Supabase app_users table
+ */
+export async function saveUserToSupabase(user: {
+  id: string;
+  username: string;
+  passwordHash: string;
+  role: string;
+  displayName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}): Promise<boolean> {
+  if (!SUPABASE_KEY) return false;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/app_users`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates",
+      },
+      body: JSON.stringify({
+        id: user.id,
+        username: user.username,
+        password_hash: user.passwordHash,
+        role: user.role,
+        display_name: user.displayName || user.username,
+        created_at: user.createdAt || new Date().toISOString(),
+        updated_at: user.updatedAt || new Date().toISOString(),
+      }),
+    });
+    return res.ok;
+  } catch (err: any) {
+    console.warn("[Supabase Sync User Warning]:", err.message);
+    return false;
+  }
+}
+
+/**
+ * Fetch user by username from Supabase app_users table
+ */
+export async function fetchUserFromSupabase(username: string): Promise<any | null> {
+  if (!SUPABASE_KEY) return null;
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/app_users?username=eq.${encodeURIComponent(username)}&limit=1`,
+      {
+        method: "GET",
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+        },
+      }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    if (Array.isArray(rows) && rows.length > 0) {
+      const u = rows[0];
+      return {
+        id: u.id,
+        username: u.username,
+        passwordHash: u.password_hash,
+        role: u.role,
+        displayName: u.display_name || u.username,
+        createdAt: u.created_at,
+        updatedAt: u.updated_at,
+      };
+    }
+    return null;
+  } catch (err: any) {
+    console.warn("[Supabase Fetch User Warning]:", err.message);
+    return null;
+  }
+}
+
+
 

@@ -17,10 +17,13 @@ import {
   deleteReport,
 } from "./status-engine";
 import { checkSupabaseStatus } from "./supabase-client";
+import { authenticateUser, registerUser, getAllUsers, initializeAuthStore } from "./auth-store";
 import { REPORTS } from "../civic-data";
 
-// Initialize reports
+// Initialize reports & auth store
 initializeStatusEngine(REPORTS);
+initializeAuthStore();
+
 
 function parseJsonBody(req: any): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -156,6 +159,24 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       return Response.json(deleteResult, { status: 200 });
     }
 
+    // 10. Authentication & User Management
+    if (pathname === "/api/auth/login" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      const { username, password } = body;
+      const authResult = await authenticateUser(username, password);
+      return Response.json(authResult, { status: authResult.success ? 200 : 401 });
+    }
+
+    if (pathname === "/api/auth/register" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      const { username, password, confirmPassword, displayName } = body;
+      const regResult = await registerUser(username, password, confirmPassword, displayName);
+      return Response.json(regResult, { status: regResult.success ? 201 : 400 });
+    }
+
+    if (pathname === "/api/auth/users" && request.method === "GET") {
+      return Response.json({ users: getAllUsers() }, { status: 200 });
+    }
 
     return null;
   } catch (error: any) {
@@ -285,6 +306,25 @@ export function civicPulseApiPlugin(): Plugin {
             }
             const deleteResult = await deleteReport(id);
             return sendJson(res, 200, deleteResult);
+          }
+
+          // 10. Authentication & User Management
+          if (url === "/api/auth/login" && req.method === "POST") {
+            const body = await parseJsonBody(req).catch(() => ({}));
+            const { username, password } = body;
+            const authResult = await authenticateUser(username, password);
+            return sendJson(res, authResult.success ? 200 : 401, authResult);
+          }
+
+          if (url === "/api/auth/register" && req.method === "POST") {
+            const body = await parseJsonBody(req).catch(() => ({}));
+            const { username, password, confirmPassword, displayName } = body;
+            const regResult = await registerUser(username, password, confirmPassword, displayName);
+            return sendJson(res, regResult.success ? 201 : 400, regResult);
+          }
+
+          if (url === "/api/auth/users" && req.method === "GET") {
+            return sendJson(res, 200, { users: getAllUsers() });
           }
 
           return next();
