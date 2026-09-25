@@ -25,5 +25,23 @@
     "displayName": "rahul_kumar",
     "createdAt": "2026-09-25T15:37:50.907Z",
     "updatedAt": "2026-09-25T15:37:50.908Z"
+  },
+  {
+    "id": "USR-MUH5M2N5-7406",
+    "username": "rahul_sharma",
+    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "role": "citizen",
+    "displayName": "rahul_sharma",
+    "createdAt": "2026-09-25T16:07:13.132Z",
+    "updatedAt": "2026-09-25T16:07:13.135Z"
+  },
+  {
+    "id": "USR-MUH5PTIG-8779",
+    "username": "priya_patel",
+    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "role": "citizen",
+    "displayName": "priya_patel",
+    "createdAt": "2026-09-25T16:10:07.919Z",
+    "updatedAt": "2026-09-25T16:10:07.920Z"
   }
 ]
