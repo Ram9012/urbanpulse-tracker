@@ -43,5 +43,14 @@
     "displayName": "priya_patel",
     "createdAt": "2026-09-25T16:10:07.919Z",
     "updatedAt": "2026-09-25T16:10:07.920Z"
+  },
+  {
+    "id": "USR-MUH6CTH0-3775",
+    "username": "new_user_alpha",
+    "passwordHash": "6e659deaa85842cdabb5c6305fcc40033ba43772ec00d45c2a3c921741a5e377",
+    "role": "citizen",
+    "displayName": "new_user_alpha",
+    "createdAt": "2026-09-25T16:28:00.993Z",
+    "updatedAt": "2026-09-25T16:28:00.994Z"
   }
 ]
