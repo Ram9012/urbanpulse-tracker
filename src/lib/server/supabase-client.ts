@@ -5,7 +5,7 @@
  * Provides connection check, data sync, and fallback handling.
  */
 
-import { CivicReport } from "@/lib/civic-data";
+import { CivicReport } from "../civic-data";
 import { StatusHistoryEntry } from "./status-engine";
 
 const SUPABASE_URL = process.env["VITE_SUPABASE_URL"] || process.env["SUPABASE_URL"] || "https://wqwlqbozwcbcxjbxlqmh.supabase.co";

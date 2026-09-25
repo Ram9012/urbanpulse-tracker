@@ -41,10 +41,11 @@ interface AiAnalysisResult {
   priority_recommendation: "critical" | "high" | "medium" | "low";
   priority_reason: string;
   confidence: number;
-  category_mismatch?: boolean;
-  detected_category?: string;
-  suggested_description?: string;
-  source?: string;
+  category_mismatch?: boolean | undefined;
+  detected_category?: string | undefined;
+  suggested_description?: string | undefined;
+  source?: string | undefined;
+  category?: string | undefined;
 }
 
 const CATEGORY_TEMPLATES: Record<string, { label: string; text: string }[]> = {
@@ -163,23 +164,71 @@ function ReportPage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  // Real Photo Upload Handler
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File, maxDim = 1024, quality = 0.75): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL("image/jpeg", quality));
+          } else {
+            resolve(e.target?.result as string);
+          }
+        };
+        img.onerror = () => resolve(e.target?.result as string);
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => resolve("");
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Real Photo Upload Handler with Automatic Compression to persistent Data URLs
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    Array.from(files).forEach((file) => {
-      const url = URL.createObjectURL(file);
-      const newItem: MediaItem = {
-        id: `photo-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        type: "image",
-        url,
-        name: file.name,
-        size: formatFileSize(file.size),
-        timestamp: new Date().toLocaleTimeString(),
-      };
-      setMediaItems((prev) => [...prev, newItem]);
-    });
+    for (const file of Array.from(files)) {
+      try {
+        const dataUrl = await compressImage(file, 1024, 0.75);
+        const newItem: MediaItem = {
+          id: `photo-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          type: "image",
+          url: dataUrl || URL.createObjectURL(file),
+          name: file.name,
+          size: formatFileSize(file.size),
+          timestamp: new Date().toLocaleTimeString(),
+        };
+        setMediaItems((prev) => [...prev, newItem]);
+      } catch {
+        const url = URL.createObjectURL(file);
+        const newItem: MediaItem = {
+          id: `photo-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          type: "image",
+          url,
+          name: file.name,
+          size: formatFileSize(file.size),
+          timestamp: new Date().toLocaleTimeString(),
+        };
+        setMediaItems((prev) => [...prev, newItem]);
+      }
+    }
 
     e.target.value = "";
   };
@@ -497,6 +546,7 @@ function ReportPage() {
         purged.unshift(newReport);
         localStorage.setItem("civicpulse_client_reports", JSON.stringify(purged));
         window.dispatchEvent(new CustomEvent("civicpulse_report_created", { detail: newReport }));
+        window.dispatchEvent(new Event("storage"));
       } catch (e) {
         console.warn("Local storage save notice:", e);
       }
@@ -792,7 +842,7 @@ function ReportPage() {
                 {/* Quick Templates for Category */}
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
                   <span className="text-xs font-semibold text-muted-foreground mr-1">Quick templates:</span>
-                  {(CATEGORY_TEMPLATES[category] || CATEGORY_TEMPLATES["Streetlight & electricity"]).map((tpl) => (
+                  {(CATEGORY_TEMPLATES[category] ?? CATEGORY_TEMPLATES["Streetlight & electricity"] ?? []).map((tpl) => (
                     <button
                       key={tpl.label}
                       type="button"

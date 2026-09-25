@@ -130,7 +130,7 @@ export type CivicReport = {
   status: ReportStatus;
   priority: Priority;
   department: string;
-  worker?: string;
+  worker?: string | undefined;
   createdAt: string;
   updatedAt: string;
   aiConfidence: number;
@@ -140,13 +140,13 @@ export type CivicReport = {
   /** Percent coordinates on the illustrated demo map. */
   x: number;
   y: number;
-  mediaUrls?: string[];
-  workerMediaUrls?: string[];
-  resolutionMediaUrls?: string[];
-  latitude?: number;
-  longitude?: number;
-  address?: string;
-  resolutionNotes?: string;
+  mediaUrls?: string[] | undefined;
+  workerMediaUrls?: string[] | undefined;
+  resolutionMediaUrls?: string[] | undefined;
+  latitude?: number | undefined;
+  longitude?: number | undefined;
+  address?: string | undefined;
+  resolutionNotes?: string | undefined;
 };
 
 export const REPORTS: CivicReport[] = [

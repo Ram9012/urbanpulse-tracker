@@ -51,31 +51,64 @@ function Explore() {
   const [query, setQuery] = useState("");
   const [deleteNotice, setDeleteNotice] = useState<string | null>(null);
 
-  // Sync with live backend reports
+  // Sync with live backend reports and client storage safely
   const fetchReports = async () => {
+    let serverReports: CivicReport[] = [];
     try {
       const res = await fetch("/api/status/reports");
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data.reports) && data.reports.length > 0) {
-          setReportsList(data.reports);
-          return;
+        if (Array.isArray(data.reports)) {
+          serverReports = data.reports;
         }
       }
     } catch {}
 
+    let localReports: CivicReport[] = [];
     if (typeof window !== "undefined") {
       try {
         const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
-        if (Array.isArray(stored) && stored.length > 0) {
-          const map = new Map<string, CivicReport>();
-          stored.forEach((r: CivicReport) => map.set(r.id, r));
-          REPORTS.forEach((r: CivicReport) => {
-            if (!map.has(r.id)) map.set(r.id, r);
-          });
-          setReportsList(Array.from(map.values()));
+        if (Array.isArray(stored)) {
+          localReports = stored;
         }
       } catch {}
+    }
+
+    const map = new Map<string, CivicReport>();
+    REPORTS.forEach((r) => map.set(r.id.toLowerCase(), r));
+    serverReports.forEach((sr) => map.set(sr.id.toLowerCase(), sr));
+
+    localReports.forEach((lr) => {
+      const existing = map.get(lr.id.toLowerCase());
+      if (!existing) {
+        map.set(lr.id.toLowerCase(), lr);
+      } else {
+        const isLocalResolved = lr.status === "resolved";
+        const isExistingResolved = existing.status === "resolved";
+        if (isLocalResolved && !isExistingResolved) {
+          map.set(lr.id.toLowerCase(), { ...existing, ...lr, status: "resolved" });
+        } else {
+          const localTime = new Date(lr.updatedAt || 0).getTime();
+          const existingTime = new Date(existing.updatedAt || 0).getTime();
+          if (localTime >= existingTime) {
+            map.set(lr.id.toLowerCase(), { ...existing, ...lr });
+          } else {
+            map.set(lr.id.toLowerCase(), {
+              ...lr,
+              ...existing,
+              resolutionMediaUrls: existing.resolutionMediaUrls?.length ? existing.resolutionMediaUrls : lr.resolutionMediaUrls,
+              workerMediaUrls: existing.workerMediaUrls?.length ? existing.workerMediaUrls : lr.workerMediaUrls,
+            });
+          }
+        }
+      }
+    });
+
+    const merged = Array.from(map.values()).filter(
+      (r) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
+    );
+    if (merged.length > 0) {
+      setReportsList(merged);
     }
   };
 
@@ -83,10 +116,12 @@ function Explore() {
     fetchReports();
     const handleUpdate = () => fetchReports();
     window.addEventListener("civicpulse_report_created", handleUpdate);
+    window.addEventListener("civicpulse_report_updated", handleUpdate);
     window.addEventListener("civicpulse_report_deleted", handleUpdate);
     window.addEventListener("storage", handleUpdate);
     return () => {
       window.removeEventListener("civicpulse_report_created", handleUpdate);
+      window.removeEventListener("civicpulse_report_updated", handleUpdate);
       window.removeEventListener("civicpulse_report_deleted", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
     };

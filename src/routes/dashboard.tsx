@@ -74,12 +74,41 @@ function Dashboard() {
         } catch {}
       }
 
+      // Smart merge protecting resolved status and respecting timestamps
       const map = new Map<string, CivicReport>();
-      REPORTS.forEach((r) => map.set(r.id, r));
-      localReports.forEach((r) => map.set(r.id, r));
-      serverReports.forEach((r) => map.set(r.id, r));
+      REPORTS.forEach((r) => map.set(r.id.toLowerCase(), r));
+      serverReports.forEach((sr) => map.set(sr.id.toLowerCase(), sr));
 
-      const merged = Array.from(map.values());
+      localReports.forEach((lr) => {
+        const existing = map.get(lr.id.toLowerCase());
+        if (!existing) {
+          map.set(lr.id.toLowerCase(), lr);
+        } else {
+          const isLocalResolved = lr.status === "resolved";
+          const isExistingResolved = existing.status === "resolved";
+          if (isLocalResolved && !isExistingResolved) {
+            map.set(lr.id.toLowerCase(), { ...existing, ...lr, status: "resolved" });
+          } else {
+            const localTime = new Date(lr.updatedAt || 0).getTime();
+            const existingTime = new Date(existing.updatedAt || 0).getTime();
+            if (localTime >= existingTime) {
+              map.set(lr.id.toLowerCase(), { ...existing, ...lr });
+            } else {
+              map.set(lr.id.toLowerCase(), {
+                ...lr,
+                ...existing,
+                resolutionMediaUrls: existing.resolutionMediaUrls?.length ? existing.resolutionMediaUrls : lr.resolutionMediaUrls,
+                workerMediaUrls: existing.workerMediaUrls?.length ? existing.workerMediaUrls : lr.workerMediaUrls,
+              });
+            }
+          }
+        }
+      });
+
+      const merged = Array.from(map.values()).filter(
+        (r) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
+      );
+
       if (merged.length > 0) {
         setReports(merged);
         setLastSynced(new Date().toLocaleTimeString());
@@ -107,17 +136,19 @@ function Dashboard() {
 
   useEffect(() => {
     fetchLiveReports();
-    // Live polling every 2.5 seconds for instant real-time sync with admin changes
-    const interval = setInterval(fetchLiveReports, 2500);
-    const handleNew = () => fetchLiveReports();
-    window.addEventListener("civicpulse_report_created", handleNew);
-    window.addEventListener("civicpulse_report_deleted", handleNew);
-    window.addEventListener("storage", handleNew);
+    // Live polling every 3 seconds for instant real-time sync with admin changes
+    const interval = setInterval(fetchLiveReports, 3000);
+    const handleUpdate = () => fetchLiveReports();
+    window.addEventListener("civicpulse_report_created", handleUpdate);
+    window.addEventListener("civicpulse_report_updated", handleUpdate);
+    window.addEventListener("civicpulse_report_deleted", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
     return () => {
       clearInterval(interval);
-      window.removeEventListener("civicpulse_report_created", handleNew);
-      window.removeEventListener("civicpulse_report_deleted", handleNew);
-      window.removeEventListener("storage", handleNew);
+      window.removeEventListener("civicpulse_report_created", handleUpdate);
+      window.removeEventListener("civicpulse_report_updated", handleUpdate);
+      window.removeEventListener("civicpulse_report_deleted", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
     };
   }, []);
 
