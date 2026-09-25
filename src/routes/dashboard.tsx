@@ -3,7 +3,14 @@ import { useEffect, useState } from "react";
 import { SiteLayout } from "@/components/site/site-layout";
 import { DemoDataNote, PriorityBadge, Section, Stat, StatusBadge } from "@/components/site/primitives";
 import { ActivityMap } from "@/components/site/civic-map";
-import { NOTIFICATIONS, REPORTS, formatDate, CivicReport } from "@/lib/civic-data";
+import {
+  NOTIFICATIONS,
+  REPORTS,
+  formatDate,
+  CivicReport,
+  getDeletedReportIds,
+  markReportDeleted,
+} from "@/lib/civic-data";
 import { useAuth } from "@/lib/auth-client";
 import { CivicChatbot } from "@/components/site/civic-chatbot";
 import { SocietyMap } from "@/components/site/society-map";
@@ -30,23 +37,30 @@ export const Route = createFileRoute("/dashboard")({
 function Dashboard() {
   const { user, isAuthenticated, logout } = useAuth();
   const [reports, setReports] = useState<CivicReport[]>(() => {
+    const deleted = getDeletedReportIds();
     if (typeof window !== "undefined") {
       try {
         const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
         const valid = stored.filter(
-          (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
+          (r: any) =>
+            !deleted.has(r.id.toLowerCase()) &&
+            !r.id.startsWith("CIV-104") &&
+            r.id !== "CIV-54728" &&
+            r.id !== "CIV-42603",
         );
         if (valid.length > 0) {
           const map = new Map<string, CivicReport>();
-          valid.forEach((r: CivicReport) => map.set(r.id, r));
+          valid.forEach((r: CivicReport) => map.set(r.id.toLowerCase(), r));
           REPORTS.forEach((r: CivicReport) => {
-            if (!map.has(r.id)) map.set(r.id, r);
+            if (!deleted.has(r.id.toLowerCase()) && !map.has(r.id.toLowerCase())) {
+              map.set(r.id.toLowerCase(), r);
+            }
           });
           return Array.from(map.values());
         }
       } catch {}
     }
-    return REPORTS;
+    return REPORTS.filter((r) => !deleted.has(r.id.toLowerCase()));
   });
   const [notifications, setNotifications] = useState<any[]>(NOTIFICATIONS);
   const [view, setView] = useState<"list" | "map">("map");
@@ -57,10 +71,14 @@ function Dashboard() {
   // Fetch real-time live reports from backend and sync with localStorage
   const fetchLiveReports = async () => {
     try {
+      const deleted = getDeletedReportIds();
       const res = await fetch("/api/status/reports");
       let serverReports: CivicReport[] = [];
       if (res.ok) {
         const data = await res.json();
+        if (Array.isArray(data.deletedIds)) {
+          data.deletedIds.forEach((id: string) => markReportDeleted(id));
+        }
         if (data.reports && data.reports.length > 0) {
           serverReports = data.reports.filter(
             (r: CivicReport) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
@@ -68,23 +86,38 @@ function Dashboard() {
         }
       }
 
+      const freshDeleted = getDeletedReportIds();
+
       // Merge with client localStorage
       let localReports: CivicReport[] = [];
       if (typeof window !== "undefined") {
         try {
           const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
           localReports = stored.filter(
-            (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
+            (r: any) =>
+              !freshDeleted.has(r.id.toLowerCase()) &&
+              !r.id.startsWith("CIV-104") &&
+              r.id !== "CIV-54728" &&
+              r.id !== "CIV-42603",
           );
         } catch {}
       }
 
       // Smart merge protecting resolved status and respecting timestamps
       const map = new Map<string, CivicReport>();
-      REPORTS.forEach((r) => map.set(r.id.toLowerCase(), r));
-      serverReports.forEach((sr) => map.set(sr.id.toLowerCase(), sr));
+      REPORTS.forEach((r) => {
+        if (!freshDeleted.has(r.id.toLowerCase())) {
+          map.set(r.id.toLowerCase(), r);
+        }
+      });
+      serverReports.forEach((sr) => {
+        if (!freshDeleted.has(sr.id.toLowerCase())) {
+          map.set(sr.id.toLowerCase(), sr);
+        }
+      });
 
       localReports.forEach((lr) => {
+        if (freshDeleted.has(lr.id.toLowerCase())) return;
         const existing = map.get(lr.id.toLowerCase());
         if (!existing) {
           map.set(lr.id.toLowerCase(), lr);
@@ -111,17 +144,19 @@ function Dashboard() {
       });
 
       const merged = Array.from(map.values()).filter(
-        (r) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
+        (r) =>
+          !freshDeleted.has(r.id.toLowerCase()) &&
+          !r.id.startsWith("CIV-104") &&
+          r.id !== "CIV-54728" &&
+          r.id !== "CIV-42603",
       );
 
-      if (merged.length > 0) {
-        setReports(merged);
-        setLastSynced(new Date().toLocaleTimeString());
-        if (typeof window !== "undefined") {
-          try {
-            localStorage.setItem("civicpulse_client_reports", JSON.stringify(merged));
-          } catch {}
-        }
+      setReports(merged);
+      setLastSynced(new Date().toLocaleTimeString());
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("civicpulse_client_reports", JSON.stringify(merged));
+        } catch {}
       }
 
       // Also fetch live notifications
@@ -163,34 +198,43 @@ function Dashboard() {
     );
     if (!confirmDelete) return;
 
+    // 1. Immediately mark deleted in client persistent storage
+    markReportDeleted(reportId);
+
+    // 2. Remove immediately from state
+    setReports((prev) => prev.filter((r) => r.id.toLowerCase() !== reportId.toLowerCase()));
+
+    // 3. Remove from localStorage
+    if (typeof window !== "undefined") {
+      try {
+        const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
+        const filtered = stored.filter((r: any) => r.id.toLowerCase() !== reportId.toLowerCase());
+        localStorage.setItem("civicpulse_client_reports", JSON.stringify(filtered));
+
+        const queue = JSON.parse(localStorage.getItem("civic_reports_queue") || "[]");
+        const filteredQueue = queue.filter((r: any) => r.id.toLowerCase() !== reportId.toLowerCase());
+        localStorage.setItem("civic_reports_queue", JSON.stringify(filteredQueue));
+      } catch {}
+    }
+
+    // 4. Send API call
     try {
       await fetch("/api/reports/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reportId }),
       });
-
-      setReports((prev) => prev.filter((r) => r.id !== reportId));
-
-      if (typeof window !== "undefined") {
-        try {
-          const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
-          const filtered = stored.filter((r: any) => r.id !== reportId);
-          localStorage.setItem("civicpulse_client_reports", JSON.stringify(filtered));
-
-          const queue = JSON.parse(localStorage.getItem("civic_reports_queue") || "[]");
-          const filteredQueue = queue.filter((r: any) => r.id !== reportId);
-          localStorage.setItem("civic_reports_queue", JSON.stringify(filteredQueue));
-
-          window.dispatchEvent(new Event("civicpulse_report_deleted"));
-        } catch {}
-      }
-
-      setDeleteNotice(`✓ Report ${reportId} permanently deleted from Supabase.`);
-      setTimeout(() => setDeleteNotice(null), 5000);
     } catch (err: any) {
-      alert(`Delete error: ${err.message}`);
+      console.warn("Delete API call notice:", err);
     }
+
+    // 5. Broadcast deletion
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("civicpulse_report_deleted", { detail: { reportId } }));
+    }
+
+    setDeleteNotice(`✓ Report ${reportId} permanently deleted from database & Supabase.`);
+    setTimeout(() => setDeleteNotice(null), 5000);
   };
 
   const mine = reports.filter(

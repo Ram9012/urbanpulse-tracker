@@ -510,7 +510,38 @@ export function formatDateTime(iso: string) {
 }
 
 export function getReport(id: string) {
+  const deleted = getDeletedReportIds();
+  if (deleted.has(id.toLowerCase())) return undefined;
   return REPORTS.find((r) => r.id.toLowerCase() === id.toLowerCase());
+}
+
+export const DELETED_REPORTS_KEY = "civicpulse_deleted_reports";
+
+export function getDeletedReportIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(DELETED_REPORTS_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr.map((id: string) => String(id).toLowerCase().trim()) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function markReportDeleted(id: string): void {
+  if (typeof window === "undefined" || !id) return;
+  try {
+    const set = getDeletedReportIds();
+    set.add(id.toLowerCase().trim());
+    localStorage.setItem(DELETED_REPORTS_KEY, JSON.stringify(Array.from(set)));
+  } catch {}
+}
+
+export function filterOutDeletedReports(reports: CivicReport[]): CivicReport[] {
+  const deleted = getDeletedReportIds();
+  if (deleted.size === 0) return reports;
+  return reports.filter((r) => !deleted.has(r.id.toLowerCase().trim()));
 }
 
 /** Mock AI classifier — stands in for the NLP/vision service until a key exists. */
@@ -557,3 +588,4 @@ export function mockClassify(text: string): {
       "Matched category keywords in the description and two nearby reports in the same ward within the last 7 days.",
   };
 }
+

@@ -2,7 +2,15 @@ import { createFileRoute, Link, useNavigate, notFound } from "@tanstack/react-ro
 import { useEffect, useState, useRef } from "react";
 import { SiteLayout } from "@/components/site/site-layout";
 import { PriorityBadge, Section, StatusBadge } from "@/components/site/primitives";
-import { REPORTS, formatDateTime, getReport, CivicReport, ReportStatus, FIELD_WORKERS } from "@/lib/civic-data";
+import {
+  REPORTS,
+  formatDateTime,
+  getReport,
+  CivicReport,
+  ReportStatus,
+  FIELD_WORKERS,
+  markReportDeleted,
+} from "@/lib/civic-data";
 import { RealMap } from "@/components/site/real-map";
 
 export const Route = createFileRoute("/reports/$id")({
@@ -80,6 +88,8 @@ function ReportDetails() {
     if (!confirmDelete) return;
 
     try {
+      markReportDeleted(report.id);
+
       await fetch("/api/reports/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

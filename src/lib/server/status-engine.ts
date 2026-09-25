@@ -48,6 +48,7 @@ function getStoragePaths() {
     reportsFile: path.join(STORAGE_DIR, "civic-reports.json"),
     historyFile: path.join(STORAGE_DIR, "civic-history.json"),
     notifsFile: path.join(STORAGE_DIR, "civic-notifications.json"),
+    deletedFile: path.join(STORAGE_DIR, "civic-deleted.json"),
   };
 }
 
@@ -55,6 +56,7 @@ function getStoragePaths() {
 let activeReports: CivicReport[] = [];
 let statusHistories: StatusHistoryEntry[] = [];
 let activeNotifications: NotificationItem[] = [];
+let deletedReportIds: Set<string> = new Set();
 
 function ensureStorageDir() {
   try {
@@ -74,10 +76,11 @@ function ensureStorageDir() {
 function saveToDisk() {
   try {
     ensureStorageDir();
-    const { reportsFile, historyFile, notifsFile } = getStoragePaths();
+    const { reportsFile, historyFile, notifsFile, deletedFile } = getStoragePaths();
     fs.writeFileSync(reportsFile, JSON.stringify(activeReports, null, 2), "utf-8");
     fs.writeFileSync(historyFile, JSON.stringify(statusHistories, null, 2), "utf-8");
     fs.writeFileSync(notifsFile, JSON.stringify(activeNotifications, null, 2), "utf-8");
+    fs.writeFileSync(deletedFile, JSON.stringify(Array.from(deletedReportIds), null, 2), "utf-8");
   } catch (err) {
     console.warn("[Save to Disk Warning]:", err);
   }
@@ -86,7 +89,16 @@ function saveToDisk() {
 function loadFromDisk(): boolean {
   try {
     ensureStorageDir();
-    const { reportsFile, historyFile, notifsFile } = getStoragePaths();
+    const { reportsFile, historyFile, notifsFile, deletedFile } = getStoragePaths();
+    if (fs.existsSync(deletedFile)) {
+      try {
+        const delData = JSON.parse(fs.readFileSync(deletedFile, "utf-8"));
+        if (Array.isArray(delData)) {
+          deletedReportIds = new Set(delData.map((x: string) => String(x).toLowerCase().trim()));
+        }
+      } catch {}
+    }
+
     if (fs.existsSync(reportsFile)) {
       const data = fs.readFileSync(reportsFile, "utf-8");
       activeReports = JSON.parse(data);
@@ -109,10 +121,14 @@ function loadFromDisk(): boolean {
 export function initializeStatusEngine(initialReports: CivicReport[]) {
   // First attempt to load from disk
   if (loadFromDisk() && activeReports.length > 0) {
+    activeReports = activeReports.filter((r) => !deletedReportIds.has(r.id.toLowerCase().trim()));
     return;
   }
 
-  activeReports = JSON.parse(JSON.stringify(initialReports));
+  const filteredInitial = initialReports.filter(
+    (r) => !deletedReportIds.has(r.id.toLowerCase().trim())
+  );
+  activeReports = JSON.parse(JSON.stringify(filteredInitial));
 
   // Seed realistic status history for initial reports
   for (const r of activeReports) {
@@ -186,15 +202,22 @@ export function initializeStatusEngine(initialReports: CivicReport[]) {
 export function getAllReports(): CivicReport[] {
   // Ensure fresh state from disk
   loadFromDisk();
-  return activeReports;
+  return activeReports.filter((r) => !deletedReportIds.has(r.id.toLowerCase().trim()));
+}
+
+export function getDeletedReportIdsServer(): string[] {
+  loadFromDisk();
+  return Array.from(deletedReportIds);
 }
 
 export function getReportById(id: string): CivicReport | null {
   loadFromDisk();
-  let r = activeReports.find((item) => item.id.toLowerCase() === id.toLowerCase());
+  const idLower = id.toLowerCase().trim();
+  if (deletedReportIds.has(idLower)) return null;
+  let r = activeReports.find((item) => item.id.toLowerCase() === idLower);
   if (r) return r;
-  const fallback = REPORTS.find((item) => item.id.toLowerCase() === id.toLowerCase());
-  if (fallback) return fallback;
+  const fallback = REPORTS.find((item) => item.id.toLowerCase() === idLower);
+  if (fallback && !deletedReportIds.has(fallback.id.toLowerCase().trim())) return fallback;
   return null;
 }
 
@@ -544,12 +567,13 @@ export async function transitionReportStatus(params: {
 /**
  * Delete a report permanently from active cache, disk storage, and Supabase.
  */
-export async function deleteReport(reportId: string): Promise<{ success: boolean; id: string; supabaseDeleted?: boolean }> {
+export async function deleteReport(reportId: string): Promise<{ success: boolean; id: string; supabaseDeleted?: boolean; deletedIds: string[] }> {
   loadFromDisk();
-  const idLower = reportId.toLowerCase();
-  activeReports = activeReports.filter((r) => r.id.toLowerCase() !== idLower);
-  statusHistories = statusHistories.filter((h) => h.reportId.toLowerCase() !== idLower);
-  activeNotifications = activeNotifications.filter((n) => n.reportId.toLowerCase() !== idLower);
+  const idLower = reportId.toLowerCase().trim();
+  deletedReportIds.add(idLower);
+  activeReports = activeReports.filter((r) => r.id.toLowerCase().trim() !== idLower);
+  statusHistories = statusHistories.filter((h) => h.reportId.toLowerCase().trim() !== idLower);
+  activeNotifications = activeNotifications.filter((n) => n.reportId.toLowerCase().trim() !== idLower);
   saveToDisk();
 
   let supabaseDeleted = false;
@@ -563,6 +587,7 @@ export async function deleteReport(reportId: string): Promise<{ success: boolean
     success: true,
     id: reportId,
     supabaseDeleted,
+    deletedIds: Array.from(deletedReportIds),
   };
 }
 

@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { CATEGORIES, REPORTS, STATUS_META, type CivicReport } from "@/lib/civic-data";
+import { CATEGORIES, REPORTS, STATUS_META, type CivicReport, getDeletedReportIds } from "@/lib/civic-data";
 import { StatusBadge } from "./primitives";
 
 const CATEGORY_DOT: Record<string, string> = {
@@ -13,8 +13,48 @@ const CATEGORY_DOT: Record<string, string> = {
   parks: "bg-success",
 };
 
-/** Illustrated street-grid stand-in for the live map provider. */
+/** Real interactive OpenStreetMap canvas instead of fake black SVG graph. */
 export function MapCanvas({ className, children }: { className?: string; children?: React.ReactNode }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !containerRef.current) return;
+    let isMounted = true;
+    import("leaflet").then((L) => {
+      if (!isMounted || !containerRef.current) return;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+      const map = L.map(containerRef.current, {
+        zoomControl: false,
+        attributionControl: false,
+        scrollWheelZoom: false,
+        dragging: false,
+        touchZoom: false,
+        doubleClickZoom: false,
+      }).setView([13.0072, 76.1023], 15);
+      mapRef.current = map;
+
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+      }).addTo(map);
+
+      setTimeout(() => {
+        if (mapRef.current) mapRef.current.invalidateSize();
+      }, 200);
+    });
+
+    return () => {
+      isMounted = false;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
+
   return (
     <div
       className={cn(
@@ -22,25 +62,8 @@ export function MapCanvas({ className, children }: { className?: string; childre
         className,
       )}
     >
-      <div className="absolute inset-0 civic-grid-bg" aria-hidden="true" />
-      <div className="absolute inset-0 topo-texture" aria-hidden="true" />
-      <svg
-        className="absolute inset-0 size-full text-primary/25"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        <path d="M0 34 H100" stroke="currentColor" strokeWidth="1.4" />
-        <path d="M0 71 H100" stroke="currentColor" strokeWidth="1.1" />
-        <path d="M22 0 V100" stroke="currentColor" strokeWidth="1.2" />
-        <path d="M68 0 V100" stroke="currentColor" strokeWidth="1.4" />
-        <path d="M0 8 C26 20 40 52 100 46" stroke="currentColor" strokeWidth="0.7" fill="none" />
-        <path d="M0 92 C34 84 52 62 100 88" stroke="currentColor" strokeWidth="0.7" fill="none" />
-      </svg>
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-teal/20 to-transparent animate-civic-scan"
-      />
+      <div ref={containerRef} className="absolute inset-0 size-full opacity-90" />
+      <div className="absolute inset-0 bg-background/15 pointer-events-none" />
       {children}
     </div>
   );
@@ -128,16 +151,21 @@ export function MarkerPreviewCard({ report }: { report: CivicReport }) {
 /** Filterable community activity map used on the homepage and explorer. */
 export function ActivityMap({ compact = false }: { compact?: boolean }) {
   const [reportsList, setReportsList] = useState<CivicReport[]>(() => {
+    const deleted = getDeletedReportIds();
     if (typeof window !== "undefined") {
       try {
         const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
         const valid = stored.filter(
-          (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
+          (r: any) =>
+            !deleted.has(r.id.toLowerCase()) &&
+            !r.id.startsWith("CIV-104") &&
+            r.id !== "CIV-54728" &&
+            r.id !== "CIV-42603",
         );
         if (valid.length > 0) return valid;
       } catch {}
     }
-    return REPORTS;
+    return REPORTS.filter((r) => !deleted.has(r.id.toLowerCase()));
   });
   const [category, setCategory] = useState<string>("all");
   const [status, setStatus] = useState<string>("all");
@@ -147,13 +175,18 @@ export function ActivityMap({ compact = false }: { compact?: boolean }) {
   useEffect(() => {
     const fetchReports = async () => {
       try {
+        const deleted = getDeletedReportIds();
         const res = await fetch("/api/status/reports");
         if (res.ok) {
           const data = await res.json();
           if (data.reports && data.reports.length > 0) {
             setReportsList(
               data.reports.filter(
-                (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
+                (r: any) =>
+                  !deleted.has(r.id.toLowerCase()) &&
+                  !r.id.startsWith("CIV-104") &&
+                  r.id !== "CIV-54728" &&
+                  r.id !== "CIV-42603",
               ),
             );
           }
@@ -161,6 +194,9 @@ export function ActivityMap({ compact = false }: { compact?: boolean }) {
       } catch {}
     };
     fetchReports();
+    const handleDeleted = () => fetchReports();
+    window.addEventListener("civicpulse_report_deleted", handleDeleted);
+    return () => window.removeEventListener("civicpulse_report_deleted", handleDeleted);
   }, []);
 
   const visible = reportsList.filter(

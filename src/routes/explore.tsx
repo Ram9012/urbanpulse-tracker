@@ -3,7 +3,14 @@ import { useEffect, useState } from "react";
 import { SiteLayout } from "@/components/site/site-layout";
 import { DemoDataNote, Section, StatusBadge, PriorityBadge } from "@/components/site/primitives";
 import { SocietyMap } from "@/components/site/society-map";
-import { CATEGORIES, REPORTS, formatDate, CivicReport } from "@/lib/civic-data";
+import {
+  CATEGORIES,
+  REPORTS,
+  formatDate,
+  CivicReport,
+  getDeletedReportIds,
+  markReportDeleted,
+} from "@/lib/civic-data";
 
 export const Route = createFileRoute("/explore")({
   head: () => ({
@@ -29,20 +36,25 @@ export const Route = createFileRoute("/explore")({
 
 function Explore() {
   const [reportsList, setReportsList] = useState<CivicReport[]>(() => {
+    const deleted = getDeletedReportIds();
     if (typeof window !== "undefined") {
       try {
         const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
         if (Array.isArray(stored) && stored.length > 0) {
           const map = new Map<string, CivicReport>();
-          stored.forEach((r: CivicReport) => map.set(r.id, r));
+          stored.forEach((r: CivicReport) => {
+            if (!deleted.has(r.id.toLowerCase())) map.set(r.id.toLowerCase(), r);
+          });
           REPORTS.forEach((r: CivicReport) => {
-            if (!map.has(r.id)) map.set(r.id, r);
+            if (!deleted.has(r.id.toLowerCase()) && !map.has(r.id.toLowerCase())) {
+              map.set(r.id.toLowerCase(), r);
+            }
           });
           return Array.from(map.values());
         }
       } catch {}
     }
-    return REPORTS;
+    return REPORTS.filter((r) => !deleted.has(r.id.toLowerCase()));
   });
 
   const [category, setCategory] = useState("all");
@@ -53,16 +65,22 @@ function Explore() {
 
   // Sync with live backend reports and client storage safely
   const fetchReports = async () => {
+    const deleted = getDeletedReportIds();
     let serverReports: CivicReport[] = [];
     try {
       const res = await fetch("/api/status/reports");
       if (res.ok) {
         const data = await res.json();
+        if (Array.isArray(data.deletedIds)) {
+          data.deletedIds.forEach((id: string) => markReportDeleted(id));
+        }
         if (Array.isArray(data.reports)) {
           serverReports = data.reports;
         }
       }
     } catch {}
+
+    const freshDeleted = getDeletedReportIds();
 
     let localReports: CivicReport[] = [];
     if (typeof window !== "undefined") {
@@ -75,10 +93,19 @@ function Explore() {
     }
 
     const map = new Map<string, CivicReport>();
-    REPORTS.forEach((r) => map.set(r.id.toLowerCase(), r));
-    serverReports.forEach((sr) => map.set(sr.id.toLowerCase(), sr));
+    REPORTS.forEach((r) => {
+      if (!freshDeleted.has(r.id.toLowerCase())) {
+        map.set(r.id.toLowerCase(), r);
+      }
+    });
+    serverReports.forEach((sr) => {
+      if (!freshDeleted.has(sr.id.toLowerCase())) {
+        map.set(sr.id.toLowerCase(), sr);
+      }
+    });
 
     localReports.forEach((lr) => {
+      if (freshDeleted.has(lr.id.toLowerCase())) return;
       const existing = map.get(lr.id.toLowerCase());
       if (!existing) {
         map.set(lr.id.toLowerCase(), lr);
@@ -105,11 +132,9 @@ function Explore() {
     });
 
     const merged = Array.from(map.values()).filter(
-      (r) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
+      (r) => !freshDeleted.has(r.id.toLowerCase()) && !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
     );
-    if (merged.length > 0) {
-      setReportsList(merged);
-    }
+    setReportsList(merged);
   };
 
   useEffect(() => {
@@ -133,36 +158,43 @@ function Explore() {
     );
     if (!confirmDelete) return;
 
+    // 1. Mark in client persistent deleted set immediately
+    markReportDeleted(reportId);
+
+    // 2. Remove from state immediately
+    setReportsList((prev) => prev.filter((r) => r.id.toLowerCase() !== reportId.toLowerCase()));
+
+    // 3. Remove from localStorage
+    if (typeof window !== "undefined") {
+      try {
+        const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
+        const filtered = stored.filter((r: any) => r.id.toLowerCase() !== reportId.toLowerCase());
+        localStorage.setItem("civicpulse_client_reports", JSON.stringify(filtered));
+
+        const queue = JSON.parse(localStorage.getItem("civic_reports_queue") || "[]");
+        const filteredQueue = queue.filter((r: any) => r.id.toLowerCase() !== reportId.toLowerCase());
+        localStorage.setItem("civic_reports_queue", JSON.stringify(filteredQueue));
+      } catch {}
+    }
+
+    // 4. Send API request to server & Supabase
     try {
-      const res = await fetch("/api/reports/delete", {
+      await fetch("/api/reports/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reportId }),
       });
-
-      // Remove from state immediately
-      setReportsList((prev) => prev.filter((r) => r.id !== reportId));
-
-      // Remove from localStorage
-      if (typeof window !== "undefined") {
-        try {
-          const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
-          const filtered = stored.filter((r: any) => r.id !== reportId);
-          localStorage.setItem("civicpulse_client_reports", JSON.stringify(filtered));
-
-          const queue = JSON.parse(localStorage.getItem("civic_reports_queue") || "[]");
-          const filteredQueue = queue.filter((r: any) => r.id !== reportId);
-          localStorage.setItem("civic_reports_queue", JSON.stringify(filteredQueue));
-
-          window.dispatchEvent(new Event("civicpulse_report_deleted"));
-        } catch {}
-      }
-
-      setDeleteNotice(`✓ Report ${reportId} permanently deleted from Supabase & system records.`);
-      setTimeout(() => setDeleteNotice(null), 5000);
     } catch (err: any) {
-      alert(`Delete failed: ${err.message}`);
+      console.warn("Delete API call notice:", err);
     }
+
+    // 5. Broadcast deletion to all listeners (triggers update without resurrecting)
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("civicpulse_report_deleted", { detail: { reportId } }));
+    }
+
+    setDeleteNotice(`✓ Report ${reportId} permanently deleted from database & Supabase.`);
+    setTimeout(() => setDeleteNotice(null), 5000);
   };
 
   const list = reportsList.filter(
@@ -179,7 +211,7 @@ function Explore() {
         title="Explore Reports in Your Area"
         description="Only non-sensitive reports appear here. Phone numbers, email addresses, exact home addresses, private media and internal staff notes are never published."
       >
-        <SocietyMap reports={reportsList} />
+        <SocietyMap reports={reportsList} onDeleteReport={handleDeleteReport} />
       </Section>
 
       <Section className="bg-surface border-y border-border" align="left" title="Report list">
@@ -259,10 +291,29 @@ function Explore() {
                   <span className="text-xs font-bold text-muted-foreground">{r.id}</span>
                   <StatusBadge status={r.status} />
                 </div>
-                <div
-                  aria-hidden="true"
-                  className="mt-3 h-32 rounded-xl border border-border civic-grid-bg topo-texture"
-                />
+                {r.mediaUrls && r.mediaUrls.length > 0 ? (
+                  <div className="relative mt-3 h-36 rounded-xl overflow-hidden border border-border bg-black/10">
+                    <img
+                      src={r.mediaUrls[0]}
+                      alt={r.title}
+                      className="size-full object-cover"
+                      loading="lazy"
+                    />
+                    <span className="absolute bottom-2 left-2 rounded-md bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white">
+                      📷 Evidence Photo
+                    </span>
+                  </div>
+                ) : (
+                  <div className="mt-3 flex h-28 items-center justify-between rounded-xl border border-border/80 bg-muted/30 p-3.5">
+                    <div className="space-y-1">
+                      <span className="text-xs font-bold text-foreground">📍 {r.area}</span>
+                      <p className="text-[11px] text-muted-foreground">{r.societyName || r.ward}</p>
+                    </div>
+                    <span className="rounded-lg bg-surface border border-border px-2.5 py-1 text-xs font-bold text-primary shadow-xs">
+                      {r.categoryLabel}
+                    </span>
+                  </div>
+                )}
                 <h3 className="mt-4 text-base font-bold leading-snug">{r.title}</h3>
                 <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{r.description}</p>
                 <p className="mt-3 text-xs text-muted-foreground">

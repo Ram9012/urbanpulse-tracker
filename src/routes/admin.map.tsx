@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { MapCanvas, MapLegend, ReportMarker } from "@/components/site/civic-map";
 import { DemoDataNote, PriorityBadge, StatusBadge } from "@/components/site/primitives";
-import { REPORTS, formatDateTime } from "@/lib/civic-data";
+import { REPORTS, formatDateTime, getDeletedReportIds } from "@/lib/civic-data";
 
 export const Route = createFileRoute("/admin/map")({
   head: () => ({
@@ -23,8 +23,10 @@ export const Route = createFileRoute("/admin/map")({
 });
 
 function AdminMap() {
-  const [selected, setSelected] = useState(REPORTS[0]!.id);
-  const active = REPORTS.find((r) => r.id === selected)!;
+  const deleted = getDeletedReportIds();
+  const availableReports = REPORTS.filter((r) => !deleted.has(r.id.toLowerCase()));
+  const [selected, setSelected] = useState(availableReports[0]?.id || REPORTS[0]?.id || "");
+  const active = availableReports.find((r) => r.id === selected) || availableReports[0] || REPORTS[0]!;
 
   return (
     <div>
@@ -53,7 +55,7 @@ function AdminMap() {
       <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_380px]">
         <div>
           <MapCanvas className="h-[420px] xl:h-[620px]">
-            {REPORTS.map((r) => (
+            {availableReports.map((r) => (
               <ReportMarker key={r.id} report={r} active={r.id === selected} onSelect={() => setSelected(r.id)} />
             ))}
           </MapCanvas>

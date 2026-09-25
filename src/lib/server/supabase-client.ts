@@ -209,8 +209,9 @@ export async function deleteReportFromSupabase(reportId: string): Promise<boolea
   }
 
   try {
+    const cleanId = reportId.trim();
     // 1. Delete associated status history records
-    await fetch(`${SUPABASE_URL}/rest/v1/report_status_history?report_id=eq.${encodeURIComponent(reportId)}`, {
+    await fetch(`${SUPABASE_URL}/rest/v1/report_status_history?report_id=eq.${encodeURIComponent(cleanId)}`, {
       method: "DELETE",
       headers: {
         apikey: SUPABASE_KEY,
@@ -218,8 +219,19 @@ export async function deleteReportFromSupabase(reportId: string): Promise<boolea
       },
     });
 
-    // 2. Delete the report from reports table
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/reports?id=eq.${encodeURIComponent(reportId)}`, {
+    // 2. Clear any duplicate_of_id referencing this report
+    await fetch(`${SUPABASE_URL}/rest/v1/reports?duplicate_of_id=eq.${encodeURIComponent(cleanId)}`, {
+      method: "PATCH",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ duplicate_of_id: null }),
+    });
+
+    // 3. Delete the report from reports table (by id or tracking_id)
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/reports?or=(id.eq.${encodeURIComponent(cleanId)},tracking_id.eq.${encodeURIComponent(cleanId)})`, {
       method: "DELETE",
       headers: {
         apikey: SUPABASE_KEY,

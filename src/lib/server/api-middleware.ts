@@ -16,6 +16,7 @@ import {
   getNotifications,
   resetToCleanState,
   deleteReport,
+  getDeletedReportIdsServer,
 } from "./status-engine";
 import {
   authenticateUser,
@@ -124,7 +125,14 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
 
     // 6. Reports & Status Engine APIs
     if (pathname === "/api/status/reports" && request.method === "GET") {
-      return Response.json({ reports: getAllReports() }, { status: 200 });
+      return Response.json({
+        reports: getAllReports(),
+        deletedIds: getDeletedReportIdsServer(),
+      }, { status: 200 });
+    }
+
+    if (pathname === "/api/reports/deleted" && request.method === "GET") {
+      return Response.json({ deletedIds: getDeletedReportIdsServer() }, { status: 200 });
     }
 
     if (pathname.startsWith("/api/status/report") && request.method === "GET") {
@@ -297,7 +305,14 @@ export function civicPulseApiPlugin(): Plugin {
 
           // 6. Reports & Status Engine APIs
           if (url === "/api/status/reports" && req.method === "GET") {
-            return sendJson(res, 200, { reports: getAllReports() });
+            return sendJson(res, 200, {
+              reports: getAllReports(),
+              deletedIds: getDeletedReportIdsServer(),
+            });
+          }
+
+          if (url === "/api/reports/deleted" && req.method === "GET") {
+            return sendJson(res, 200, { deletedIds: getDeletedReportIdsServer() });
           }
 
           if (url.startsWith("/api/status/report") && req.method === "GET") {

@@ -1,7 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { DemoDataNote, PriorityBadge, StatusBadge } from "@/components/site/primitives";
-import { CATEGORIES, DEPARTMENTS, FIELD_WORKERS, REPORTS, formatDate, CivicReport, ReportStatus } from "@/lib/civic-data";
+import {
+  CATEGORIES,
+  DEPARTMENTS,
+  FIELD_WORKERS,
+  REPORTS,
+  formatDate,
+  CivicReport,
+  ReportStatus,
+  getDeletedReportIds,
+  markReportDeleted,
+} from "@/lib/civic-data";
 
 export const Route = createFileRoute("/admin/reports")({
   head: () => ({
@@ -23,23 +33,30 @@ export const Route = createFileRoute("/admin/reports")({
 
 function ReportsTable() {
   const [reports, setReports] = useState<CivicReport[]>(() => {
+    const deleted = getDeletedReportIds();
     if (typeof window !== "undefined") {
       try {
         const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
         const valid = stored.filter(
-          (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
+          (r: any) =>
+            !deleted.has(r.id.toLowerCase()) &&
+            !r.id.startsWith("CIV-104") &&
+            r.id !== "CIV-54728" &&
+            r.id !== "CIV-42603",
         );
         if (valid.length > 0) {
           const map = new Map<string, CivicReport>();
-          valid.forEach((r: CivicReport) => map.set(r.id, r));
+          valid.forEach((r: CivicReport) => map.set(r.id.toLowerCase(), r));
           REPORTS.forEach((r: CivicReport) => {
-            if (!map.has(r.id)) map.set(r.id, r);
+            if (!deleted.has(r.id.toLowerCase()) && !map.has(r.id.toLowerCase())) {
+              map.set(r.id.toLowerCase(), r);
+            }
           });
           return Array.from(map.values());
         }
       } catch {}
     }
-    return REPORTS;
+    return REPORTS.filter((r) => !deleted.has(r.id.toLowerCase()));
   });
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState("all");
@@ -363,10 +380,14 @@ function ReportsTable() {
   // Fetch reports from status engine API and sync with local storage safely
   const fetchReports = async () => {
     try {
+      const deleted = getDeletedReportIds();
       const res = await fetch("/api/status/reports");
       let serverReports: CivicReport[] = [];
       if (res.ok) {
         const data = await res.json();
+        if (Array.isArray(data.deletedIds)) {
+          data.deletedIds.forEach((id: string) => markReportDeleted(id));
+        }
         if (data.reports) {
           serverReports = data.reports.filter(
             (r: CivicReport) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
@@ -374,25 +395,31 @@ function ReportsTable() {
         }
       }
 
+      const freshDeleted = getDeletedReportIds();
+
       // Read client localStorage
       let localReports: CivicReport[] = [];
       if (typeof window !== "undefined") {
         try {
           const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
           localReports = stored.filter(
-            (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
+            (r: any) =>
+              !freshDeleted.has(r.id.toLowerCase()) &&
+              !r.id.startsWith("CIV-104") &&
+              r.id !== "CIV-54728" &&
+              r.id !== "CIV-42603",
           );
         } catch {}
       }
 
-      const merged = mergeReportsWithPrecedence(localReports, serverReports);
-      if (merged.length > 0) {
-        setReports(merged);
-        if (typeof window !== "undefined") {
-          try {
-            localStorage.setItem("civicpulse_client_reports", JSON.stringify(merged));
-          } catch {}
-        }
+      const merged = mergeReportsWithPrecedence(localReports, serverReports).filter(
+        (r) => !freshDeleted.has(r.id.toLowerCase())
+      );
+      setReports(merged);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("civicpulse_client_reports", JSON.stringify(merged));
+        } catch {}
       }
     } catch (err) {
       console.warn("Could not fetch reports from API:", err);
@@ -448,6 +475,27 @@ function ReportsTable() {
     );
     if (!confirmDelete) return;
 
+    // 1. Mark as deleted in persistent client storage immediately
+    markReportDeleted(reportId);
+
+    // 2. Optimistically remove from state immediately
+    setReports((prev) => prev.filter((r) => r.id.toLowerCase() !== reportId.toLowerCase()));
+
+    // 3. Remove from client local storage
+    if (typeof window !== "undefined") {
+      try {
+        const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
+        const filtered = stored.filter((r: any) => r.id.toLowerCase() !== reportId.toLowerCase());
+        localStorage.setItem("civicpulse_client_reports", JSON.stringify(filtered));
+
+        const queue = JSON.parse(localStorage.getItem("civic_reports_queue") || "[]");
+        const filteredQueue = queue.filter((r: any) => r.id.toLowerCase() !== reportId.toLowerCase());
+        localStorage.setItem("civic_reports_queue", JSON.stringify(filteredQueue));
+
+        window.dispatchEvent(new Event("civicpulse_report_deleted"));
+      } catch {}
+    }
+
     setActionNotice(`Deleting report ${reportId} from Supabase...`);
     try {
       await fetch("/api/reports/delete", {
@@ -455,24 +503,6 @@ function ReportsTable() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reportId }),
       });
-
-      // Optimistically remove from state
-      setReports((prev) => prev.filter((r) => r.id !== reportId));
-
-      // Remove from client local storage
-      if (typeof window !== "undefined") {
-        try {
-          const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
-          const filtered = stored.filter((r: any) => r.id !== reportId);
-          localStorage.setItem("civicpulse_client_reports", JSON.stringify(filtered));
-
-          const queue = JSON.parse(localStorage.getItem("civic_reports_queue") || "[]");
-          const filteredQueue = queue.filter((r: any) => r.id !== reportId);
-          localStorage.setItem("civic_reports_queue", JSON.stringify(filteredQueue));
-
-          window.dispatchEvent(new Event("civicpulse_report_deleted"));
-        } catch {}
-      }
 
       setActionNotice(`✓ Report ${reportId} permanently deleted from municipal queue & Supabase.`);
       setTimeout(() => setActionNotice(null), 5000);

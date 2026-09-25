@@ -25,6 +25,7 @@ interface SocietyMapProps {
   currentUsername?: string;
   className?: string;
   onSelectReport?: (report: CivicReport) => void;
+  onDeleteReport?: (reportId: string) => void;
 }
 
 export function SocietyMap({
@@ -32,6 +33,7 @@ export function SocietyMap({
   currentUsername = "bipinyadav",
   className = "",
   onSelectReport,
+  onDeleteReport,
 }: SocietyMapProps) {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(
     reports[0]?.id || "CIV-95674"
@@ -47,7 +49,6 @@ export function SocietyMap({
   const leafletInstanceRef = useRef<any>(null);
   const tileLayerRef = useRef<any>(null);
   const markersGroupRef = useRef<any>(null);
-  const userMarkerRef = useRef<any>(null);
 
   // Filter reports based on scope and category
   const filteredReports = reports.filter((r) => {
@@ -66,11 +67,18 @@ export function SocietyMap({
   const selectedReport =
     reports.find((r) => r.id === selectedReportId) || filteredReports[0] || reports[0];
 
+  // Auto-recover selection if current report is deleted or filtered out
+  useEffect(() => {
+    if (selectedReportId && !reports.some((r) => r.id === selectedReportId)) {
+      setSelectedReportId(filteredReports[0]?.id || reports[0]?.id || null);
+    }
+  }, [reports, filteredReports, selectedReportId]);
+
   const handleSelect = (r: CivicReport) => {
     setSelectedReportId(r.id);
     if (onSelectReport) onSelectReport(r);
 
-    // Pan map to report location
+    // Pan map to report location smoothly
     if (leafletInstanceRef.current && r.latitude && r.longitude) {
       leafletInstanceRef.current.flyTo([r.latitude, r.longitude], 16, {
         duration: 0.8,
@@ -122,7 +130,7 @@ export function SocietyMap({
     }
   };
 
-  // Initialize Real Leaflet Map
+  // Initialize Real Leaflet Map ONCE
   useEffect(() => {
     if (typeof window === "undefined" || !leafletContainerRef.current) return;
 
@@ -130,22 +138,20 @@ export function SocietyMap({
     import("leaflet").then((L) => {
       if (!isMounted || !leafletContainerRef.current) return;
 
-      // Clean existing instance if any
       if (leafletInstanceRef.current) {
         leafletInstanceRef.current.remove();
         leafletInstanceRef.current = null;
       }
 
-      const centerLat = selectedReport?.latitude || 13.0072;
-      const centerLng = selectedReport?.longitude || 76.1023;
+      const initialLat = selectedReport?.latitude || 13.0072;
+      const initialLng = selectedReport?.longitude || 76.1023;
 
       const map = L.map(leafletContainerRef.current, {
         zoomControl: true,
         scrollWheelZoom: true,
-      }).setView([centerLat, centerLng], 15);
+      }).setView([initialLat, initialLng], 15);
       leafletInstanceRef.current = map;
 
-      // Real street tiles (OpenStreetMap / Esri Satellite)
       const tileUrl =
         mapLayer === "satellite"
           ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -159,11 +165,55 @@ export function SocietyMap({
       const tileLayer = L.tileLayer(tileUrl, { maxZoom: 19, attribution }).addTo(map);
       tileLayerRef.current = tileLayer;
 
-      // Feature Group for markers
       const markersGroup = L.featureGroup().addTo(map);
       markersGroupRef.current = markersGroup;
 
-      // Render problem points on the real map
+      // Invalidate size to ensure proper rendering without grey tiles
+      setTimeout(() => {
+        if (leafletInstanceRef.current) {
+          leafletInstanceRef.current.invalidateSize();
+        }
+      }, 250);
+    });
+
+    return () => {
+      isMounted = false;
+      if (leafletInstanceRef.current) {
+        leafletInstanceRef.current.remove();
+        leafletInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  // Update map tile layer when mapLayer changes
+  useEffect(() => {
+    if (!leafletInstanceRef.current) return;
+    import("leaflet").then((L) => {
+      if (!leafletInstanceRef.current) return;
+      if (tileLayerRef.current) {
+        leafletInstanceRef.current.removeLayer(tileLayerRef.current);
+      }
+      const tileUrl =
+        mapLayer === "satellite"
+          ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          : "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+      const attribution =
+        mapLayer === "satellite"
+          ? '&copy; <a href="https://www.esri.com/">Esri</a>'
+          : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
+      tileLayerRef.current = L.tileLayer(tileUrl, { maxZoom: 19, attribution }).addTo(leafletInstanceRef.current);
+    });
+  }, [mapLayer]);
+
+  // Update markers on the map dynamically without destroying the canvas
+  useEffect(() => {
+    if (!leafletInstanceRef.current || !markersGroupRef.current) return;
+    import("leaflet").then((L) => {
+      if (!leafletInstanceRef.current || !markersGroupRef.current) return;
+      markersGroupRef.current.clearLayers();
+
       filteredReports.forEach((r, idx) => {
         const isSelected = r.id === selectedReportId;
         const isMine =
@@ -175,7 +225,7 @@ export function SocietyMap({
           <div style="position: relative; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
             ${
               isSelected
-                ? '<div style="position: absolute; width: 50px; height: 50px; background: rgba(20,110,245,0.3); border-radius: 50%; animation: ping 1.5s infinite;"></div>'
+                ? '<div style="position: absolute; width: 50px; height: 50px; background: rgba(20,110,245,0.35); border-radius: 50%; animation: ping 1.5s infinite;"></div>'
                 : ""
             }
             <div style="background: ${isMine ? "#146ef5" : "#0f172a"}; color: white; width: 34px; height: 34px; border-radius: 50%; border: 3px solid ${
@@ -202,7 +252,6 @@ export function SocietyMap({
 
         const marker = L.marker([r.latitude || 13.0072, r.longitude || 76.1023], { icon });
 
-        // Popup right on the pin
         const popupContent = `
           <div style="font-family: inherit; font-size: 12px; line-height: 1.4; min-width: 180px;">
             <div style="font-weight: 800; color: #146ef5; font-size: 11px; margin-bottom: 2px;">${r.id} · Point ${idx + 1}</div>
@@ -218,10 +267,9 @@ export function SocietyMap({
           handleSelect(r);
         });
 
-        markersGroup.addLayer(marker);
+        markersGroupRef.current.addLayer(marker);
       });
 
-      // Render User GPS Location marker if known
       if (userGps) {
         const userIcon = L.divIcon({
           className: "leaflet-user-gps-marker",
@@ -236,20 +284,12 @@ export function SocietyMap({
           iconSize: [32, 32],
           iconAnchor: [16, 16],
         });
-        const userMarker = L.marker([userGps.lat, userGps.lng], { icon: userIcon }).addTo(map);
+        const userMarker = L.marker([userGps.lat, userGps.lng], { icon: userIcon });
         userMarker.bindPopup("<b>Your Society Location</b><br/>You are here.");
-        userMarkerRef.current = userMarker;
+        markersGroupRef.current.addLayer(userMarker);
       }
     });
-
-    return () => {
-      isMounted = false;
-      if (leafletInstanceRef.current) {
-        leafletInstanceRef.current.remove();
-        leafletInstanceRef.current = null;
-      }
-    };
-  }, [mapLayer, selectedReportId, filterScope, categoryFilter, userGps]);
+  }, [filteredReports, selectedReportId, userGps]);
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -518,15 +558,26 @@ export function SocietyMap({
                 {selectedReport.description}
               </p>
 
-              {/* View Full Timeline Action */}
-              <div className="pt-2">
+              {/* Actions: View Timeline and Delete */}
+              <div className="pt-2 flex flex-col gap-2">
                 <Link
                   to="/reports/$id"
                   params={{ id: selectedReport.id }}
-                  className="w-full inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-4 text-xs font-bold text-primary-foreground shadow hover:bg-primary/90 transition"
+                  className="w-full inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-4 text-xs font-bold text-primary-foreground shadow hover:bg-primary/90 transition text-center"
                 >
                   View Live Status & Timeline →
                 </Link>
+                {onDeleteReport && (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteReport(selectedReport.id)}
+                    className="w-full inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-destructive/35 bg-destructive/10 px-3 text-xs font-bold text-destructive hover:bg-destructive hover:text-white transition active:scale-95 shadow-xs"
+                    title="Permanently delete this report from municipal records and Supabase"
+                  >
+                    <span>🗑️</span>
+                    <span>Delete This Report Permanently</span>
+                  </button>
+                )}
               </div>
             </div>
           ) : (
