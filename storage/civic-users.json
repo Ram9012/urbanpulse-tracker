@@ -11,7 +11,7 @@
   {
     "id": "USR-MUH4DO9R-6405",
     "username": "bipinyadav",
-    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "passwordHash": "2565a7f62a73f6588b7c20d4a47ed55494d158a292cf208eb93c5253ca5e1e16",
     "role": "citizen",
     "displayName": "Bipin Yadav",
     "createdAt": "2026-09-25T15:32:41.636Z",
@@ -52,5 +52,14 @@
     "displayName": "new_user_alpha",
     "createdAt": "2026-09-25T16:28:00.993Z",
     "updatedAt": "2026-09-25T16:28:00.994Z"
+  },
+  {
+    "id": "USR-MUH72XBF-1207",
+    "username": "test_user_777",
+    "passwordHash": "6e0daa0a792dcaef24738984267b05c5153663f16fa31a96325ab2fc1ca713b8",
+    "role": "citizen",
+    "displayName": "test_user_777",
+    "createdAt": "2026-09-25T16:48:18.990Z",
+    "updatedAt": "2026-09-25T16:48:18.990Z"
   }
 ]

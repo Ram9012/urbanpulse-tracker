@@ -5,6 +5,7 @@ import { DemoDataNote, PriorityBadge, Section, Stat, StatusBadge } from "@/compo
 import { ActivityMap } from "@/components/site/civic-map";
 import { NOTIFICATIONS, REPORTS, formatDate, CivicReport } from "@/lib/civic-data";
 import { useAuth } from "@/lib/auth-client";
+import { CivicChatbot } from "@/components/site/civic-chatbot";
 
 
 export const Route = createFileRoute("/dashboard")({
@@ -259,6 +260,10 @@ function Dashboard() {
             <span>Live Realtime Sync Active</span>
             <span className="text-[10px] text-muted-foreground ml-1">({lastSynced})</span>
           </div>
+          <div className="inline-flex items-center gap-1.5 rounded-xl bg-primary/10 border border-primary/20 px-3 py-1 text-xs font-semibold text-primary">
+            <span>⚡</span>
+            <span>Groq AI Assistant Active</span>
+          </div>
           <DemoDataNote />
           <Link
             to="/report"
@@ -275,7 +280,7 @@ function Dashboard() {
           <Stat label="Municipal Ward" value={"Ward 12"} hint="Hassan Central" />
         </div>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_340px]">
+        <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_400px]">
           <div>
             {deleteNotice && (
               <div className="mb-4 rounded-xl bg-destructive/10 border border-destructive/30 p-3 text-sm font-semibold text-destructive flex items-center justify-between">
@@ -443,6 +448,9 @@ function Dashboard() {
           </div>
 
           <aside className="space-y-4">
+            {/* Groq AI Civic Chatbot (PulseBot) */}
+            <CivicChatbot user={user} reports={reports} variant="inline" />
+
             {/* Live Notifications (Triggered by Status Machine) */}
             <div className="surface-card p-5 rounded-2xl shadow-sm">
               <div className="flex items-center justify-between mb-3">
@@ -481,6 +489,9 @@ function Dashboard() {
             </div>
           </aside>
         </div>
+
+        {/* Floating Groq AI Chatbot Assistant */}
+        <CivicChatbot user={user} reports={reports} variant="floating" />
       </Section>
     </SiteLayout>
   );

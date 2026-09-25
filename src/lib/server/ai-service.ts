@@ -264,3 +264,153 @@ Return a strictly valid JSON object:
     { role: "user", content: prompt },
   ]);
 }
+
+/**
+ * AI Service 8: Citizen Dashboard AI Assistant (PulseBot) Powered by Groq AI
+ */
+export async function handleCivicChatbot(
+  messages: Array<{ role: string; content: string }>,
+  citizenContext?: {
+    username?: string;
+    reports?: Array<{
+      id: string;
+      title: string;
+      status: string;
+      category: string;
+      ward?: string;
+      area?: string;
+      priority?: string;
+      createdAt?: string;
+      updatedAt?: string;
+    }>;
+  },
+) {
+  const citizenName = citizenContext?.username || "Citizen";
+  const userReportsSummary = (citizenContext?.reports || [])
+    .map(
+      (r) =>
+        `- Report ID: ${r.id} | Title: "${r.title}" | Status: ${r.status.toUpperCase()} | Category: ${r.category} | Ward: ${r.ward || "Ward 12"} | Created: ${r.createdAt || "Recent"}`,
+    )
+    .join("\n");
+
+  const systemPrompt = `You are PulseBot, the official intelligent Civic AI Assistant on the CivicPulse portal for Hassan Municipal Council.
+You assist citizens like ${citizenName} with their civic complaints, municipal information, tracking, and service guidelines.
+
+CITIZEN CONTEXT:
+- Active Citizen: ${citizenName}
+- Current Reports in this citizen's dashboard:
+${userReportsSummary || "- No complaints logged yet or recently submitted."}
+
+MUNICIPAL GUIDELINES & SLA TIMELINES:
+1. Potholes & Road Damage (Public Works): Standard SLA is 48-72 hours.
+2. Streetlight Outages & Electrical Faults (Electrical Dept): Standard SLA is 24 hours.
+3. Garbage & Sanitation Dumps (Sanitation Dept): Standard SLA is 12-24 hours.
+4. Water Pipeline Leakage & Contamination (Water Supply): Standard SLA is 24-48 hours. Emergency leaks prioritized within 4-8 hours.
+5. Drainage & Sewage Overflow (Sewerage Dept): Standard SLA is 24 hours.
+
+MUNICIPAL STAGES EXPLANATION:
+- SUBMITTED: Complaint received, awaiting triage by municipal officers.
+- TRIAGED / VERIFIED: Verified by municipal engineer with AI duplicate detection.
+- ASSIGNED: Work order dispatched to designated field worker.
+- IN PROGRESS: Field worker on-site performing repairs (with photographic evidence).
+- RESOLVED: Repair completed with verified before/after evidence photos.
+- VERIFIED: Closed and audited.
+
+OFFICIAL MUNICIPAL CONTACTS & EMERGENCY ESCALATION:
+- Hassan City Municipal Council (CMC) Central Control Room: 08172-268000
+- 24x7 Water Supply Emergency Helpline: 1800-425-0101
+- Electrical Faults (BESCOM): 1912
+- Fire & Disaster Emergency: 112
+- Municipal Office: B.M. Road, Hassan, Karnataka - 573201
+
+INSTRUCTIONS:
+- Be respectful, crisp, empathetic, and civic-minded.
+- If the citizen asks about their specific report (e.g. CIV-95674 or "my complaint"), look up the details in the CITIZEN CONTEXT above and provide accurate, live status updates.
+- If the citizen asks how to file a new report, guide them to click the "+ Report New Issue" button on the dashboard, take/upload a clear photo, enable location, and describe the problem.
+- Format responses cleanly with bold highlights, bullet points, or markdown when explaining multi-step procedures. Keep answers concise and direct.
+- You are powered by Groq's high-speed LPU inference engine.`;
+
+  const chatMessages = [
+    { role: "system", content: systemPrompt },
+    ...messages.slice(-10),
+  ];
+
+  const modelsToTry = [
+    "openai/gpt-oss-120b",
+    GROQ_MODEL || "qwen/qwen3.8-27b",
+    "openai/gpt-oss-20b",
+  ];
+
+  let lastError: any = null;
+  for (const model of modelsToTry) {
+    try {
+      const response = await fetch(`${GROQ_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: chatMessages,
+          temperature: 0.3,
+          max_tokens: 800,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content ?? "";
+        return {
+          success: true,
+          reply: content,
+          model,
+          source: "Groq AI Engine",
+        };
+      } else {
+        const errText = await response.text();
+        lastError = new Error(`Groq model ${model} HTTP ${response.status}: ${errText}`);
+      }
+    } catch (e: any) {
+      lastError = e;
+    }
+  }
+
+  console.warn("[Groq Chatbot Fallback Triggered]:", lastError?.message);
+  const lastUserMsg = messages[messages.length - 1]?.content?.toLowerCase() || "";
+  let fallbackReply = `Hello ${citizenName}! I am PulseBot, your Hassan Municipal Council civic assistant.\n\n`;
+
+  if (lastUserMsg.includes("status") || lastUserMsg.includes("track") || lastUserMsg.includes("civ-")) {
+    if (citizenContext?.reports && citizenContext.reports.length > 0) {
+      const r = citizenContext.reports[0];
+      fallbackReply += `Here is the current status of your active report **${r.id}** (${r.title}):\n` +
+        `- **Current Status**: \`${r.status.toUpperCase()}\`\n` +
+        `- **Category**: ${r.category}\n` +
+        `- **Ward**: ${r.ward || "Ward 12"}\n\n` +
+        `Our municipal team is actively monitoring this issue. You can click on the report card to view real-time photo verification.`;
+    } else {
+      fallbackReply += `You currently have 1 active report under tracking. You can see its live status card right on your dashboard!`;
+    }
+  } else if (lastUserMsg.includes("emergency") || lastUserMsg.includes("number") || lastUserMsg.includes("contact") || lastUserMsg.includes("phone")) {
+    fallbackReply += `Here are the official emergency contact numbers for Hassan Municipal Council:\n` +
+      `- 🚨 **Central Control Room**: 08172-268000\n` +
+      `- 🚰 **24x7 Water Supply Helpline**: 1800-425-0101\n` +
+      `- ⚡ **Electricity Emergency (BESCOM)**: 1912\n` +
+      `- 🚒 **Police / Fire / Disaster**: 112`;
+  } else if (lastUserMsg.includes("how") || lastUserMsg.includes("report") || lastUserMsg.includes("new")) {
+    fallbackReply += `To report a new civic issue:\n` +
+      `1. Click the **"+ Report New Issue"** button at the top right of your dashboard.\n` +
+      `2. Take or upload a clear photo of the problem.\n` +
+      `3. Verify the GPS location on the map.\n` +
+      `4. Select the category (Roads, Water, Electricity, Sanitation) and submit. Our AI will automatically triage and route it to the right department!`;
+  } else {
+    fallbackReply += `I can help you track complaints, provide municipal SLA repair timelines, connect you with ward emergency helplines, or explain how to submit evidence photos. What would you like to know today?`;
+  }
+
+  return {
+    success: true,
+    reply: fallbackReply,
+    model: "CivicPulse Deterministic Engine (Offline Fallback)",
+    source: "Groq Local Fallback",
+  };
+}

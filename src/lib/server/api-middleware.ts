@@ -4,6 +4,7 @@ import {
   analyzeDuplicateReport,
   verifyResolutionEvidence,
   generateWorkloadInsights,
+  handleCivicChatbot,
 } from "./ai-service";
 import {
   initializeStatusEngine,
@@ -93,6 +94,14 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
     if (pathname === "/api/ai/workload" && request.method === "POST") {
       const body = await request.json();
       const result = await generateWorkloadInsights(body.departmentData || {});
+      return Response.json(result, { status: 200 });
+    }
+
+    // 4.1 Citizen Dashboard AI Chatbot (Groq Powered)
+    if (pathname === "/api/ai/chat" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      const { messages, citizenContext } = body;
+      const result = await handleCivicChatbot(messages || [], citizenContext);
       return Response.json(result, { status: 200 });
     }
 
@@ -257,6 +266,14 @@ export function civicPulseApiPlugin(): Plugin {
           if (url === "/api/ai/workload" && req.method === "POST") {
             const body = await parseJsonBody(req);
             const result = await generateWorkloadInsights(body.departmentData || {});
+            return sendJson(res, 200, result);
+          }
+
+          // 4.1 Citizen Dashboard AI Chatbot (Groq Powered)
+          if (url === "/api/ai/chat" && req.method === "POST") {
+            const body = await parseJsonBody(req).catch(() => ({}));
+            const { messages, citizenContext } = body;
+            const result = await handleCivicChatbot(messages || [], citizenContext);
             return sendJson(res, 200, result);
           }
 
