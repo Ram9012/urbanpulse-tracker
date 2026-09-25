@@ -63,7 +63,7 @@ function Dashboard() {
     return REPORTS.filter((r) => !deleted.has(r.id.toLowerCase()));
   });
   const [notifications, setNotifications] = useState<any[]>(NOTIFICATIONS);
-  const [view, setView] = useState<"list" | "map">("map");
+  const [view, setView] = useState<"list" | "map" | "bot">("list");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [lastSynced, setLastSynced] = useState<string>("Just now");
@@ -301,10 +301,14 @@ function Dashboard() {
             <span>Live Realtime Sync Active</span>
             <span className="text-[10px] text-muted-foreground ml-1">({lastSynced})</span>
           </div>
-          <div className="inline-flex items-center gap-1.5 rounded-xl bg-primary/10 border border-primary/20 px-3 py-1 text-xs font-semibold text-primary">
-            <span>⚡</span>
-            <span>Groq AI Assistant Active</span>
-          </div>
+          <button
+            type="button"
+            onClick={() => setView("bot")}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-primary/10 border border-primary/20 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 transition active:scale-95 shadow-xs"
+          >
+            <span>🤖</span>
+            <span>Open PulseBot AI Assistant</span>
+          </button>
           <DemoDataNote />
           <Link
             to="/report"
@@ -360,27 +364,38 @@ function Dashboard() {
                 </select>
               </label>
               <div role="group" aria-label="View mode" className="flex gap-1 rounded-xl bg-muted p-1">
-                {(["list", "map"] as const).map((v) => (
+                {(
+                  [
+                    { id: "list", label: "📋 Reports", title: "My Reports List" },
+                    { id: "map", label: "🗺️ Society Map", title: "Society & Neighborhood Map" },
+                    { id: "bot", label: "🤖 PulseBot AI", title: "AI Civic Assistant" },
+                  ] as const
+                ).map((v) => (
                   <button
-                    key={v}
+                    key={v.id}
                     type="button"
-                    onClick={() => setView(v)}
-                    aria-pressed={view === v}
+                    onClick={() => setView(v.id)}
+                    aria-pressed={view === v.id}
                     className={
-                      "min-h-9 rounded-lg px-3 text-sm font-bold transition-colors " +
-                      (view === v ? "bg-surface shadow-soft" : "text-muted-foreground")
+                      "min-h-9 rounded-lg px-3 text-xs font-bold transition-colors " +
+                      (view === v.id ? "bg-surface text-primary shadow-soft" : "text-muted-foreground hover:text-foreground")
                     }
                   >
-                    {v === "list" ? "List" : "Map"}
+                    {v.label}
                   </button>
                 ))}
               </div>
             </div>
 
-            {view === "map" ? (
+            {view === "bot" ? (
+              <div className="space-y-4">
+                <CivicChatbot user={user} reports={reports} variant="inline" className="h-[620px] shadow-lg" />
+              </div>
+            ) : view === "map" ? (
               <SocietyMap
                 reports={reports}
                 currentUsername={user?.username || "bipinyadav"}
+                onDeleteReport={handleDeleteReport}
               />
             ) : mine.length === 0 ? (
               <div className="surface-card p-12 text-center rounded-2xl">

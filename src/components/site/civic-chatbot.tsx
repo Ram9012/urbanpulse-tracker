@@ -238,7 +238,7 @@ export function CivicChatbot({
   // Floating button launcher when closed in floating mode
   if (variant === "floating" && !isOpen) {
     return (
-      <div className={`fixed bottom-6 right-6 z-50 ${className}`}>
+      <div className={`fixed bottom-6 right-6 z-[70] ${className}`}>
         <button
           onClick={() => setIsOpen(true)}
           className="group relative flex items-center gap-3 rounded-full bg-primary px-5 py-3.5 text-primary-foreground shadow-2xl transition-all duration-300 hover:scale-105 hover:bg-primary/95 hover:shadow-primary/25 border-2 border-white/20 active:scale-95"
@@ -264,7 +264,7 @@ export function CivicChatbot({
     <div
       className={
         variant === "floating"
-          ? `fixed bottom-6 right-6 z-50 w-[92vw] sm:w-[420px] max-h-[85vh] h-[600px] flex flex-col rounded-3xl bg-surface/95 backdrop-blur-xl border border-border shadow-2xl overflow-hidden transition-all duration-300 ${className}`
+          ? `fixed bottom-6 right-6 z-[70] w-[92vw] sm:w-[420px] max-h-[85vh] h-[600px] flex flex-col rounded-3xl bg-surface/95 backdrop-blur-xl border border-border shadow-2xl overflow-hidden transition-all duration-300 ${className}`
           : `surface-card rounded-2xl border border-border/80 shadow-md flex flex-col h-[560px] overflow-hidden ${className}`
       }
     >
