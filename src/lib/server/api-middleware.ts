@@ -16,8 +16,13 @@ import {
   resetToCleanState,
   deleteReport,
 } from "./status-engine";
-import { checkSupabaseStatus } from "./supabase-client";
-import { authenticateUser, registerUser, getAllUsers, initializeAuthStore } from "./auth-store";
+import {
+  authenticateUser,
+  registerUser,
+  getAllUsers,
+  initializeAuthStore,
+  syncUsersFromCookie,
+} from "./auth-store";
 import { REPORTS } from "../civic-data";
 
 // Initialize reports & auth store
@@ -55,6 +60,9 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
   if (!pathname.startsWith("/api/")) {
     return null;
   }
+
+  // Cross-container user synchronization via cookie
+  syncUsersFromCookie(request.headers.get("cookie"));
 
   try {
     // 1. AI Analysis of Report
@@ -164,14 +172,36 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       const body = await request.json().catch(() => ({}));
       const { username, password, clientBackupUser } = body;
       const authResult = await authenticateUser(username, password, clientBackupUser);
-      return Response.json(authResult, { status: authResult.success ? 200 : 401 });
+      const headers = new Headers({ "Content-Type": "application/json" });
+      if (authResult.success && authResult.user) {
+        const allUsers = getAllUsers();
+        headers.set(
+          "Set-Cookie",
+          `civicpulse_client_users=${encodeURIComponent(JSON.stringify(allUsers))}; Path=/; Max-Age=31536000; SameSite=Lax`,
+        );
+      }
+      return new Response(JSON.stringify(authResult), {
+        status: authResult.success ? 200 : 401,
+        headers,
+      });
     }
 
     if (pathname === "/api/auth/register" && request.method === "POST") {
       const body = await request.json().catch(() => ({}));
       const { username, password, confirmPassword, displayName } = body;
       const regResult = await registerUser(username, password, confirmPassword, displayName);
-      return Response.json(regResult, { status: regResult.success ? 201 : 400 });
+      const headers = new Headers({ "Content-Type": "application/json" });
+      if (regResult.success && regResult.user) {
+        const allUsers = getAllUsers();
+        headers.set(
+          "Set-Cookie",
+          `civicpulse_client_users=${encodeURIComponent(JSON.stringify(allUsers))}; Path=/; Max-Age=31536000; SameSite=Lax`,
+        );
+      }
+      return new Response(JSON.stringify(regResult), {
+        status: regResult.success ? 201 : 400,
+        headers,
+      });
     }
 
     if (pathname === "/api/auth/users" && request.method === "GET") {
@@ -195,6 +225,8 @@ export function civicPulseApiPlugin(): Plugin {
         if (!url.startsWith("/api/")) {
           return next();
         }
+
+        syncUsersFromCookie(req.headers.cookie);
 
         try {
           // 1. AI Analysis of Report
@@ -313,6 +345,13 @@ export function civicPulseApiPlugin(): Plugin {
             const body = await parseJsonBody(req).catch(() => ({}));
             const { username, password, clientBackupUser } = body;
             const authResult = await authenticateUser(username, password, clientBackupUser);
+            if (authResult.success && authResult.user) {
+              const allUsers = getAllUsers();
+              res.setHeader(
+                "Set-Cookie",
+                `civicpulse_client_users=${encodeURIComponent(JSON.stringify(allUsers))}; Path=/; Max-Age=31536000; SameSite=Lax`,
+              );
+            }
             return sendJson(res, authResult.success ? 200 : 401, authResult);
           }
 
@@ -320,6 +359,13 @@ export function civicPulseApiPlugin(): Plugin {
             const body = await parseJsonBody(req).catch(() => ({}));
             const { username, password, confirmPassword, displayName } = body;
             const regResult = await registerUser(username, password, confirmPassword, displayName);
+            if (regResult.success && regResult.user) {
+              const allUsers = getAllUsers();
+              res.setHeader(
+                "Set-Cookie",
+                `civicpulse_client_users=${encodeURIComponent(JSON.stringify(allUsers))}; Path=/; Max-Age=31536000; SameSite=Lax`,
+              );
+            }
             return sendJson(res, regResult.success ? 201 : 400, regResult);
           }
 
