@@ -237,9 +237,10 @@ function saveBackupUser(u: { id: string; username: string; password: string; dis
  * React Hook for component authentication state
  */
 export function useAuth() {
-  const [user, setUser] = useState<AuthUser | null>(getStoredUser);
+  const [user, setUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
+    setUser(getStoredUser());
     const syncUser = () => setUser(getStoredUser());
     window.addEventListener(AUTH_EVENT_NAME, syncUser);
     window.addEventListener("storage", syncUser);
