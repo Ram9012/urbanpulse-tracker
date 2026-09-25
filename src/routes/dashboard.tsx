@@ -6,6 +6,7 @@ import { ActivityMap } from "@/components/site/civic-map";
 import { NOTIFICATIONS, REPORTS, formatDate, CivicReport } from "@/lib/civic-data";
 import { useAuth } from "@/lib/auth-client";
 import { CivicChatbot } from "@/components/site/civic-chatbot";
+import { SocietyMap } from "@/components/site/society-map";
 
 
 export const Route = createFileRoute("/dashboard")({
@@ -48,7 +49,7 @@ function Dashboard() {
     return REPORTS;
   });
   const [notifications, setNotifications] = useState<any[]>(NOTIFICATIONS);
-  const [view, setView] = useState<"list" | "map">("list");
+  const [view, setView] = useState<"list" | "map">("map");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [lastSynced, setLastSynced] = useState<string>("Just now");
@@ -274,10 +275,14 @@ function Dashboard() {
         </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat label="Total Reports" value={reports.length} hint="Submitted & tracked" />
-          <Stat label="Active Reports" value={activeCount} hint="Being verified or repaired" />
-          <Stat label="Resolved Issues" value={resolvedCount} hint="Closed with verified photo" />
-          <Stat label="Municipal Ward" value={"Ward 12"} hint="Hassan Central" />
+          <Stat label="Society Reports" value={reports.length} hint="Problems near your area" />
+          <Stat
+            label="My Reports"
+            value={reports.filter((r) => r.reportedBy === (user?.username || "bipinyadav") || r.id === "CIV-95674").length}
+            hint="Submitted by you"
+          />
+          <Stat label="Active in Society" value={activeCount} hint="Being repaired by CMC" />
+          <Stat label="Society & Ward" value={"Ward 12"} hint="Racecourse / Vidyanagar" />
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_400px]">
@@ -333,7 +338,10 @@ function Dashboard() {
             </div>
 
             {view === "map" ? (
-              <ActivityMap compact />
+              <SocietyMap
+                reports={reports}
+                currentUsername={user?.username || "bipinyadav"}
+              />
             ) : mine.length === 0 ? (
               <div className="surface-card p-12 text-center rounded-2xl">
                 <p className="font-display text-lg font-bold">No reports match your filters</p>

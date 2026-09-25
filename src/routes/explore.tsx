@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { SiteLayout } from "@/components/site/site-layout";
 import { DemoDataNote, Section, StatusBadge, PriorityBadge } from "@/components/site/primitives";
-import { ActivityMap } from "@/components/site/civic-map";
+import { SocietyMap } from "@/components/site/society-map";
 import { CATEGORIES, REPORTS, formatDate, CivicReport } from "@/lib/civic-data";
 
 export const Route = createFileRoute("/explore")({
@@ -179,7 +179,7 @@ function Explore() {
         title="Explore Reports in Your Area"
         description="Only non-sensitive reports appear here. Phone numbers, email addresses, exact home addresses, private media and internal staff notes are never published."
       >
-        <ActivityMap />
+        <SocietyMap reports={reportsList} />
       </Section>
 
       <Section className="bg-surface border-y border-border" align="left" title="Report list">
