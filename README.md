@@ -4,8 +4,7 @@
 
 CivicPulse is a civic issue reporting and municipal service management platform for
 citizens and municipal staff. This build is the full front-end product (TanStack Start
-
-- React + Tailwind v4) running on realistic, clearly-labelled demonstration data.
++ React + Tailwind v4) running on realistic, clearly-labelled demonstration data.
 
 ## Pages
 

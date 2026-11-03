@@ -1,13 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import {
-  CATEGORIES,
-  REPORTS,
-  STATUS_META,
-  type CivicReport,
-  getDeletedReportIds,
-} from "@/lib/civic-data";
+import { CATEGORIES, REPORTS, STATUS_META, type CivicReport, getDeletedReportIds } from "@/lib/civic-data";
 import { StatusBadge } from "./primitives";
 
 const CATEGORY_DOT: Record<string, string> = {
@@ -20,13 +14,7 @@ const CATEGORY_DOT: Record<string, string> = {
 };
 
 /** Real interactive OpenStreetMap canvas instead of fake black SVG graph. */
-export function MapCanvas({
-  className,
-  children,
-}: {
-  className?: string;
-  children?: React.ReactNode;
-}) {
+export function MapCanvas({ className, children }: { className?: string; children?: React.ReactNode }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
 
@@ -127,10 +115,7 @@ export function MapLegend() {
   return (
     <ul className="flex flex-wrap gap-x-4 gap-y-2">
       {CATEGORIES.map((c) => (
-        <li
-          key={c.id}
-          className="flex items-center gap-2 text-xs font-medium text-muted-foreground"
-        >
+        <li key={c.id} className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
           <span aria-hidden="true" className={cn("size-2.5 rounded-full", CATEGORY_DOT[c.id])} />
           {c.name}
         </li>
@@ -239,9 +224,7 @@ export function ActivityMap({ compact = false }: { compact?: boolean }) {
             />
           </label>
           <label className="block">
-            <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-              Category
-            </span>
+            <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">Category</span>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}

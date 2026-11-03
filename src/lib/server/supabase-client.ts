@@ -8,12 +8,8 @@
 import { CivicReport } from "../civic-data";
 import { StatusHistoryEntry } from "./status-engine";
 
-const SUPABASE_URL =
-  process.env["VITE_SUPABASE_URL"] ||
-  process.env["SUPABASE_URL"] ||
-  "https://wqwlqbozwcbcxjbxlqmh.supabase.co";
-const SUPABASE_KEY =
-  process.env["SUPABASE_SERVICE_ROLE_KEY"] || process.env["VITE_SUPABASE_ANON_KEY"] || "";
+const SUPABASE_URL = process.env["VITE_SUPABASE_URL"] || process.env["SUPABASE_URL"] || "https://wqwlqbozwcbcxjbxlqmh.supabase.co";
+const SUPABASE_KEY = process.env["SUPABASE_SERVICE_ROLE_KEY"] || process.env["VITE_SUPABASE_ANON_KEY"] || "";
 const SUPABASE_PROJECT_NAME = process.env["SUPABASE_PROJECT_NAME"] || "videoediting";
 
 export type SupabaseStatus = {
@@ -34,8 +30,7 @@ export async function checkSupabaseStatus(): Promise<SupabaseStatus> {
       projectName: SUPABASE_PROJECT_NAME,
       url: SUPABASE_URL,
       hasKey: false,
-      message:
-        "Supabase project configured. Add VITE_SUPABASE_ANON_KEY to .env to enable direct live cloud sync.",
+      message: "Supabase project configured. Add VITE_SUPABASE_ANON_KEY to .env to enable direct live cloud sync.",
     };
   }
 
@@ -111,6 +106,8 @@ export async function saveReportToSupabase(report: CivicReport): Promise<boolean
         resolution_media_urls: report.resolutionMediaUrls || [],
         latitude: report.latitude,
         longitude: report.longitude,
+        upvotes: report.upvotes || 0,
+        upvoted_by: report.upvotedBy || [],
         created_at: report.createdAt,
         updated_at: report.updatedAt,
       }),
@@ -209,51 +206,40 @@ export async function clearSupabaseAndSeedLatest(
  */
 export async function deleteReportFromSupabase(reportId: string): Promise<boolean> {
   if (!SUPABASE_KEY) {
-    console.info(
-      `[Supabase Delete]: No API key in local environment, skipped remote delete for ${reportId}.`,
-    );
+    console.info(`[Supabase Delete]: No API key in local environment, skipped remote delete for ${reportId}.`);
     return true;
   }
 
   try {
     const cleanId = reportId.trim();
     // 1. Delete associated status history records
-    await fetch(
-      `${SUPABASE_URL}/rest/v1/report_status_history?report_id=eq.${encodeURIComponent(cleanId)}`,
-      {
-        method: "DELETE",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-        },
+    await fetch(`${SUPABASE_URL}/rest/v1/report_status_history?report_id=eq.${encodeURIComponent(cleanId)}`, {
+      method: "DELETE",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
       },
-    );
+    });
 
     // 2. Clear any duplicate_of_id referencing this report
-    await fetch(
-      `${SUPABASE_URL}/rest/v1/reports?duplicate_of_id=eq.${encodeURIComponent(cleanId)}`,
-      {
-        method: "PATCH",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ duplicate_of_id: null }),
+    await fetch(`${SUPABASE_URL}/rest/v1/reports?duplicate_of_id=eq.${encodeURIComponent(cleanId)}`, {
+      method: "PATCH",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({ duplicate_of_id: null }),
+    });
 
     // 3. Delete the report from reports table (by id or tracking_id)
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/reports?or=(id.eq.${encodeURIComponent(cleanId)},tracking_id.eq.${encodeURIComponent(cleanId)})`,
-      {
-        method: "DELETE",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-        },
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/reports?or=(id.eq.${encodeURIComponent(cleanId)},tracking_id.eq.${encodeURIComponent(cleanId)})`, {
+      method: "DELETE",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
       },
-    );
+    });
 
     if (res.ok) {
       console.info(`[Supabase Delete]: Successfully deleted report ${reportId} from Supabase.`);
@@ -321,7 +307,7 @@ export async function fetchUserFromSupabase(username: string): Promise<any | nul
           apikey: SUPABASE_KEY,
           Authorization: `Bearer ${SUPABASE_KEY}`,
         },
-      },
+      }
     );
     if (!res.ok) return null;
     const rows = await res.json();
@@ -343,3 +329,6 @@ export async function fetchUserFromSupabase(username: string): Promise<any | nul
     return null;
   }
 }
+
+
+

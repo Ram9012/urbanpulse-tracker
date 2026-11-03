@@ -9,16 +9,11 @@
  * 6. Workload analytics assistant for municipal staff
  */
 
-const GROQ_API_KEY =
-  process.env["GROQ_API_KEY"] || "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";
+const GROQ_API_KEY = process.env["GROQ_API_KEY"] || "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";
 const GROQ_BASE_URL = process.env["GROQ_BASE_URL"] || "https://api.groq.com/openai/v1";
 const GROQ_MODEL = process.env["GROQ_MODEL"] || "qwen/qwen3.8-27b";
 
-async function callGroqChat(
-  messages: Array<{ role: string; content: string }>,
-  jsonMode = true,
-  maxTokens = 600,
-) {
+async function callGroqChat(messages: Array<{ role: string; content: string }>, jsonMode = true, maxTokens = 600) {
   const response = await fetch(`${GROQ_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
@@ -92,49 +87,35 @@ Return a strictly valid JSON object with EXACTLY this structure:
       rawResult.incident_description ||
       description;
 
-    let priority = (rawResult.priority_recommendation || rawResult.priority || "medium")
-      .toString()
-      .toLowerCase();
+    let priority = (rawResult.priority_recommendation || rawResult.priority || "medium").toString().toLowerCase();
     if (priority.includes("crit") || priority === "1") priority = "critical";
     else if (priority.includes("high") || priority === "2") priority = "high";
     else if (priority.includes("med") || priority === "3") priority = "medium";
     else if (priority.includes("low") || priority === "4") priority = "low";
 
-    const isLightCat =
-      (categoryName || "").toLowerCase().includes("light") ||
-      (categoryName || "").toLowerCase().includes("electr");
-    const isPotholeText =
-      description.toLowerCase().includes("pothole") || description.toLowerCase().includes("road");
+    const isLightCat = (categoryName || "").toLowerCase().includes("light") || (categoryName || "").toLowerCase().includes("electr");
+    const isPotholeText = description.toLowerCase().includes("pothole") || description.toLowerCase().includes("road");
     const isMismatch = Boolean(
       rawResult.category_mismatch ||
-      (isLightCat && isPotholeText) ||
-      (categoryName &&
-        rawResult.detected_category &&
-        !rawResult.detected_category
-          .toLowerCase()
-          .includes(categoryName.toLowerCase().slice(0, 5))),
+        (isLightCat && isPotholeText) ||
+        (categoryName &&
+          rawResult.detected_category &&
+          !rawResult.detected_category.toLowerCase().includes(categoryName.toLowerCase().slice(0, 5)))
     );
 
     return {
       summary: String(summary),
-      keywords: Array.isArray(rawResult.keywords)
-        ? rawResult.keywords.map(String)
-        : ["civic issue", "infrastructure"],
+      keywords: Array.isArray(rawResult.keywords) ? rawResult.keywords.map(String) : ["civic issue", "infrastructure"],
       severity_signals: Array.isArray(rawResult.severity_signals)
         ? rawResult.severity_signals.map(String)
         : ["public safety hazard"],
       priority_recommendation: priority as "critical" | "high" | "medium" | "low",
       priority_reason:
-        rawResult.priority_reason ||
-        rawResult.reason ||
-        "Assessed based on municipal safety criteria and traffic impact",
+        rawResult.priority_reason || rawResult.reason || "Assessed based on municipal safety criteria and traffic impact",
       confidence:
-        typeof rawResult.confidence === "number"
-          ? Math.min(Math.max(rawResult.confidence, 0.5), 0.99)
-          : 0.94,
+        typeof rawResult.confidence === "number" ? Math.min(Math.max(rawResult.confidence, 0.5), 0.99) : 0.94,
       category_mismatch: isMismatch,
-      detected_category:
-        rawResult.detected_category || (isPotholeText ? "Road damage" : categoryName || "Civic"),
+      detected_category: rawResult.detected_category || (isPotholeText ? "Road damage" : categoryName || "Civic"),
       suggested_description:
         rawResult.suggested_description ||
         (isLightCat
@@ -145,10 +126,8 @@ Return a strictly valid JSON object with EXACTLY this structure:
   } catch (err: any) {
     console.warn("[Groq AI Analysis Fallback]:", err.message);
     const isLightCategory =
-      (categoryName || "").toLowerCase().includes("light") ||
-      (categoryName || "").toLowerCase().includes("electr");
-    const isPotholeText =
-      description.toLowerCase().includes("pothole") || description.toLowerCase().includes("road");
+      (categoryName || "").toLowerCase().includes("light") || (categoryName || "").toLowerCase().includes("electr");
+    const isPotholeText = description.toLowerCase().includes("pothole") || description.toLowerCase().includes("road");
     const mismatch = isLightCategory && isPotholeText;
 
     return {
@@ -179,17 +158,18 @@ Return a strictly valid JSON object with EXACTLY this structure:
  */
 export async function analyzeDuplicateReport(
   newDescription: string,
-  existingReport: { id: string; title: string; description: string; area: string },
+  existingReport: { id: string; title: string; description: string; area: string; category?: string }
 ) {
-  const prompt = `Compare these two civic reports to check if they describe the SAME real-world incident/issue:
+  const prompt = `Compare these two civic complaints to check if they describe the SAME real-world incident/issue at or near the same location:
 
-NEW REPORT:
+NEW COMPLAINT:
 "${newDescription}"
 
-EXISTING REPORT (${existingReport.id}):
+EXISTING COMPLAINT (${existingReport.id}):
 Title: "${existingReport.title}"
 Description: "${existingReport.description}"
 Area: "${existingReport.area}"
+Category: "${existingReport.category || 'General'}"
 
 Return a strictly valid JSON object:
 {
@@ -199,14 +179,30 @@ Return a strictly valid JSON object:
   "recommended_action": "add_info_to_existing" | "keep_separate"
 }`;
 
-  return await callGroqChat([
-    {
-      role: "system",
-      content:
-        "You are an intelligent municipal duplicate detection service. Always return valid JSON.",
-    },
-    { role: "user", content: prompt },
-  ]);
+  try {
+    return await callGroqChat([
+      { role: "system", content: "You are an intelligent municipal duplicate detection service. Always return valid JSON." },
+      { role: "user", content: prompt },
+    ]);
+  } catch (err: any) {
+    console.warn("[Groq Duplicate Fallback Check]:", err.message);
+    const newLower = newDescription.toLowerCase();
+    const existLower = `${existingReport.title} ${existingReport.description}`.toLowerCase();
+    
+    // Check shared keywords
+    const keywords = ["pothole", "streetlight", "light", "garbage", "waste", "drain", "sewage", "water", "leak", "wire", "pole", "signal"];
+    const matchedKeywords = keywords.filter((k) => newLower.includes(k) && existLower.includes(k));
+    const isDup = matchedKeywords.length > 0;
+    
+    return {
+      is_duplicate: isDup,
+      similarity_score: isDup ? 88 : 20,
+      explanation: isDup
+        ? `Both complaints mention similar issues (${matchedKeywords.join(", ")}) in the same area (${existingReport.area}).`
+        : "Complaints refer to distinct issues or different categories.",
+      recommended_action: isDup ? "add_info_to_existing" : "keep_separate",
+    };
+  }
 }
 
 /**
@@ -215,7 +211,7 @@ Return a strictly valid JSON object:
 export async function verifyResolutionEvidence(
   originalReport: { title: string; description: string; category: string },
   resolutionNotes: string,
-  mediaLabels: string[] = [],
+  mediaLabels: string[] = []
 ) {
   // Sanitize media labels: never inject multi-megabyte base64 strings into the LLM text prompt
   const cleanMediaItems = (mediaLabels || []).map((m, idx) => {
@@ -252,11 +248,7 @@ Return a strictly valid JSON object:
 
   try {
     return await callGroqChat([
-      {
-        role: "system",
-        content:
-          "You are a municipal quality-assurance supervisor assistant. Always return valid JSON.",
-      },
+      { role: "system", content: "You are a municipal quality-assurance supervisor assistant. Always return valid JSON." },
       { role: "user", content: prompt },
     ]);
   } catch (err: any) {
@@ -289,10 +281,7 @@ Return a strictly valid JSON object:
 }`;
 
   return await callGroqChat([
-    {
-      role: "system",
-      content: "You are a municipal executive operations advisor. Always return valid JSON.",
-    },
+    { role: "system", content: "You are a municipal executive operations advisor. Always return valid JSON." },
     { role: "user", content: prompt },
   ]);
 }
@@ -362,7 +351,10 @@ INSTRUCTIONS:
 - Format responses cleanly with bold highlights, bullet points, or markdown when explaining multi-step procedures. Keep answers concise and direct.
 - You are powered by Groq's high-speed LPU inference engine.`;
 
-  const chatMessages = [{ role: "system", content: systemPrompt }, ...messages.slice(-10)];
+  const chatMessages = [
+    { role: "system", content: systemPrompt },
+    ...messages.slice(-10),
+  ];
 
   const modelsToTry = [
     "openai/gpt-oss-120b",
@@ -409,15 +401,10 @@ INSTRUCTIONS:
   const lastUserMsg = messages[messages.length - 1]?.content?.toLowerCase() || "";
   let fallbackReply = `Hello ${citizenName}! I am PulseBot, your Hassan Municipal Council civic assistant.\n\n`;
 
-  if (
-    lastUserMsg.includes("status") ||
-    lastUserMsg.includes("track") ||
-    lastUserMsg.includes("civ-")
-  ) {
+  if (lastUserMsg.includes("status") || lastUserMsg.includes("track") || lastUserMsg.includes("civ-")) {
     if (citizenContext?.reports && citizenContext.reports.length > 0) {
       const r = citizenContext.reports[0];
-      fallbackReply +=
-        `Here is the current status of your active report **${r.id}** (${r.title}):\n` +
+      fallbackReply += `Here is the current status of your active report **${r.id}** (${r.title}):\n` +
         `- **Current Status**: \`${r.status.toUpperCase()}\`\n` +
         `- **Category**: ${r.category}\n` +
         `- **Ward**: ${r.ward || "Ward 12"}\n\n` +
@@ -425,25 +412,14 @@ INSTRUCTIONS:
     } else {
       fallbackReply += `You currently have 1 active report under tracking. You can see its live status card right on your dashboard!`;
     }
-  } else if (
-    lastUserMsg.includes("emergency") ||
-    lastUserMsg.includes("number") ||
-    lastUserMsg.includes("contact") ||
-    lastUserMsg.includes("phone")
-  ) {
-    fallbackReply +=
-      `Here are the official emergency contact numbers for Hassan Municipal Council:\n` +
+  } else if (lastUserMsg.includes("emergency") || lastUserMsg.includes("number") || lastUserMsg.includes("contact") || lastUserMsg.includes("phone")) {
+    fallbackReply += `Here are the official emergency contact numbers for Hassan Municipal Council:\n` +
       `- 🚨 **Central Control Room**: 08172-268000\n` +
       `- 🚰 **24x7 Water Supply Helpline**: 1800-425-0101\n` +
       `- ⚡ **Electricity Emergency (BESCOM)**: 1912\n` +
       `- 🚒 **Police / Fire / Disaster**: 112`;
-  } else if (
-    lastUserMsg.includes("how") ||
-    lastUserMsg.includes("report") ||
-    lastUserMsg.includes("new")
-  ) {
-    fallbackReply +=
-      `To report a new civic issue:\n` +
+  } else if (lastUserMsg.includes("how") || lastUserMsg.includes("report") || lastUserMsg.includes("new")) {
+    fallbackReply += `To report a new civic issue:\n` +
       `1. Click the **"+ Report New Issue"** button at the top right of your dashboard.\n` +
       `2. Take or upload a clear photo of the problem.\n` +
       `3. Verify the GPS location on the map.\n` +

@@ -81,7 +81,9 @@ export async function loginUser(
 
   // Check client-side backup user
   const backupUsers = getStoredBackupUsers();
-  const localMatch = backupUsers.find((u) => u.username.toLowerCase() === username.toLowerCase());
+  const localMatch = backupUsers.find(
+    (u) => u.username.toLowerCase() === username.toLowerCase(),
+  );
 
   try {
     const res = await fetch("/api/auth/login", {
@@ -146,9 +148,7 @@ export async function loginUser(
 
     return {
       success: false,
-      error:
-        data.error ||
-        `Account with username "${username}" not found. Please create an account first.`,
+      error: data.error || `Account with username "${username}" not found. Please create an account first.`,
     };
   } catch (err: any) {
     // If server unreachable, check client-side backup user
@@ -187,6 +187,7 @@ export async function loginUser(
   }
 }
 
+
 export async function registerCitizen(
   rawUsername: string,
   rawPassword: string,
@@ -222,10 +223,7 @@ export async function registerCitizen(
     return { success: false, error: "Password must be at least 6 characters long." };
   }
   if (password !== confirmPassword) {
-    return {
-      success: false,
-      error: "Passwords do not match. Please verify your confirm password.",
-    };
+    return { success: false, error: "Passwords do not match. Please verify your confirm password." };
   }
 
   try {
@@ -307,12 +305,7 @@ function getStoredBackupUsers(): any[] {
   }
 }
 
-function saveBackupUser(u: {
-  id: string;
-  username: string;
-  password?: string;
-  displayName?: string;
-}) {
+function saveBackupUser(u: { id: string; username: string; password?: string; displayName?: string }) {
   if (typeof window === "undefined") return;
   try {
     const users = getStoredBackupUsers();

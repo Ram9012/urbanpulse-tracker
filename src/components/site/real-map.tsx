@@ -42,7 +42,7 @@ export function RealMap({
   const reverseGeocode = async (lat: number, lng: number, accuracy?: number) => {
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`,
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`
       );
       if (res.ok) {
         const data = await res.json();
@@ -179,7 +179,7 @@ export function RealMap({
         alert(`Location permission denied or unavailable: ${err.message}`);
         setDetectingGps(false);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
@@ -192,8 +192,8 @@ export function RealMap({
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          searchQuery,
-        )}&limit=1`,
+          searchQuery
+        )}&limit=1`
       );
       if (res.ok) {
         const results = await res.json();
@@ -252,11 +252,7 @@ export function RealMap({
 
       {/* Map Container */}
       <div className="relative overflow-hidden rounded-2xl border border-border shadow-inner">
-        <div
-          ref={mapContainerRef}
-          className={className}
-          style={{ minHeight: "260px", zIndex: 1 }}
-        />
+        <div ref={mapContainerRef} className={className} style={{ minHeight: "260px", zIndex: 1 }} />
 
         {/* Crosshair instruction overlay */}
         <div className="absolute bottom-2 left-2 z-10 bg-background/90 backdrop-blur px-3 py-1 rounded-lg border border-border shadow-sm text-[11px] font-medium text-muted-foreground pointer-events-none">

@@ -5,6 +5,7 @@ import { BRAND, LANGUAGES } from "@/lib/civic-data";
 import { BrandMark } from "./primitives";
 import { useAuth } from "@/lib/auth-client";
 
+
 const NAV = [
   { to: "/", label: "Home" },
   { to: "/how-it-works", label: "How It Works" },
@@ -19,10 +20,7 @@ function AnnouncementBar() {
   return (
     <div className="bg-navy text-navy-foreground">
       <div className="container-page flex items-center gap-3 py-2 text-xs sm:text-sm">
-        <span
-          className="relative flex size-2 shrink-0 items-center justify-center"
-          aria-hidden="true"
-        >
+        <span className="relative flex size-2 shrink-0 items-center justify-center" aria-hidden="true">
           <span className="absolute size-2 rounded-full bg-teal animate-civic-pulse" />
           <span className="size-2 rounded-full bg-teal" />
         </span>
@@ -151,10 +149,7 @@ function Navbar() {
                 ? [
                     {
                       to: user.role === "admin" ? "/admin" : "/dashboard",
-                      label:
-                        user.role === "admin"
-                          ? "🛡️ Admin Portal"
-                          : `👤 My Dashboard (${user.username})`,
+                      label: user.role === "admin" ? "🛡️ Admin Portal" : `👤 My Dashboard (${user.username})`,
                     },
                   ]
                 : [{ to: "/signin", label: "Sign In" }]),
@@ -278,9 +273,7 @@ function Footer() {
 
       <div className="border-t border-navy-foreground/10">
         <div className="container-page flex flex-col items-start justify-between gap-3 py-5 text-xs text-navy-foreground/60 sm:flex-row sm:items-center">
-          <p>
-            © {new Date().getFullYear()} {BRAND.name}. Sample civic platform for demonstration.
-          </p>
+          <p>© {new Date().getFullYear()} {BRAND.name}. Sample civic platform for demonstration.</p>
           <label className="flex items-center gap-2">
             <span>Language</span>
             <select

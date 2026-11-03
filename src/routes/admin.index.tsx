@@ -1,12 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Counter, DemoDataNote, Stat, StatusBadge } from "@/components/site/primitives";
-import {
-  DEPARTMENTS,
-  FIELD_WORKERS,
-  REPORTS,
-  WEEKLY_VOLUME,
-  formatDateTime,
-} from "@/lib/civic-data";
+import { DEPARTMENTS, FIELD_WORKERS, REPORTS, WEEKLY_VOLUME, formatDateTime } from "@/lib/civic-data";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
@@ -18,10 +12,7 @@ export const Route = createFileRoute("/admin/")({
           "Today's civic report intake, verification queue, high-priority issues, department workload and resolution trends.",
       },
       { property: "og:title", content: "Staff Overview — CivicPulse Municipal Dashboard" },
-      {
-        property: "og:description",
-        content: "Daily municipal operations overview for civic reports.",
-      },
+      { property: "og:description", content: "Daily municipal operations overview for civic reports." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -45,27 +36,11 @@ function Overview() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Stat label="New reports today" value={<Counter to={38} />} hint="Across all wards" />
-        <Stat
-          label="Awaiting verification"
-          value={<Counter to={12} />}
-          hint="Older than 4 hours: 3"
-        />
+        <Stat label="Awaiting verification" value={<Counter to={12} />} hint="Older than 4 hours: 3" />
         <Stat label="High priority open" value={<Counter to={9} />} hint="2 marked critical" />
         <Stat label="In progress" value={<Counter to={64} />} hint="Field work underway" />
-        <Stat
-          label="Resolved this month"
-          value={<Counter to={912} />}
-          hint="Across 7 departments"
-        />
-        <Stat
-          label="Avg resolution time"
-          value={
-            <>
-              <Counter to={3.4} decimals={1} /> days
-            </>
-          }
-          hint="Down from 5.8"
-        />
+        <Stat label="Resolved this month" value={<Counter to={912} />} hint="Across 7 departments" />
+        <Stat label="Avg resolution time" value={<><Counter to={3.4} decimals={1} /> days</>} hint="Down from 5.8" />
       </div>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-2">
@@ -75,16 +50,8 @@ function Overview() {
             {WEEKLY_VOLUME.map((w) => (
               <li key={w.week} className="flex flex-1 flex-col items-center gap-2">
                 <span className="flex h-full w-full items-end justify-center gap-1">
-                  <span
-                    className="w-1/3 rounded-t bg-primary"
-                    style={{ height: `${(w.submitted / max) * 100}%` }}
-                    title={`${w.submitted} submitted`}
-                  />
-                  <span
-                    className="w-1/3 rounded-t bg-teal"
-                    style={{ height: `${(w.resolved / max) * 100}%` }}
-                    title={`${w.resolved} resolved`}
-                  />
+                  <span className="w-1/3 rounded-t bg-primary" style={{ height: `${(w.submitted / max) * 100}%` }} title={`${w.submitted} submitted`} />
+                  <span className="w-1/3 rounded-t bg-teal" style={{ height: `${(w.resolved / max) * 100}%` }} title={`${w.resolved} resolved`} />
                 </span>
                 <span className="text-xs text-muted-foreground">{w.week}</span>
               </li>
@@ -102,10 +69,7 @@ function Overview() {
                   <span className="text-muted-foreground">{d.open} open</span>
                 </p>
                 <span aria-hidden="true" className="mt-1 block h-2 rounded-full bg-muted">
-                  <span
-                    className="block h-2 rounded-full bg-primary"
-                    style={{ width: `${Math.min(100, (d.open / 200) * 100)}%` }}
-                  />
+                  <span className="block h-2 rounded-full bg-primary" style={{ width: `${Math.min(100, (d.open / 200) * 100)}%` }} />
                 </span>
               </li>
             ))}
@@ -120,10 +84,7 @@ function Overview() {
               ["Ward 7 · Old Market Road", "19 reports · waste"],
               ["Ward 9 · Katihalli Junction", "16 reports · drainage"],
             ].map(([a, b]) => (
-              <li
-                key={a}
-                className="flex items-center justify-between rounded-xl border border-border p-3"
-              >
+              <li key={a} className="flex items-center justify-between rounded-xl border border-border p-3">
                 <span className="font-semibold">{a}</span>
                 <span className="text-muted-foreground">{b}</span>
               </li>
@@ -135,10 +96,7 @@ function Overview() {
           <h2 className="text-sm font-bold">Field worker availability</h2>
           <ul className="mt-3 space-y-2 text-sm">
             {FIELD_WORKERS.map((w) => (
-              <li
-                key={w.name}
-                className="flex items-center justify-between rounded-xl border border-border p-3"
-              >
+              <li key={w.name} className="flex items-center justify-between rounded-xl border border-border p-3">
                 <span>
                   <span className="block font-semibold">{w.name}</span>
                   <span className="text-xs text-muted-foreground">{w.department}</span>
@@ -156,10 +114,7 @@ function Overview() {
         <h2 className="text-sm font-bold">Recent activity</h2>
         <ul className="mt-3 space-y-2">
           {REPORTS.slice(0, 5).map((r) => (
-            <li
-              key={r.id}
-              className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-3 text-sm"
-            >
+            <li key={r.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-3 text-sm">
               <span className="font-bold">{r.id}</span>
               <span className="min-w-0 flex-1 truncate">{r.title}</span>
               <StatusBadge status={r.status} />

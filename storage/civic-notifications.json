@@ -1,5 +1,104 @@
 [
   {
+    "id": "notif-1793698327590",
+    "reportId": "CIV-28307",
+    "title": "Status: RESOLVED",
+    "message": "Report CIV-28307 has been verified and successfully resolved!",
+    "time": "Just now",
+    "unread": true,
+    "channel": "in_app"
+  },
+  {
+    "id": "notif-1793698307996",
+    "reportId": "CIV-28307",
+    "title": "Status: IN PROGRESS",
+    "message": "Field crew has started on-site work on CIV-28307.",
+    "time": "Just now",
+    "unread": true,
+    "channel": "in_app"
+  },
+  {
+    "id": "notif-1793698294364",
+    "reportId": "CIV-28307",
+    "title": "Status: IN PROGRESS",
+    "message": "Field crew has started on-site work on CIV-28307.",
+    "time": "Just now",
+    "unread": true,
+    "channel": "in_app"
+  },
+  {
+    "id": "notif-1793698286958",
+    "reportId": "CIV-28307",
+    "title": "Status: ASSIGNED",
+    "message": "Report CIV-28307 assigned to Public Works — Roads (Worker: R. Manjunath).",
+    "time": "Just now",
+    "unread": true,
+    "channel": "in_app"
+  },
+  {
+    "id": "notif-1793698274677",
+    "reportId": "CIV-28307",
+    "title": "Status: VERIFIED",
+    "message": "Report CIV-28307 was verified by municipal staff.",
+    "time": "Just now",
+    "unread": true,
+    "channel": "in_app"
+  },
+  {
+    "id": "notif-1793698193618",
+    "reportId": "CIV-28307",
+    "title": "Report Received",
+    "message": "Your report CIV-28307 has been registered and is pending staff verification.",
+    "time": "Just now",
+    "unread": true,
+    "channel": "in_app"
+  },
+  {
+    "id": "notif-1793690031117",
+    "reportId": "CIV-48201",
+    "title": "Status: RESOLVED",
+    "message": "Report CIV-48201 has been verified and successfully resolved!",
+    "time": "Just now",
+    "unread": true,
+    "channel": "in_app"
+  },
+  {
+    "id": "notif-1793690028985",
+    "reportId": "CIV-48201",
+    "title": "Status: IN PROGRESS",
+    "message": "Field crew has started on-site work on CIV-48201.",
+    "time": "Just now",
+    "unread": true,
+    "channel": "in_app"
+  },
+  {
+    "id": "notif-1793690026318",
+    "reportId": "CIV-48201",
+    "title": "Status: ASSIGNED",
+    "message": "Report CIV-48201 assigned to Public Works — Roads (Worker: R. Manjunath).",
+    "time": "Just now",
+    "unread": true,
+    "channel": "in_app"
+  },
+  {
+    "id": "notif-1793690022710",
+    "reportId": "CIV-48201",
+    "title": "Status: VERIFIED",
+    "message": "Report CIV-48201 was verified by municipal staff.",
+    "time": "Just now",
+    "unread": true,
+    "channel": "in_app"
+  },
+  {
+    "id": "notif-1793689946431",
+    "reportId": "CIV-48201",
+    "title": "Report Received",
+    "message": "Your report CIV-48201 has been registered and is pending staff verification.",
+    "time": "Just now",
+    "unread": true,
+    "channel": "in_app"
+  },
+  {
     "id": "notif-1790283704955",
     "reportId": "CIV-95674",
     "title": "Status: VERIFIED",
