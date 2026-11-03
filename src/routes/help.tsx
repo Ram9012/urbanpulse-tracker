@@ -55,7 +55,11 @@ const FAQS = [
 function Help() {
   return (
     <SiteLayout>
-      <Section eyebrow="Help center" title="How Can We Help?" description="Common questions from citizens and municipal staff.">
+      <Section
+        eyebrow="Help center"
+        title="How Can We Help?"
+        description="Common questions from citizens and municipal staff."
+      >
         <dl className="mx-auto grid max-w-3xl gap-4">
           {FAQS.map((f) => (
             <div key={f.q} className="surface-card p-5">
@@ -66,7 +70,11 @@ function Help() {
         </dl>
       </Section>
 
-      <Section className="bg-surface border-y border-border" align="left" title="Privacy, terms and accessibility">
+      <Section
+        className="bg-surface border-y border-border"
+        align="left"
+        title="Privacy, terms and accessibility"
+      >
         <div className="grid gap-4 md:grid-cols-3">
           <article className="surface-card p-6">
             <h3 className="text-base font-bold">Privacy policy</h3>
@@ -109,10 +117,16 @@ function Help() {
             <li>Municipal office: {BRAND.city}</li>
           </ul>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link to="/report" className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground">
+            <Link
+              to="/report"
+              className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground"
+            >
               Report an issue
             </Link>
-            <Link to="/dashboard" className="inline-flex min-h-11 items-center rounded-xl border border-border px-5 text-sm font-bold hover:bg-accent">
+            <Link
+              to="/dashboard"
+              className="inline-flex min-h-11 items-center rounded-xl border border-border px-5 text-sm font-bold hover:bg-accent"
+            >
               Track my reports
             </Link>
           </div>

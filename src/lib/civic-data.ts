@@ -13,12 +13,7 @@ export const BRAND = {
 } as const;
 
 export type ReportStatus =
-  | "submitted"
-  | "verified"
-  | "assigned"
-  | "in_progress"
-  | "resolved"
-  | "duplicate";
+  "submitted" | "verified" | "assigned" | "in_progress" | "resolved" | "duplicate";
 
 export const STATUS_META: Record<
   ReportStatus,
@@ -41,13 +36,7 @@ export const PRIORITY_META: Record<Priority, { label: string }> = {
   critical: { label: "Critical" },
 };
 
-export type CategoryId =
-  | "roads"
-  | "electricity"
-  | "waste"
-  | "water"
-  | "safety"
-  | "parks";
+export type CategoryId = "roads" | "electricity" | "waste" | "water" | "safety" | "parks";
 
 export type Category = {
   id: CategoryId;
@@ -338,7 +327,8 @@ export const REPORTS: CivicReport[] = [
     mediaUrls: ["/media/evidence/pothole_before.jpg"],
     workerMediaUrls: ["/media/evidence/pothole_before.jpg"],
     resolutionMediaUrls: ["/media/evidence/pothole_after.jpg"],
-    resolutionNotes: "Replaced broken RCC precast drain slab with reinforced heavy-duty cover. Graded and sealed edges.",
+    resolutionNotes:
+      "Replaced broken RCC precast drain slab with reinforced heavy-duty cover. Graded and sealed edges.",
   },
   {
     id: "CIV-43210",
@@ -403,19 +393,46 @@ export const REPORTS: CivicReport[] = [
   },
 ];
 
-
 export const TIMELINE_STEPS: {
   key: string;
   label: string;
   detail: string;
 }[] = [
-  { key: "submitted", label: "Report submitted", detail: "Citizen submits media, location and description." },
-  { key: "verified", label: "Report verified", detail: "Municipal staff confirm the issue and its category." },
-  { key: "department", label: "Department assigned", detail: "The report is routed to the responsible department." },
-  { key: "worker", label: "Field worker assigned", detail: "A worker is scheduled with instructions and a target date." },
-  { key: "progress", label: "Work in progress", detail: "Progress photos and notes are added from the field." },
-  { key: "resolved", label: "Issue resolved", detail: "Completion media is uploaded and the work is closed." },
-  { key: "notified", label: "Citizen notified", detail: "You receive the resolution update and can reopen if needed." },
+  {
+    key: "submitted",
+    label: "Report submitted",
+    detail: "Citizen submits media, location and description.",
+  },
+  {
+    key: "verified",
+    label: "Report verified",
+    detail: "Municipal staff confirm the issue and its category.",
+  },
+  {
+    key: "department",
+    label: "Department assigned",
+    detail: "The report is routed to the responsible department.",
+  },
+  {
+    key: "worker",
+    label: "Field worker assigned",
+    detail: "A worker is scheduled with instructions and a target date.",
+  },
+  {
+    key: "progress",
+    label: "Work in progress",
+    detail: "Progress photos and notes are added from the field.",
+  },
+  {
+    key: "resolved",
+    label: "Issue resolved",
+    detail: "Completion media is uploaded and the work is closed.",
+  },
+  {
+    key: "notified",
+    label: "Citizen notified",
+    detail: "You receive the resolution update and can reopen if needed.",
+  },
 ];
 
 export const DEPARTMENTS = [
@@ -429,11 +446,41 @@ export const DEPARTMENTS = [
 ];
 
 export const FIELD_WORKERS = [
-  { name: "R. Manjunath", department: "Public Works — Roads", openTasks: 4, capacity: 6, status: "On site" },
-  { name: "S. Latha", department: "Electrical Department", openTasks: 2, capacity: 6, status: "Available" },
-  { name: "A. Firoz", department: "Water Supply", openTasks: 5, capacity: 5, status: "At capacity" },
-  { name: "K. Prakash", department: "Traffic Department", openTasks: 1, capacity: 5, status: "Available" },
-  { name: "M. Nagaraj", department: "Parks Department", openTasks: 3, capacity: 5, status: "On site" },
+  {
+    name: "R. Manjunath",
+    department: "Public Works — Roads",
+    openTasks: 4,
+    capacity: 6,
+    status: "On site",
+  },
+  {
+    name: "S. Latha",
+    department: "Electrical Department",
+    openTasks: 2,
+    capacity: 6,
+    status: "Available",
+  },
+  {
+    name: "A. Firoz",
+    department: "Water Supply",
+    openTasks: 5,
+    capacity: 5,
+    status: "At capacity",
+  },
+  {
+    name: "K. Prakash",
+    department: "Traffic Department",
+    openTasks: 1,
+    capacity: 5,
+    status: "Available",
+  },
+  {
+    name: "M. Nagaraj",
+    department: "Parks Department",
+    openTasks: 3,
+    capacity: 5,
+    status: "On site",
+  },
 ];
 
 export const WEEKLY_VOLUME = [
@@ -462,7 +509,6 @@ export const NOTIFICATIONS = [
     unread: true,
   },
 ];
-
 
 export const TESTIMONIALS = [
   {
@@ -524,7 +570,9 @@ export function getDeletedReportIds(): Set<string> {
     const raw = localStorage.getItem(DELETED_REPORTS_KEY);
     if (!raw) return new Set();
     const arr = JSON.parse(raw);
-    return new Set(Array.isArray(arr) ? arr.map((id: string) => String(id).toLowerCase().trim()) : []);
+    return new Set(
+      Array.isArray(arr) ? arr.map((id: string) => String(id).toLowerCase().trim()) : [],
+    );
   } catch {
     return new Set();
   }
@@ -552,7 +600,7 @@ export function calculateDistanceMeters(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number
+  lon2: number,
 ): number {
   const R = 6371e3; // Earth's radius in meters
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -606,9 +654,10 @@ export function mockClassify(text: string): {
     confidence: 0.94,
     duplicateProbability: 0.18,
     keywords: keywords.length ? keywords : ["pothole", "bus", "stop"],
-    summary: text.trim() ? text.trim().slice(0, 90) : "Large pothole reported near the main bus stop",
+    summary: text.trim()
+      ? text.trim().slice(0, 90)
+      : "Large pothole reported near the main bus stop",
     reason:
       "Matched category keywords in the description and two nearby reports in the same ward within the last 7 days.",
   };
 }
-

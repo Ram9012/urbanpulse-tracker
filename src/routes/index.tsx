@@ -9,13 +9,7 @@ import {
   mockClassify,
 } from "@/lib/civic-data";
 import { SiteLayout } from "@/components/site/site-layout";
-import {
-  Counter,
-  DemoDataNote,
-  Reveal,
-  Section,
-  StatusBadge,
-} from "@/components/site/primitives";
+import { Counter, DemoDataNote, Reveal, Section, StatusBadge } from "@/components/site/primitives";
 import { ActivityMap, MapCanvas } from "@/components/site/civic-map";
 
 export const Route = createFileRoute("/")({
@@ -132,7 +126,9 @@ function Hero() {
                 style={{ left: `${p.x}%`, top: `${p.y}%` }}
               >
                 <span className="relative flex size-3.5 items-center justify-center">
-                  <span className={`absolute size-3.5 rounded-full animate-civic-pulse ${p.tone}`} />
+                  <span
+                    className={`absolute size-3.5 rounded-full animate-civic-pulse ${p.tone}`}
+                  />
                   <span className={`size-3 rounded-full ring-2 ring-surface ${p.tone}`} />
                 </span>
               </span>
@@ -346,8 +342,18 @@ function Home() {
                 className="group block h-full rounded-2xl border border-border bg-background p-6 transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lift"
               >
                 <span className="inline-flex size-11 items-center justify-center rounded-xl bg-mint text-mint-foreground transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:rotate-3">
-                  <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M4 18h16M6 14l4-6 4 4 4-6" strokeLinecap="round" strokeLinejoin="round" />
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="size-5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  >
+                    <path
+                      d="M4 18h16M6 14l4-6 4 4 4-6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </span>
                 <h3 className="mt-4 text-base font-bold">{c.name}</h3>
@@ -522,7 +528,6 @@ function Home() {
           Placeholder quotes shown for demonstration. No official endorsements are implied.
         </p>
       </Section>
-
 
       <section className="relative overflow-hidden border-b border-border bg-surface py-20">
         <div aria-hidden="true" className="absolute inset-0 civic-grid-bg opacity-70" />

@@ -41,7 +41,9 @@ export type NotificationItem = {
 };
 
 const IS_VERCEL = Boolean(process.env["VERCEL"] || process.env["AWS_LAMBDA_FUNCTION_NAME"]);
-let STORAGE_DIR = IS_VERCEL ? path.join("/tmp", "civic-storage") : path.join(process.cwd(), "storage");
+let STORAGE_DIR = IS_VERCEL
+  ? path.join("/tmp", "civic-storage")
+  : path.join(process.cwd(), "storage");
 
 function getStoragePaths() {
   return {
@@ -126,7 +128,7 @@ export function initializeStatusEngine(initialReports: CivicReport[]) {
   }
 
   const filteredInitial = initialReports.filter(
-    (r) => !deletedReportIds.has(r.id.toLowerCase().trim())
+    (r) => !deletedReportIds.has(r.id.toLowerCase().trim()),
   );
   activeReports = JSON.parse(JSON.stringify(filteredInitial));
 
@@ -257,9 +259,7 @@ export function addReport(newReport: CivicReport): CivicReport {
   loadFromDisk();
 
   // If report already exists, update it in place; otherwise prepend
-  const idx = activeReports.findIndex(
-    (r) => r.id.toLowerCase() === newReport.id.toLowerCase()
-  );
+  const idx = activeReports.findIndex((r) => r.id.toLowerCase() === newReport.id.toLowerCase());
   if (idx >= 0) {
     activeReports[idx] = { ...activeReports[idx], ...newReport };
   } else {
@@ -404,28 +404,35 @@ export async function transitionReportStatus(params: {
 }> {
   loadFromDisk();
 
-  const found = activeReports.find((r) => r.id.toLowerCase() === params.reportId.toLowerCase())
-    || REPORTS.find((r) => r.id.toLowerCase() === params.reportId.toLowerCase());
+  const found =
+    activeReports.find((r) => r.id.toLowerCase() === params.reportId.toLowerCase()) ||
+    REPORTS.find((r) => r.id.toLowerCase() === params.reportId.toLowerCase());
   let report: CivicReport;
   if (!found) {
-    console.info(`[Status Engine]: Report ${params.reportId} not found in cache, synthesizing dynamically.`);
-    const isElectric = (params.department || "").toLowerCase().includes("electric")
-      || (params.comment || "").toLowerCase().includes("light")
-      || (params.reportId || "").toLowerCase().includes("95674");
+    console.info(
+      `[Status Engine]: Report ${params.reportId} not found in cache, synthesizing dynamically.`,
+    );
+    const isElectric =
+      (params.department || "").toLowerCase().includes("electric") ||
+      (params.comment || "").toLowerCase().includes("light") ||
+      (params.reportId || "").toLowerCase().includes("95674");
     const category = isElectric ? "electricity" : "roads";
     const categoryLabel = isElectric ? "Streetlight & electricity" : "Road & pothole";
     const title = isElectric
       ? "Streetlight failure and dark stretch on Racecourse Road"
       : "Civic infrastructure issue reported in Ward 12";
-    const department = isElectric ? "Electrical Department" : (params.department || "Public Works — Roads");
-    const worker = isElectric ? "S. Latha" : (params.worker || "R. Manjunath");
+    const department = isElectric
+      ? "Electrical Department"
+      : params.department || "Public Works — Roads";
+    const worker = isElectric ? "S. Latha" : params.worker || "R. Manjunath";
 
     report = {
       id: params.reportId,
       title,
       category,
       categoryLabel,
-      description: params.comment || `${categoryLabel} reported and registered in CivicPulse system.`,
+      description:
+        params.comment || `${categoryLabel} reported and registered in CivicPulse system.`,
       ward: isElectric ? "Rangoli Halla" : "Ward 12",
       area: isElectric ? "Racecourse Road, Rangoli Halla" : "Bus Stand Road",
       status: params.newStatus,
@@ -440,7 +447,11 @@ export async function transitionReportStatus(params: {
       anonymous: false,
       x: isElectric ? 42 : 32,
       y: isElectric ? 50 : 45,
-      mediaUrls: [isElectric ? "/media/evidence/streetlight_before.jpg" : "/media/evidence/pothole_before.jpg"],
+      mediaUrls: [
+        isElectric
+          ? "/media/evidence/streetlight_before.jpg"
+          : "/media/evidence/pothole_before.jpg",
+      ],
       workerMediaUrls: params.workerMedia || [],
       resolutionMediaUrls: params.resolutionMedia || [],
     };
@@ -467,9 +478,11 @@ export async function transitionReportStatus(params: {
             description: report.description,
           },
           params.resolutionNotes || "Work completed according to municipal specification.",
-          params.resolutionMedia || ["completion_photo.jpg"]
+          params.resolutionMedia || ["completion_photo.jpg"],
         ),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("AI verification timeout")), 800)),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("AI verification timeout")), 800),
+        ),
       ]);
     } catch {
       aiResult = {
@@ -482,8 +495,12 @@ export async function transitionReportStatus(params: {
     }
   }
 
-  const isElectric = (report.category || "").toLowerCase().includes("electric") || (report.id || "").includes("95674");
-  const defaultResolvedPhoto = isElectric ? "/media/evidence/streetlight_resolved.jpg" : "/media/evidence/pothole_resolved.jpg";
+  const isElectric =
+    (report.category || "").toLowerCase().includes("electric") ||
+    (report.id || "").includes("95674");
+  const defaultResolvedPhoto = isElectric
+    ? "/media/evidence/streetlight_resolved.jpg"
+    : "/media/evidence/pothole_resolved.jpg";
 
   // Update Report object
   report.status = params.newStatus;
@@ -496,12 +513,17 @@ export async function transitionReportStatus(params: {
   }
   if (params.resolutionMedia && params.resolutionMedia.length > 0) {
     report.resolutionMediaUrls = params.resolutionMedia;
-  } else if (params.newStatus === "resolved" && (!report.resolutionMediaUrls || report.resolutionMediaUrls.length === 0)) {
+  } else if (
+    params.newStatus === "resolved" &&
+    (!report.resolutionMediaUrls || report.resolutionMediaUrls.length === 0)
+  ) {
     report.resolutionMediaUrls = [defaultResolvedPhoto];
   }
 
   // Ensure report is tracked in activeReports
-  const existingIdx = activeReports.findIndex((r) => r.id.toLowerCase() === report.id.toLowerCase());
+  const existingIdx = activeReports.findIndex(
+    (r) => r.id.toLowerCase() === report.id.toLowerCase(),
+  );
   if (existingIdx >= 0) {
     activeReports[existingIdx] = { ...activeReports[existingIdx], ...report };
   } else {
@@ -517,7 +539,9 @@ export async function transitionReportStatus(params: {
     changedBy: params.changedBy,
     role: params.role,
     changedAt: now,
-    comment: params.comment || `Status updated from ${oldStatus.replace("_", " ")} to ${params.newStatus.replace("_", " ")}.`,
+    comment:
+      params.comment ||
+      `Status updated from ${oldStatus.replace("_", " ")} to ${params.newStatus.replace("_", " ")}.`,
     metadata: {
       department: report.department,
       worker: report.worker,
@@ -567,13 +591,17 @@ export async function transitionReportStatus(params: {
 /**
  * Delete a report permanently from active cache, disk storage, and Supabase.
  */
-export async function deleteReport(reportId: string): Promise<{ success: boolean; id: string; supabaseDeleted?: boolean; deletedIds: string[] }> {
+export async function deleteReport(
+  reportId: string,
+): Promise<{ success: boolean; id: string; supabaseDeleted?: boolean; deletedIds: string[] }> {
   loadFromDisk();
   const idLower = reportId.toLowerCase().trim();
   deletedReportIds.add(idLower);
   activeReports = activeReports.filter((r) => r.id.toLowerCase().trim() !== idLower);
   statusHistories = statusHistories.filter((h) => h.reportId.toLowerCase().trim() !== idLower);
-  activeNotifications = activeNotifications.filter((n) => n.reportId.toLowerCase().trim() !== idLower);
+  activeNotifications = activeNotifications.filter(
+    (n) => n.reportId.toLowerCase().trim() !== idLower,
+  );
   saveToDisk();
 
   let supabaseDeleted = false;
@@ -596,7 +624,7 @@ export async function deleteReport(reportId: string): Promise<{ success: boolean
  */
 export async function upvoteReport(
   reportId: string,
-  userIdentifier: string = "anonymous"
+  userIdentifier: string = "anonymous",
 ): Promise<{ success: boolean; report?: CivicReport; alreadyUpvoted?: boolean; upvotes: number }> {
   loadFromDisk();
   const idLower = reportId.toLowerCase().trim();
@@ -650,5 +678,3 @@ export async function upvoteReport(
     upvotes: report.upvotes,
   };
 }
-
-

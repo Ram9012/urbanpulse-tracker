@@ -32,7 +32,6 @@ import { REPORTS } from "../civic-data";
 initializeStatusEngine(REPORTS);
 initializeAuthStore();
 
-
 function parseJsonBody(req: any): Promise<any> {
   return new Promise((resolve, reject) => {
     let body = "";
@@ -110,10 +109,12 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
     // 5. Municipal Search (SerpAPI / Zenserp)
     if (pathname.startsWith("/api/search/municipal") && request.method === "GET") {
       const q = url.searchParams.get("q") || "Hassan municipal council civic complaints";
-      const serpApiKey = process.env["SERPAPI_API_KEY"] || "09e538a7b57d3f0ad876a3e25dd5dd1ece56236a57dfadf95b86e5bbf3694b40";
+      const serpApiKey =
+        process.env["SERPAPI_API_KEY"] ||
+        "09e538a7b57d3f0ad876a3e25dd5dd1ece56236a57dfadf95b86e5bbf3694b40";
 
       const serpRes = await fetch(
-        `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(q)}&api_key=${serpApiKey}&num=3`
+        `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(q)}&api_key=${serpApiKey}&num=3`,
       );
       const data = await serpRes.json();
       const results = (data.organic_results || []).slice(0, 3).map((r: any) => ({
@@ -126,10 +127,13 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
 
     // 6. Reports & Status Engine APIs
     if (pathname === "/api/status/reports" && request.method === "GET") {
-      return Response.json({
-        reports: getAllReports(),
-        deletedIds: getDeletedReportIdsServer(),
-      }, { status: 200 });
+      return Response.json(
+        {
+          reports: getAllReports(),
+          deletedIds: getDeletedReportIdsServer(),
+        },
+        { status: 200 },
+      );
     }
 
     if (pathname === "/api/reports/deleted" && request.method === "GET") {
@@ -158,7 +162,10 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       if (!reportId) {
         return Response.json({ error: "Missing reportId" }, { status: 400 });
       }
-      const clientIp = request.headers.get("x-forwarded-for") || request.headers.get("cf-connecting-ip") || "citizen";
+      const clientIp =
+        request.headers.get("x-forwarded-for") ||
+        request.headers.get("cf-connecting-ip") ||
+        "citizen";
       const identifier = userIdentifier || clientIp;
       const result = await upvoteReport(reportId, identifier);
       return Response.json(result, { status: 200 });
@@ -181,13 +188,19 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
     }
 
     // 8. Clean database (Purge old complaints and reset to single latest complaint)
-    if (pathname === "/api/admin/clean-database" && (request.method === "POST" || request.method === "GET")) {
+    if (
+      pathname === "/api/admin/clean-database" &&
+      (request.method === "POST" || request.method === "GET")
+    ) {
       const cleanResult = await resetToCleanState();
       return Response.json(cleanResult, { status: 200 });
     }
 
     // 9. Delete specific report from database & Supabase
-    if ((pathname === "/api/reports/delete" || pathname === "/api/status/delete") && (request.method === "POST" || request.method === "DELETE")) {
+    if (
+      (pathname === "/api/reports/delete" || pathname === "/api/status/delete") &&
+      (request.method === "POST" || request.method === "DELETE")
+    ) {
       const body = await request.json().catch(() => ({}));
       const id = body.reportId || body.id || url.searchParams.get("id");
       if (!id) {
@@ -279,7 +292,11 @@ export function civicPulseApiPlugin(): Plugin {
           if (url === "/api/ai/verify-resolution" && req.method === "POST") {
             const body = await parseJsonBody(req);
             const { originalReport, resolutionNotes, mediaLabels } = body;
-            const result = await verifyResolutionEvidence(originalReport, resolutionNotes, mediaLabels);
+            const result = await verifyResolutionEvidence(
+              originalReport,
+              resolutionNotes,
+              mediaLabels,
+            );
             return sendJson(res, 200, result);
           }
 
@@ -301,11 +318,16 @@ export function civicPulseApiPlugin(): Plugin {
           // 5. Municipal Search (SerpAPI / Zenserp)
           if (url.startsWith("/api/search/municipal") && req.method === "GET") {
             const queryMatch = url.match(/[?&]q=([^&]+)/);
-            const q = queryMatch && queryMatch[1] ? decodeURIComponent(queryMatch[1]) : "Hassan municipal council civic complaints";
-            const serpApiKey = process.env["SERPAPI_API_KEY"] || "09e538a7b57d3f0ad876a3e25dd5dd1ece56236a57dfadf95b86e5bbf3694b40";
+            const q =
+              queryMatch && queryMatch[1]
+                ? decodeURIComponent(queryMatch[1])
+                : "Hassan municipal council civic complaints";
+            const serpApiKey =
+              process.env["SERPAPI_API_KEY"] ||
+              "09e538a7b57d3f0ad876a3e25dd5dd1ece56236a57dfadf95b86e5bbf3694b40";
 
             const serpRes = await fetch(
-              `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(q)}&api_key=${serpApiKey}&num=3`
+              `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(q)}&api_key=${serpApiKey}&num=3`,
             );
             const data = await serpRes.json();
             const results = (data.organic_results || []).slice(0, 3).map((r: any) => ({
@@ -351,7 +373,8 @@ export function civicPulseApiPlugin(): Plugin {
             if (!reportId) {
               return sendJson(res, 400, { error: "Missing reportId" });
             }
-            const clientIp = req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "citizen";
+            const clientIp =
+              req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "citizen";
             const identifier = userIdentifier || String(clientIp);
             const result = await upvoteReport(reportId, identifier);
             return sendJson(res, 200, result);
@@ -389,7 +412,10 @@ export function civicPulseApiPlugin(): Plugin {
           ) {
             const body = await parseJsonBody(req).catch(() => ({}));
             const idMatch = url.match(/[?&]id=([^&]+)/);
-            const id = body.reportId || body.id || (idMatch && idMatch[1] ? decodeURIComponent(idMatch[1]) : "");
+            const id =
+              body.reportId ||
+              body.id ||
+              (idMatch && idMatch[1] ? decodeURIComponent(idMatch[1]) : "");
             if (!id) {
               return sendJson(res, 400, { error: "Missing reportId" });
             }

@@ -110,7 +110,9 @@ export function CivicChatbot({
         const botReply: ChatMessage = {
           id: `bot-${Date.now()}`,
           role: "assistant",
-          content: data.reply || "I received your query. How else may I assist you with municipal services?",
+          content:
+            data.reply ||
+            "I received your query. How else may I assist you with municipal services?",
           time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           source: data.source || "Groq AI Engine",
           model: data.model || activeModel,
@@ -167,7 +169,10 @@ export function CivicChatbot({
           // Headers
           if (line.startsWith("### ")) {
             return (
-              <h4 key={idx} className="font-bold text-foreground text-xs uppercase tracking-wide mt-2 pt-1 border-t border-border/40">
+              <h4
+                key={idx}
+                className="font-bold text-foreground text-xs uppercase tracking-wide mt-2 pt-1 border-t border-border/40"
+              >
                 {line.replace("### ", "")}
               </h4>
             );
@@ -211,9 +216,15 @@ export function CivicChatbot({
           if (line.startsWith("|") && line.endsWith("|")) {
             const cells = line.split("|").filter((c, i, a) => i > 0 && i < a.length - 1);
             return (
-              <div key={idx} className="grid grid-cols-3 gap-1 py-1 px-2 my-1 rounded bg-muted/30 text-[11px] font-medium border border-border/40">
+              <div
+                key={idx}
+                className="grid grid-cols-3 gap-1 py-1 px-2 my-1 rounded bg-muted/30 text-[11px] font-medium border border-border/40"
+              >
                 {cells.map((cell, cIdx) => (
-                  <span key={cIdx} className={cIdx === 0 ? "font-bold text-foreground" : "text-muted-foreground"}>
+                  <span
+                    key={cIdx}
+                    className={cIdx === 0 ? "font-bold text-foreground" : "text-muted-foreground"}
+                  >
                     {cell.trim()}
                   </span>
                 ))}
@@ -221,9 +232,7 @@ export function CivicChatbot({
             );
           }
 
-          return (
-            <p key={idx} dangerouslySetInnerHTML={{ __html: parseBoldText(line) }} />
-          );
+          return <p key={idx} dangerouslySetInnerHTML={{ __html: parseBoldText(line) }} />;
         })}
       </div>
     );
@@ -232,7 +241,10 @@ export function CivicChatbot({
   function parseBoldText(text: string): string {
     return text
       .replace(/\*\*(.*?)\*\*/g, "<strong class='font-bold text-foreground'>$1</strong>")
-      .replace(/`([^`]+)`/g, "<code class='px-1 py-0.5 rounded bg-muted text-[11px] font-mono text-primary'>$1</code>");
+      .replace(
+        /`([^`]+)`/g,
+        "<code class='px-1 py-0.5 rounded bg-muted text-[11px] font-mono text-primary'>$1</code>",
+      );
   }
 
   // Floating button launcher when closed in floating mode
@@ -251,7 +263,9 @@ export function CivicChatbot({
           <div className="text-left">
             <div className="flex items-center gap-1.5 text-xs font-black tracking-wide uppercase">
               <span>Ask PulseBot</span>
-              <span className="rounded bg-white/20 px-1 py-0.2 text-[9px] font-bold text-white">Groq AI</span>
+              <span className="rounded bg-white/20 px-1 py-0.2 text-[9px] font-bold text-white">
+                Groq AI
+              </span>
             </div>
             <div className="text-[10px] text-white/80 font-medium">Live Citizen Assistant</div>
           </div>
@@ -353,11 +367,7 @@ export function CivicChatbot({
                 }`}
               >
                 <span>{m.time}</span>
-                {m.source && (
-                  <span className="font-semibold tracking-wide">
-                    {m.source}
-                  </span>
-                )}
+                {m.source && <span className="font-semibold tracking-wide">{m.source}</span>}
               </div>
             </div>
 

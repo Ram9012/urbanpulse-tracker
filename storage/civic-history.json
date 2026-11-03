@@ -9,9 +9,7 @@
     "changedAt": "2026-09-25T01:30:00Z",
     "comment": "Report created and submitted to municipal triage queue.",
     "metadata": {
-      "mediaUrls": [
-        "/media/evidence/streetlight_before.jpg"
-      ],
+      "mediaUrls": ["/media/evidence/streetlight_before.jpg"],
       "address": "Racecourse Road, Rangoli Halla, हासन",
       "latitude": 13.0072,
       "longitude": 76.1023
@@ -61,9 +59,7 @@
     "metadata": {
       "department": "Public Works — Roads",
       "worker": "R. Manjunath",
-      "workerMedia": [
-        "/media/evidence/road_worker_onsite.jpg"
-      ],
+      "workerMedia": ["/media/evidence/road_worker_onsite.jpg"],
       "aiVerification": null
     }
   },
@@ -79,9 +75,7 @@
     "metadata": {
       "department": "Public Works — Roads",
       "worker": "R. Manjunath",
-      "workerMedia": [
-        "/media/evidence/road_worker_onsite.jpg"
-      ],
+      "workerMedia": ["/media/evidence/road_worker_onsite.jpg"],
       "aiVerification": null
     }
   },
@@ -98,12 +92,8 @@
       "department": "Public Works — Roads",
       "worker": "R. Manjunath",
       "resolutionNotes": "Streetlight wiring repaired, lamp replaced, and illumination restored.",
-      "workerMedia": [
-        "/media/evidence/road_worker_onsite.jpg"
-      ],
-      "resolutionMedia": [
-        "/media/evidence/streetlight_resolved.jpg"
-      ],
+      "workerMedia": ["/media/evidence/road_worker_onsite.jpg"],
+      "resolutionMedia": ["/media/evidence/streetlight_resolved.jpg"],
       "aiVerification": null
     }
   },
@@ -151,9 +141,7 @@
     "metadata": {
       "department": "Public Works — Roads",
       "worker": "R. Manjunath",
-      "workerMedia": [
-        "/media/evidence/road_worker_onsite.jpg"
-      ],
+      "workerMedia": ["/media/evidence/road_worker_onsite.jpg"],
       "aiVerification": null
     }
   },
@@ -169,9 +157,7 @@
     "metadata": {
       "department": "Public Works — Roads",
       "worker": "R. Manjunath",
-      "workerMedia": [
-        "/media/evidence/road_worker_onsite.jpg"
-      ],
+      "workerMedia": ["/media/evidence/road_worker_onsite.jpg"],
       "aiVerification": null
     }
   },

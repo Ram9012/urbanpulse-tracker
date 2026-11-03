@@ -23,7 +23,10 @@ export const Route = createFileRoute("/admin/reports")({
           "Filter, classify, assign and resolve civic reports with Groq AI decision support and deterministic audit logging.",
       },
       { property: "og:title", content: "Live Report Management — CivicPulse Staff" },
-      { property: "og:description", content: "Centralised civic report queue for municipal staff." },
+      {
+        property: "og:description",
+        content: "Centralised civic report queue for municipal staff.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -196,7 +199,8 @@ function ReportsTable() {
   };
 
   const openEvidenceModal = (report: CivicReport, preferredStatus?: "in_progress" | "resolved") => {
-    const nextStatus = preferredStatus || (report.status === "in_progress" ? "resolved" : "in_progress");
+    const nextStatus =
+      preferredStatus || (report.status === "in_progress" ? "resolved" : "in_progress");
     setEvidenceModalReport(report);
     setEvidenceStatus(nextStatus);
     setEvidenceWorker(report.worker || FIELD_WORKERS[0]!.name);
@@ -232,16 +236,20 @@ function ReportsTable() {
     const notes =
       evidenceNotes ||
       (newStatus === "resolved"
-        ? (targetReport.category === "electricity"
-            ? "Streetlight wiring repaired, lamp replaced, and illumination restored."
-            : "Remediation verified on site: issue resolved and inspection passed.")
+        ? targetReport.category === "electricity"
+          ? "Streetlight wiring repaired, lamp replaced, and illumination restored."
+          : "Remediation verified on site: issue resolved and inspection passed."
         : "Field crew arrived on site with materials. Remediation underway.");
 
-    const isElectric = (targetReport.category || "").toLowerCase().includes("electric") || targetReport.id.includes("95674");
+    const isElectric =
+      (targetReport.category || "").toLowerCase().includes("electric") ||
+      targetReport.id.includes("95674");
     const photo =
       evidencePhotoUrl ||
       (newStatus === "resolved"
-        ? (isElectric ? "/media/evidence/streetlight_resolved.jpg" : "/media/evidence/pothole_resolved.jpg")
+        ? isElectric
+          ? "/media/evidence/streetlight_resolved.jpg"
+          : "/media/evidence/pothole_resolved.jpg"
         : "/media/evidence/road_worker_onsite.jpg");
 
     const now = new Date().toISOString();
@@ -257,8 +265,14 @@ function ReportsTable() {
             updatedAt: now,
             department: evidenceDept,
             worker: evidenceWorker,
-            workerMediaUrls: newStatus === "in_progress" ? [photo, ...(r.workerMediaUrls || [])] : (r.workerMediaUrls || []),
-            resolutionMediaUrls: newStatus === "resolved" ? [photo, ...(r.resolutionMediaUrls || [])] : (r.resolutionMediaUrls || []),
+            workerMediaUrls:
+              newStatus === "in_progress"
+                ? [photo, ...(r.workerMediaUrls || [])]
+                : r.workerMediaUrls || [],
+            resolutionMediaUrls:
+              newStatus === "resolved"
+                ? [photo, ...(r.resolutionMediaUrls || [])]
+                : r.resolutionMediaUrls || [],
           };
           if (newStatus === "resolved" && notes) {
             updated.resolutionNotes = notes;
@@ -267,7 +281,7 @@ function ReportsTable() {
           return updated;
         }
         return r;
-      })
+      }),
     );
 
     // 2. Persist immediately to localStorage so polling or navigation NEVER reverts it
@@ -281,7 +295,9 @@ function ReportsTable() {
           stored.unshift(updatedReport);
         }
         localStorage.setItem("civicpulse_client_reports", JSON.stringify(stored));
-        window.dispatchEvent(new CustomEvent("civicpulse_report_updated", { detail: updatedReport }));
+        window.dispatchEvent(
+          new CustomEvent("civicpulse_report_updated", { detail: updatedReport }),
+        );
         window.dispatchEvent(new Event("storage"));
       } catch {}
     }
@@ -292,7 +308,7 @@ function ReportsTable() {
     setActionNotice(
       newStatus === "resolved"
         ? `✓ Report ${targetId} officially RESOLVED & verified with resolution proof!`
-        : `✓ Report ${targetId} moved to IN PROGRESS with worker evidence!`
+        : `✓ Report ${targetId} moved to IN PROGRESS with worker evidence!`,
     );
 
     // 4. Dispatch to Status Engine API asynchronously without blocking UI
@@ -319,7 +335,9 @@ function ReportsTable() {
         const data = await res.json();
         if (data.report) {
           setReports((prev) =>
-            prev.map((r) => (r.id.toLowerCase() === targetId.toLowerCase() ? { ...r, ...data.report } : r))
+            prev.map((r) =>
+              r.id.toLowerCase() === targetId.toLowerCase() ? { ...r, ...data.report } : r,
+            ),
           );
         }
       }
@@ -331,7 +349,10 @@ function ReportsTable() {
   };
 
   // Smart Merge Helper: Ensures client's resolved status or newer updates are NEVER overwritten by stale server data
-  const mergeReportsWithPrecedence = (localList: CivicReport[], serverList: CivicReport[]): CivicReport[] => {
+  const mergeReportsWithPrecedence = (
+    localList: CivicReport[],
+    serverList: CivicReport[],
+  ): CivicReport[] => {
     const map = new Map<string, CivicReport>();
 
     // 1. Base default seed reports
@@ -365,8 +386,12 @@ function ReportsTable() {
             map.set(lr.id.toLowerCase(), {
               ...lr,
               ...existing,
-              resolutionMediaUrls: existing.resolutionMediaUrls?.length ? existing.resolutionMediaUrls : lr.resolutionMediaUrls,
-              workerMediaUrls: existing.workerMediaUrls?.length ? existing.workerMediaUrls : lr.workerMediaUrls,
+              resolutionMediaUrls: existing.resolutionMediaUrls?.length
+                ? existing.resolutionMediaUrls
+                : lr.resolutionMediaUrls,
+              workerMediaUrls: existing.workerMediaUrls?.length
+                ? existing.workerMediaUrls
+                : lr.workerMediaUrls,
             });
           }
         }
@@ -391,7 +416,8 @@ function ReportsTable() {
         }
         if (data.reports) {
           serverReports = data.reports.filter(
-            (r: CivicReport) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
+            (r: CivicReport) =>
+              !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
           );
         }
       }
@@ -414,7 +440,7 @@ function ReportsTable() {
       }
 
       const merged = mergeReportsWithPrecedence(localReports, serverReports).filter(
-        (r) => !freshDeleted.has(r.id.toLowerCase())
+        (r) => !freshDeleted.has(r.id.toLowerCase()),
       );
       setReports(merged);
       if (typeof window !== "undefined") {
@@ -446,7 +472,11 @@ function ReportsTable() {
 
   // Purge old complaints and reset database completely
   const purgeAllOldComplaints = async () => {
-    if (!confirm("Are you sure you want to remove all previous complaints and keep only the latest one?")) {
+    if (
+      !confirm(
+        "Are you sure you want to remove all previous complaints and keep only the latest one?",
+      )
+    ) {
       return;
     }
     setPurgingData(true);
@@ -460,7 +490,9 @@ function ReportsTable() {
         if (data.reports) {
           setReports(data.reports);
         }
-        setActionNotice("Database cleaned successfully. All previous complaints removed; only latest complaint active.");
+        setActionNotice(
+          "Database cleaned successfully. All previous complaints removed; only latest complaint active.",
+        );
       }
     } catch (err: any) {
       setActionNotice(`Clean database notice: ${err.message}`);
@@ -485,7 +517,9 @@ function ReportsTable() {
         localStorage.setItem("civicpulse_client_reports", JSON.stringify(filtered));
 
         const queue = JSON.parse(localStorage.getItem("civic_reports_queue") || "[]");
-        const filteredQueue = queue.filter((r: any) => r.id.toLowerCase() !== reportId.toLowerCase());
+        const filteredQueue = queue.filter(
+          (r: any) => r.id.toLowerCase() !== reportId.toLowerCase(),
+        );
         localStorage.setItem("civic_reports_queue", JSON.stringify(filteredQueue));
 
         window.dispatchEvent(new Event("civicpulse_report_deleted"));
@@ -507,13 +541,21 @@ function ReportsTable() {
     }
   };
 
-
   // Status transition handler with instant optimistic update & resilient persistence
-  const transitionReport = async (reportId: string, newStatus: ReportStatus, comment?: string, workerName?: string, deptName?: string) => {
+  const transitionReport = async (
+    reportId: string,
+    newStatus: ReportStatus,
+    comment?: string,
+    workerName?: string,
+    deptName?: string,
+  ) => {
     const now = new Date().toISOString();
     let target = reports.find((r) => r.id.toLowerCase() === reportId.toLowerCase());
-    const isElectric = (target?.category || "").toLowerCase().includes("electric") || reportId.includes("95674");
-    const resolvedPhoto = isElectric ? "/media/evidence/streetlight_resolved.jpg" : "/media/evidence/pothole_resolved.jpg";
+    const isElectric =
+      (target?.category || "").toLowerCase().includes("electric") || reportId.includes("95674");
+    const resolvedPhoto = isElectric
+      ? "/media/evidence/streetlight_resolved.jpg"
+      : "/media/evidence/pothole_resolved.jpg";
 
     let updatedReport: CivicReport | undefined;
 
@@ -527,12 +569,18 @@ function ReportsTable() {
             updatedAt: now,
             worker: workerName || r.worker,
             department: deptName || r.department,
-            workerMediaUrls: (newStatus === "assigned" || newStatus === "in_progress" || newStatus === "resolved")
-              ? (r.workerMediaUrls && r.workerMediaUrls.length > 0 ? r.workerMediaUrls : ["/media/evidence/road_worker_onsite.jpg"])
-              : r.workerMediaUrls,
-            resolutionMediaUrls: newStatus === "resolved"
-              ? (r.resolutionMediaUrls && r.resolutionMediaUrls.length > 0 ? r.resolutionMediaUrls : [resolvedPhoto])
-              : r.resolutionMediaUrls,
+            workerMediaUrls:
+              newStatus === "assigned" || newStatus === "in_progress" || newStatus === "resolved"
+                ? r.workerMediaUrls && r.workerMediaUrls.length > 0
+                  ? r.workerMediaUrls
+                  : ["/media/evidence/road_worker_onsite.jpg"]
+                : r.workerMediaUrls,
+            resolutionMediaUrls:
+              newStatus === "resolved"
+                ? r.resolutionMediaUrls && r.resolutionMediaUrls.length > 0
+                  ? r.resolutionMediaUrls
+                  : [resolvedPhoto]
+                : r.resolutionMediaUrls,
           };
           if (newStatus === "resolved" && !updated.resolutionNotes) {
             updated.resolutionNotes = comment || "Work completed and verified on site.";
@@ -541,7 +589,7 @@ function ReportsTable() {
           return updated;
         }
         return r;
-      })
+      }),
     );
 
     // 2. Persist immediately to localStorage so polling or navigation NEVER reverts it
@@ -555,12 +603,16 @@ function ReportsTable() {
           stored.unshift(updatedReport);
         }
         localStorage.setItem("civicpulse_client_reports", JSON.stringify(stored));
-        window.dispatchEvent(new CustomEvent("civicpulse_report_updated", { detail: updatedReport }));
+        window.dispatchEvent(
+          new CustomEvent("civicpulse_report_updated", { detail: updatedReport }),
+        );
         window.dispatchEvent(new Event("storage"));
       } catch {}
     }
 
-    setActionNotice(`✓ Report ${reportId} updated to ${newStatus.toUpperCase()}${workerName ? ` (Worker: ${workerName})` : ""}`);
+    setActionNotice(
+      `✓ Report ${reportId} updated to ${newStatus.toUpperCase()}${workerName ? ` (Worker: ${workerName})` : ""}`,
+    );
 
     // 3. Dispatch to Status Engine API asynchronously in the background
     try {
@@ -575,12 +627,11 @@ function ReportsTable() {
           comment: comment || `Status advanced to ${newStatus.toUpperCase()}`,
           worker: workerName,
           department: deptName,
-          workerMedia: (newStatus === "assigned" || newStatus === "in_progress" || newStatus === "resolved")
-            ? ["/media/evidence/road_worker_onsite.jpg"]
-            : undefined,
-          resolutionMedia: newStatus === "resolved"
-            ? [resolvedPhoto]
-            : undefined,
+          workerMedia:
+            newStatus === "assigned" || newStatus === "in_progress" || newStatus === "resolved"
+              ? ["/media/evidence/road_worker_onsite.jpg"]
+              : undefined,
+          resolutionMedia: newStatus === "resolved" ? [resolvedPhoto] : undefined,
           runAiCheck: false,
         }),
       });
@@ -589,7 +640,9 @@ function ReportsTable() {
         const data = await res.json();
         if (data.report) {
           setReports((prev) =>
-            prev.map((r) => (r.id.toLowerCase() === reportId.toLowerCase() ? { ...r, ...data.report } : r))
+            prev.map((r) =>
+              r.id.toLowerCase() === reportId.toLowerCase() ? { ...r, ...data.report } : r,
+            ),
           );
         }
       }
@@ -624,7 +677,8 @@ function ReportsTable() {
   };
 
   const rows = reports.filter(
-    (r) => (category === "all" || r.category === category) && (status === "all" || r.status === status),
+    (r) =>
+      (category === "all" || r.category === category) && (status === "all" || r.status === status),
   );
 
   return (
@@ -633,7 +687,8 @@ function ReportsTable() {
         <div>
           <h1 className="font-display text-2xl font-extrabold">Live Civic Reports Queue</h1>
           <p className="text-sm text-muted-foreground">
-            Manage reports across all stages with deterministic status rules and Groq AI decision support.
+            Manage reports across all stages with deterministic status rules and Groq AI decision
+            support.
           </p>
         </div>
         <div className="ml-auto flex items-center gap-3">
@@ -660,7 +715,9 @@ function ReportsTable() {
       {actionNotice && (
         <div className="mt-4 rounded-xl bg-success/15 border border-success/30 p-3 text-xs font-bold text-success flex items-center justify-between">
           <span>✓ {actionNotice}</span>
-          <button onClick={() => setActionNotice(null)} className="underline">Dismiss</button>
+          <button onClick={() => setActionNotice(null)} className="underline">
+            Dismiss
+          </button>
         </div>
       )}
 
@@ -668,16 +725,26 @@ function ReportsTable() {
       <div className="mt-5 flex flex-wrap items-end gap-3">
         <label>
           <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">Category</span>
-          <select value={category} onChange={(e) => setCategory(e.target.value)} className="h-11 rounded-xl border border-input bg-surface px-3 text-sm">
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="h-11 rounded-xl border border-input bg-surface px-3 text-sm"
+          >
             <option value="all">All Categories</option>
             {CATEGORIES.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
             ))}
           </select>
         </label>
         <label>
           <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">Status</span>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-11 rounded-xl border border-input bg-surface px-3 text-sm">
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="h-11 rounded-xl border border-input bg-surface px-3 text-sm"
+          >
             <option value="all">All Statuses</option>
             <option value="submitted">1. Submitted</option>
             <option value="verified">2. Verified</option>
@@ -699,7 +766,9 @@ function ReportsTable() {
       {rows.length === 0 ? (
         <div className="surface-card mt-6 p-12 text-center">
           <p className="font-display text-lg font-bold">No reports in this queue</p>
-          <p className="mt-2 text-sm text-muted-foreground">Widen the filters to see more reports.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Widen the filters to see more reports.
+          </p>
         </div>
       ) : (
         <div className="surface-card mt-6 overflow-x-auto rounded-2xl shadow-sm">
@@ -707,26 +776,51 @@ function ReportsTable() {
             <caption className="sr-only">Civic report queue</caption>
             <thead className="bg-muted text-left">
               <tr>
-                {["Report", "Category", "Location", "Priority", "Department", "Worker", "Status", "AI Signals", "Workflow Actions"].map((h) => (
-                  <th key={h} scope="col" className="px-4 py-3 font-bold whitespace-nowrap">{h}</th>
+                {[
+                  "Report",
+                  "Category",
+                  "Location",
+                  "Priority",
+                  "Department",
+                  "Worker",
+                  "Status",
+                  "AI Signals",
+                  "Workflow Actions",
+                ].map((h) => (
+                  <th key={h} scope="col" className="px-4 py-3 font-bold whitespace-nowrap">
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-t border-border align-middle hover:bg-muted/10 transition">
+                <tr
+                  key={r.id}
+                  className="border-t border-border align-middle hover:bg-muted/10 transition"
+                >
                   <td className="px-4 py-3">
                     <span className="flex items-center gap-2">
-                      <span aria-hidden="true" className="size-9 shrink-0 rounded-lg border border-border civic-grid-bg" />
+                      <span
+                        aria-hidden="true"
+                        className="size-9 shrink-0 rounded-lg border border-border civic-grid-bg"
+                      />
                       <span>
                         <span className="block font-bold">{r.id}</span>
-                        <span className="block text-xs text-muted-foreground">{formatDate(r.createdAt)}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {formatDate(r.createdAt)}
+                        </span>
                       </span>
                     </span>
                   </td>
                   <td className="px-4 py-3 font-medium">{r.categoryLabel}</td>
-                  <td className="px-4 py-3">{r.area}<span className="block text-xs text-muted-foreground">{r.ward}</span></td>
-                  <td className="px-4 py-3"><PriorityBadge priority={r.priority} /></td>
+                  <td className="px-4 py-3">
+                    {r.area}
+                    <span className="block text-xs text-muted-foreground">{r.ward}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <PriorityBadge priority={r.priority} />
+                  </td>
                   <td className="px-4 py-3">{r.department}</td>
                   <td className="px-4 py-3 font-medium">
                     {r.worker ? (
@@ -735,9 +829,13 @@ function ReportsTable() {
                       <span className="text-muted-foreground text-xs italic">Unassigned</span>
                     )}
                   </td>
-                  <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={r.status} />
+                  </td>
                   <td className="px-4 py-3 text-xs">
-                    <span className="font-semibold">{Math.round((r.aiConfidence || 0.94) * 100)}% conf</span>
+                    <span className="font-semibold">
+                      {Math.round((r.aiConfidence || 0.94) * 100)}% conf
+                    </span>
                     {r.duplicateProbability > 0.2 && (
                       <span className="block text-[11px] text-warning font-semibold">
                         ⚠️ Dup {Math.round(r.duplicateProbability * 100)}%
@@ -750,7 +848,13 @@ function ReportsTable() {
                         <>
                           <button
                             type="button"
-                            onClick={() => transitionReport(r.id, "verified", `Verified by municipal staff for ${r.department}.`)}
+                            onClick={() =>
+                              transitionReport(
+                                r.id,
+                                "verified",
+                                `Verified by municipal staff for ${r.department}.`,
+                              )
+                            }
                             className="px-3 py-1.5 rounded-xl bg-teal text-teal-foreground text-xs font-bold hover:bg-teal/90 shadow-sm flex items-center gap-1 transition"
                             title="Verify report validity & jurisdiction"
                           >
@@ -782,7 +886,13 @@ function ReportsTable() {
                         <>
                           <button
                             type="button"
-                            onClick={() => transitionReport(r.id, "in_progress", "Field crew deployed on site with materials.")}
+                            onClick={() =>
+                              transitionReport(
+                                r.id,
+                                "in_progress",
+                                "Field crew deployed on site with materials.",
+                              )
+                            }
                             className="px-3 py-1.5 rounded-xl bg-warning text-warning-foreground text-xs font-bold hover:bg-warning/90 shadow-sm flex items-center gap-1 transition"
                           >
                             <span>🛠️</span> 3. Start Work on Site
@@ -817,7 +927,13 @@ function ReportsTable() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => transitionReport(r.id, "resolved", "Officially inspected and marked resolved by municipal supervisor.")}
+                            onClick={() =>
+                              transitionReport(
+                                r.id,
+                                "resolved",
+                                "Officially inspected and marked resolved by municipal supervisor.",
+                              )
+                            }
                             className="px-2.5 py-1.5 rounded-xl border border-success/40 bg-success/10 text-success hover:bg-success hover:text-success-foreground text-xs font-bold transition flex items-center gap-1"
                             title="One-click immediate resolution without photo modal"
                           >
@@ -874,7 +990,11 @@ function ReportsTable() {
                         </button>
                       )}
 
-                      <Link to="/reports/$id" params={{ id: r.id }} className="text-xs font-bold text-primary hover:underline ml-1">
+                      <Link
+                        to="/reports/$id"
+                        params={{ id: r.id }}
+                        className="text-xs font-bold text-primary hover:underline ml-1"
+                      >
                         Timeline →
                       </Link>
                     </div>
@@ -889,8 +1009,15 @@ function ReportsTable() {
       {/* Assignment Modal */}
       {assignFor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/60 p-4 backdrop-blur-sm">
-          <div role="dialog" aria-modal="true" aria-label={`Assign ${assignFor}`} className="surface-card w-full max-w-lg p-6 rounded-2xl shadow-2xl animate-rise-in">
-            <h2 className="font-display text-lg font-extrabold">Assign Field Worker: {assignFor}</h2>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Assign ${assignFor}`}
+            className="surface-card w-full max-w-lg p-6 rounded-2xl shadow-2xl animate-rise-in"
+          >
+            <h2 className="font-display text-lg font-extrabold">
+              Assign Field Worker: {assignFor}
+            </h2>
             <p className="text-xs text-muted-foreground mt-1">
               Select department and available field crew to dispatch for resolution.
             </p>
@@ -903,7 +1030,11 @@ function ReportsTable() {
                   onChange={(e) => setSelectedDept(e.target.value)}
                   className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
                 >
-                  {DEPARTMENTS.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
+                  {DEPARTMENTS.map((d) => (
+                    <option key={d.name} value={d.name}>
+                      {d.name}
+                    </option>
+                  ))}
                 </select>
               </label>
 
@@ -934,7 +1065,13 @@ function ReportsTable() {
               <button
                 type="button"
                 onClick={() => {
-                  transitionReport(assignFor, "assigned", `Assigned to ${selectedDept} -> Worker: ${selectedWorker}`, selectedWorker, selectedDept);
+                  transitionReport(
+                    assignFor,
+                    "assigned",
+                    `Assigned to ${selectedDept} -> Worker: ${selectedWorker}`,
+                    selectedWorker,
+                    selectedDept,
+                  );
                   setAssignFor(null);
                 }}
                 className="min-h-11 rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground shadow hover:bg-primary/90"
@@ -971,12 +1108,16 @@ function ReportsTable() {
             ) : aiInsights ? (
               <div className="mt-4 space-y-4 text-xs">
                 <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
-                  <span className="font-bold text-primary block uppercase tracking-wider text-[10px]">Operational Overview</span>
+                  <span className="font-bold text-primary block uppercase tracking-wider text-[10px]">
+                    Operational Overview
+                  </span>
                   <p className="mt-1 text-foreground leading-relaxed">{aiInsights.overview}</p>
                 </div>
 
                 <div className="p-3 rounded-xl bg-warning/10 border border-warning/20">
-                  <span className="font-bold text-warning-foreground block uppercase tracking-wider text-[10px]">Identified Bottlenecks</span>
+                  <span className="font-bold text-warning-foreground block uppercase tracking-wider text-[10px]">
+                    Identified Bottlenecks
+                  </span>
                   <ul className="mt-1 list-disc list-inside space-y-1 text-foreground">
                     {aiInsights.key_bottlenecks?.map((b: string, i: number) => (
                       <li key={i}>{b}</li>
@@ -985,7 +1126,9 @@ function ReportsTable() {
                 </div>
 
                 <div className="p-3 rounded-xl bg-success/10 border border-success/20">
-                  <span className="font-bold text-success block uppercase tracking-wider text-[10px]">Staffing Recommendations</span>
+                  <span className="font-bold text-success block uppercase tracking-wider text-[10px]">
+                    Staffing Recommendations
+                  </span>
                   <ul className="mt-1 list-disc list-inside space-y-1 text-foreground">
                     {aiInsights.recommended_actions?.map((a: string, i: number) => (
                       <li key={i}>{a}</li>
@@ -994,7 +1137,9 @@ function ReportsTable() {
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground py-4 text-center">Click re-analyze to fetch insights.</p>
+              <p className="text-xs text-muted-foreground py-4 text-center">
+                Click re-analyze to fetch insights.
+              </p>
             )}
           </div>
         </div>
@@ -1052,7 +1197,9 @@ function ReportsTable() {
                     type="button"
                     onClick={() => {
                       setEvidenceStatus("in_progress");
-                      setEvidenceNotes("Field crew arrived on site with materials. Remediation actively underway.");
+                      setEvidenceNotes(
+                        "Field crew arrived on site with materials. Remediation actively underway.",
+                      );
                     }}
                     className={`p-3 rounded-xl border text-left transition flex flex-col justify-between ${
                       evidenceStatus === "in_progress"
@@ -1063,14 +1210,18 @@ function ReportsTable() {
                     <span className="text-xs font-bold flex items-center gap-1.5">
                       <span>🛠️</span> 4. Work in Progress
                     </span>
-                    <span className="text-[10px] mt-1 text-muted-foreground">Upload worker on-site proof</span>
+                    <span className="text-[10px] mt-1 text-muted-foreground">
+                      Upload worker on-site proof
+                    </span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => {
                       setEvidenceStatus("resolved");
-                      setEvidenceNotes("Remediation verified on site: pothole filled with dense bitumen and surface rolled flat.");
+                      setEvidenceNotes(
+                        "Remediation verified on site: pothole filled with dense bitumen and surface rolled flat.",
+                      );
                     }}
                     className={`p-3 rounded-xl border text-left transition flex flex-col justify-between ${
                       evidenceStatus === "resolved"
@@ -1081,7 +1232,9 @@ function ReportsTable() {
                     <span className="text-xs font-bold flex items-center gap-1.5">
                       <span>✓</span> 5. Officially Resolved
                     </span>
-                    <span className="text-[10px] mt-1 text-muted-foreground">Upload resolution completion proof</span>
+                    <span className="text-[10px] mt-1 text-muted-foreground">
+                      Upload resolution completion proof
+                    </span>
                   </button>
                 </div>
               </div>
@@ -1121,7 +1274,12 @@ function ReportsTable() {
                     </div>
                   ) : (
                     <div className="relative rounded-xl overflow-hidden aspect-video bg-neutral-900 flex items-center justify-center">
-                      <video ref={videoStreamRef} playsInline muted className="w-full h-full object-cover" />
+                      <video
+                        ref={videoStreamRef}
+                        playsInline
+                        muted
+                        className="w-full h-full object-cover"
+                      />
                       <div className="absolute inset-4 border border-dashed border-white/60 rounded-xl pointer-events-none flex items-center justify-center">
                         <span className="text-[11px] font-semibold text-white/80 bg-black/50 px-2.5 py-0.5 rounded-full backdrop-blur">
                           Align on-site evidence
@@ -1181,27 +1339,35 @@ function ReportsTable() {
               {/* Worker & Department Assignment */}
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block">
-                  <span className="mb-1 block text-xs font-semibold text-muted-foreground">Department</span>
+                  <span className="mb-1 block text-xs font-semibold text-muted-foreground">
+                    Department
+                  </span>
                   <select
                     value={evidenceDept}
                     onChange={(e) => setEvidenceDept(e.target.value)}
                     className="h-10 w-full rounded-xl border border-input bg-surface px-3 text-xs"
                   >
                     {DEPARTMENTS.map((d) => (
-                      <option key={d.name} value={d.name}>{d.name}</option>
+                      <option key={d.name} value={d.name}>
+                        {d.name}
+                      </option>
                     ))}
                   </select>
                 </label>
 
                 <label className="block">
-                  <span className="mb-1 block text-xs font-semibold text-muted-foreground">Field Crew / Supervisor</span>
+                  <span className="mb-1 block text-xs font-semibold text-muted-foreground">
+                    Field Crew / Supervisor
+                  </span>
                   <select
                     value={evidenceWorker}
                     onChange={(e) => setEvidenceWorker(e.target.value)}
                     className="h-10 w-full rounded-xl border border-input bg-surface px-3 text-xs"
                   >
                     {FIELD_WORKERS.map((w) => (
-                      <option key={w.name} value={w.name}>{w.name}</option>
+                      <option key={w.name} value={w.name}>
+                        {w.name}
+                      </option>
                     ))}
                   </select>
                 </label>
@@ -1243,7 +1409,9 @@ function ReportsTable() {
                       : "bg-warning text-warning-foreground hover:bg-warning/90"
                   }`}
                 >
-                  {submittingEvidence ? "Updating…" : `✓ Submit ${evidenceStatus === "resolved" ? "Resolution" : "In-Progress"} & Photo`}
+                  {submittingEvidence
+                    ? "Updating…"
+                    : `✓ Submit ${evidenceStatus === "resolved" ? "Resolution" : "In-Progress"} & Photo`}
                 </button>
               </div>
             </div>

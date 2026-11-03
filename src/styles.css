@@ -72,8 +72,10 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --shadow-soft: 0 1px 2px 0 oklch(0.22 0.04 250 / 0.04), 0 8px 24px -12px oklch(0.22 0.04 250 / 0.14);
-  --shadow-lift: 0 2px 4px 0 oklch(0.22 0.04 250 / 0.05), 0 18px 40px -18px oklch(0.22 0.04 250 / 0.22);
+  --shadow-soft:
+    0 1px 2px 0 oklch(0.22 0.04 250 / 0.04), 0 8px 24px -12px oklch(0.22 0.04 250 / 0.14);
+  --shadow-lift:
+    0 2px 4px 0 oklch(0.22 0.04 250 / 0.05), 0 18px 40px -18px oklch(0.22 0.04 250 / 0.22);
   --shadow-glow: 0 10px 30px -10px oklch(0.58 0.22 262 / 0.5);
 }
 
@@ -222,11 +224,8 @@
 }
 
 @utility topo-texture {
-  background-image: radial-gradient(
-      circle at 20% 30%,
-      oklch(0.635 0.108 182 / 0.1) 0,
-      transparent 42%
-    ),
+  background-image:
+    radial-gradient(circle at 20% 30%, oklch(0.635 0.108 182 / 0.1) 0, transparent 42%),
     radial-gradient(circle at 80% 20%, oklch(0.575 0.216 262 / 0.12) 0, transparent 45%),
     radial-gradient(circle at 65% 85%, oklch(0.635 0.108 182 / 0.09) 0, transparent 40%);
 }

@@ -59,13 +59,9 @@
     "longitude": 76.1023,
     "address": "Racecourse Road, Rangoli Halla, हासन",
     "worker": "R. Manjunath",
-    "workerMediaUrls": [
-      "/media/evidence/road_worker_onsite.jpg"
-    ],
+    "workerMediaUrls": ["/media/evidence/road_worker_onsite.jpg"],
     "resolutionNotes": "Streetlight wiring repaired, lamp replaced, and illumination restored.",
-    "resolutionMediaUrls": [
-      "/media/evidence/streetlight_resolved.jpg"
-    ]
+    "resolutionMediaUrls": ["/media/evidence/streetlight_resolved.jpg"]
   },
   {
     "id": "CIV-95674",
@@ -92,14 +88,10 @@
     "latitude": 13.0072,
     "longitude": 76.1023,
     "address": "Racecourse Road, Rangoli Halla, Hassan",
-    "mediaUrls": [
-      "/media/evidence/streetlight_before.jpg"
-    ],
+    "mediaUrls": ["/media/evidence/streetlight_before.jpg"],
     "workerMediaUrls": [],
     "resolutionMediaUrls": [],
-    "upvotedBy": [
-      "bipinyadav"
-    ]
+    "upvotedBy": ["bipinyadav"]
   },
   {
     "id": "CIV-97915",
@@ -127,9 +119,7 @@
     "latitude": 13.0081,
     "longitude": 76.1035,
     "address": "Racecourse Road 2nd Cross, Hassan",
-    "mediaUrls": [
-      "/media/evidence/streetlight_before.jpg"
-    ],
+    "mediaUrls": ["/media/evidence/streetlight_before.jpg"],
     "workerMediaUrls": [],
     "resolutionMediaUrls": []
   },
@@ -159,12 +149,8 @@
     "latitude": 13.0055,
     "longitude": 76.1008,
     "address": "Vidyanagar 3rd Main, Hassan",
-    "mediaUrls": [
-      "/media/evidence/pothole_before.jpg"
-    ],
-    "workerMediaUrls": [
-      "/media/evidence/pothole_before.jpg"
-    ],
+    "mediaUrls": ["/media/evidence/pothole_before.jpg"],
+    "workerMediaUrls": ["/media/evidence/pothole_before.jpg"],
     "resolutionMediaUrls": []
   },
   {
@@ -193,12 +179,8 @@
     "latitude": 13.0095,
     "longitude": 76.098,
     "address": "BM Road Junction, Hassan",
-    "mediaUrls": [
-      "/media/evidence/pothole_before.jpg"
-    ],
-    "workerMediaUrls": [
-      "/media/evidence/pothole_before.jpg"
-    ],
+    "mediaUrls": ["/media/evidence/pothole_before.jpg"],
+    "workerMediaUrls": ["/media/evidence/pothole_before.jpg"],
     "resolutionMediaUrls": []
   },
   {
@@ -227,9 +209,7 @@
     "latitude": 13.004,
     "longitude": 76.105,
     "address": "Rangoli Halla Market Road, Hassan",
-    "mediaUrls": [
-      "/media/evidence/pothole_before.jpg"
-    ],
+    "mediaUrls": ["/media/evidence/pothole_before.jpg"],
     "workerMediaUrls": [],
     "resolutionMediaUrls": []
   },
@@ -259,15 +239,9 @@
     "latitude": 13.011,
     "longitude": 76.1065,
     "address": "Shankaripuram 1st Main, Hassan",
-    "mediaUrls": [
-      "/media/evidence/pothole_before.jpg"
-    ],
-    "workerMediaUrls": [
-      "/media/evidence/pothole_before.jpg"
-    ],
-    "resolutionMediaUrls": [
-      "/media/evidence/pothole_after.jpg"
-    ],
+    "mediaUrls": ["/media/evidence/pothole_before.jpg"],
+    "workerMediaUrls": ["/media/evidence/pothole_before.jpg"],
+    "resolutionMediaUrls": ["/media/evidence/pothole_after.jpg"],
     "resolutionNotes": "Replaced broken RCC precast drain slab with reinforced heavy-duty cover. Graded and sealed edges."
   },
   {
@@ -296,9 +270,7 @@
     "latitude": 13.003,
     "longitude": 76.095,
     "address": "Hassan Central Circle, Hassan",
-    "mediaUrls": [
-      "/media/evidence/streetlight_before.jpg"
-    ],
+    "mediaUrls": ["/media/evidence/streetlight_before.jpg"],
     "workerMediaUrls": [],
     "resolutionMediaUrls": []
   },
@@ -327,9 +299,7 @@
     "latitude": 13.0062,
     "longitude": 76.1042,
     "address": "Ward 12 Municipal Park, Racecourse Road, Hassan",
-    "mediaUrls": [
-      "/media/evidence/streetlight_before.jpg"
-    ],
+    "mediaUrls": ["/media/evidence/streetlight_before.jpg"],
     "workerMediaUrls": [],
     "resolutionMediaUrls": []
   }
