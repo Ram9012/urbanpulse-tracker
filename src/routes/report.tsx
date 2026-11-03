@@ -13,6 +13,7 @@ import {
   getDeletedReportIds,
 } from "@/lib/civic-data";
 import { RealMap, LocationData } from "@/components/site/real-map";
+import { useAuth } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/report")({
   head: () => ({
@@ -115,6 +116,8 @@ interface DuplicateCheckResult {
 }
 
 function ReportPage() {
+  const { user } = useAuth();
+  const currentUsername = user?.username || "bipinyadav";
   const [step, setStep] = useState(0);
 
   // Real Media Upload & Camera State
@@ -272,8 +275,9 @@ function ReportPage() {
           });
 
           // Check if current user already upvoted
-          const currentUser = "bipinyadav";
-          const already = candidateReport.upvotedBy?.includes(currentUser);
+          const already = candidateReport.upvotedBy?.some(
+            (u) => u.toLowerCase().trim() === currentUsername.toLowerCase().trim(),
+          );
           setHasUpvoted(Boolean(already));
         } else {
           setDuplicateResult(null);
@@ -308,7 +312,7 @@ function ReportPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reportId: existingId,
-          userIdentifier: "bipinyadav",
+          userIdentifier: currentUsername,
         }),
       });
 
@@ -661,6 +665,18 @@ function ReportPage() {
   async function submit() {
     setSubmitting(true);
     setError(null);
+
+    // If the citizen chose to merge with an existing duplicate, just upvote it
+    // instead of creating a brand-new report for the same issue.
+    if (selectedAction === "merge" && duplicateResult?.existingReport) {
+      try {
+        await handleUpvoteExisting(duplicateResult.existingReport.id);
+        setSubmittedReport(duplicateResult.existingReport);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
 
     const generatedId = `CIV-${Math.floor(10000 + Math.random() * 90000)}`;
 

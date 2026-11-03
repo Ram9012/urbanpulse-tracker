@@ -128,13 +128,14 @@ export function SocietyMap({
 
   const handleUpvote = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    const currentCount = upvotes[id] ?? reports.find((x) => x.id === id)?.upvotes ?? 0;
 
-    // Optimistic UI update
-    setUpvotes((prev) => ({
-      ...prev,
-      [id]: currentCount + 1,
-    }));
+    // Optimistic UI update — compute the increment inside the updater so
+    // concurrent calls can't read the same stale count and clobber each other.
+    let previousCount = 0;
+    setUpvotes((prev) => {
+      previousCount = prev[id] ?? reports.find((x) => x.id === id)?.upvotes ?? 0;
+      return { ...prev, [id]: previousCount + 1 };
+    });
 
     try {
       const res = await fetch("/api/reports/upvote", {
@@ -153,9 +154,14 @@ export function SocietyMap({
             [id]: data.upvotes,
           }));
         }
+      } else {
+        // Roll back the optimistic increment if the server rejected it
+        setUpvotes((prev) => ({ ...prev, [id]: previousCount }));
       }
     } catch (err) {
       console.warn("Failed to sync upvote:", err);
+      // Roll back the optimistic increment since the request never completed
+      setUpvotes((prev) => ({ ...prev, [id]: previousCount }));
     }
   };
 
