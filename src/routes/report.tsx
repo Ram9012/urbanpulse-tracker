@@ -666,11 +666,13 @@ function ReportPage() {
     setSubmitting(true);
     setError(null);
 
-    // If the citizen chose to merge with an existing duplicate, just upvote it
-    // instead of creating a brand-new report for the same issue.
-    if (selectedAction === "merge" && duplicateResult?.existingReport) {
+    // If the citizen already upvoted the existing duplicate (or chose to merge
+    // with it), don't also create a brand-new report for the same issue.
+    if ((hasUpvoted || selectedAction === "merge") && duplicateResult?.existingReport) {
       try {
-        await handleUpvoteExisting(duplicateResult.existingReport.id);
+        if (!hasUpvoted) {
+          await handleUpvoteExisting(duplicateResult.existingReport.id);
+        }
         setSubmittedReport(duplicateResult.existingReport);
       } finally {
         setSubmitting(false);
