@@ -1,48 +1,55 @@
 # CivicPulse — Report Civic Issues and Track Resolutions
 
-"See a problem. Report it. Track the solution."
+> "See a problem. Report it. Track the solution."
 
-CivicPulse is a civic issue reporting and municipal service management platform for
-citizens and municipal staff. This build is the full front-end product (TanStack Start
+CivicPulse is a civic issue reporting and municipal service management platform. Citizens report
+problems (potholes, streetlights, garbage, water, safety, parks) with photos, GPS location and a
+description; municipal staff triage, assign and resolve them; everyone can follow progress on a
+status timeline. AI assists with classification, duplicate detection, resolution verification and a
+citizen chatbot ("PulseBot"), always as a reviewable recommendation rather than a decision.
 
-- React + Tailwind v4) running on realistic, clearly-labelled demonstration data.
+- **Stack:** TanStack Start (React 19, SSR) · Tailwind CSS v4 · shadcn/Radix UI · Leaflet/OpenStreetMap ·
+  Groq LLM · Supabase (Postgres) · Vercel (Nitro)
+- **Status:** Working product with demo data. **Not yet production-hardened** — read
+  [docs/security.md](docs/security.md) before exposing it to real users.
+
+## Quick start
+
+```bash
+bun install            # or: npm ci
+cp .env.example .env   # fill in values (see docs/configuration.md); the app also runs without keys
+bun run dev            # http://localhost:8080
+```
+
+Useful scripts: `dev`, `build`, `preview`, `typecheck`, `lint`, `format`, `format:check`.
 
 ## Pages
 
-Citizen-facing: `/` (homepage), `/how-it-works`, `/explore` (public report explorer),
-`/impact`, `/help`, `/signin`, `/report` (4-step reporting flow),
-`/dashboard` (citizen dashboard), `/reports/:id` (report detail + timeline).
+| Audience | Route                                                                                                               |
+| -------- | ------------------------------------------------------------------------------------------------------------------- |
+| Public   | `/`, `/how-it-works`, `/explore`, `/impact`, `/help`, `/signin`                                                     |
+| Citizen  | `/report` (multi-step reporting flow), `/dashboard` (own reports, PulseBot, society map), `/reports/:id` (timeline) |
+| Staff    | `/admin` (overview), `/admin/reports` (queue, filters, assignment), `/admin/map` (map + AI side panel)              |
 
-Municipal staff portal: `/admin` (overview), `/admin/reports` (queue, filters,
-assignment modal), `/admin/map` (map view with AI classification side panel).
+## Documentation
 
-## Design system
+Everything lives in [`docs/`](docs/README.md):
 
-All colours, radii, shadows, motion and typography are tokens in `src/styles.css`
-(navy `#0B1F33`, civic blue `#146EF5`, teal `#00A896`, mint, soft canvas, semantic
-success/warning/critical). Components never hardcode colours. Motion respects
-`prefers-reduced-motion`.
+| Doc                                                        | What it covers                                          |
+| ---------------------------------------------------------- | ------------------------------------------------------- |
+| [Architecture](docs/architecture.md)                       | System design, request flow, persistence, key modules   |
+| [Tech stack](docs/tech-stack.md)                           | Every technology, its version and why it is used        |
+| [ADRs](docs/adr/README.md)                                 | Architecture Decision Records (14) incl. proposed fixes |
+| [API reference](docs/api.md)                               | All `/api/*` endpoints                                  |
+| [Data model](docs/data-model.md)                           | Report lifecycle, entities, Supabase schema             |
+| [Getting started](docs/getting-started.md)                 | Setup, running, troubleshooting                         |
+| [Configuration](docs/configuration.md)                     | Environment variables                                   |
+| [Development guide](docs/development.md)                   | Repo layout, conventions, CI, branching, PR flow        |
+| [Deployment](docs/deployment.md)                           | Vercel + Supabase, release checklist                    |
+| [Security](docs/security.md)                               | Current security posture, known gaps, remediation plan  |
+| [Known issues & roadmap](docs/known-issues-and-roadmap.md) | Tech debt, inconsistencies, prioritized next steps      |
 
-## Data and AI
+## License / ownership
 
-`src/lib/civic-data.ts` holds the demo dataset, routing rules and `mockClassify()`,
-a modular mock classifier that stands in for the NLP/vision service. Every AI
-suggestion is presented as a reviewable recommendation with an edit path — never as
-a decision.
-
-## Local development
-
-```bash
-bun install
-bun run dev      # http://localhost:8080
-bun run build    # production build
-```
-
-## Next step (backend)
-
-Adding a backend adds auth (citizen / staff / manager / field worker / admin),
-Postgres with row-level security, secure media storage, real notifications and the
-live AI classification endpoint. Suggested tables: `users`, `citizen_profiles`,
-`staff_profiles`, `departments`, `field_workers`, `reports`, `report_media`,
-`report_status_history`, `assignments`, `notifications`, `comments`,
-`duplicate_matches`, `audit_logs`, `routing_rules`.
+Organization metadata in the code refers to "Zenith Stack". No license file is present; add one
+before publishing the project as open source.
