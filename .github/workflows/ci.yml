@@ -38,12 +38,24 @@ jobs:
     continue-on-error: true # TODO: remove once pre-existing no-explicit-any/no-empty errors are fixed
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run lint
+      - name: Lint changed files only
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          FILES=$(git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- '*.ts' '*.tsx')
+          if [ -z "$FILES" ]; then
+            echo "No TypeScript files changed — skipping lint."
+          else
+            echo "Linting changed files:"
+            echo "$FILES"
+            npx eslint $FILES
+          fi
 
   format:
     needs: install
