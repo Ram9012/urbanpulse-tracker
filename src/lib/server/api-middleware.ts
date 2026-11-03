@@ -162,12 +162,13 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       if (!reportId) {
         return Response.json({ error: "Missing reportId" }, { status: 400 });
       }
+      // Platform-set headers only; the client-controlled leftmost x-forwarded-for entry is ignored.
       const clientIp =
-        request.headers.get("x-forwarded-for") ||
+        request.headers.get("x-vercel-forwarded-for") ||
+        request.headers.get("x-real-ip") ||
         request.headers.get("cf-connecting-ip") ||
-        "citizen";
-      const identifier = userIdentifier || clientIp;
-      const result = await upvoteReport(reportId, identifier);
+        "unknown-ip";
+      const result = await upvoteReport(reportId, userIdentifier || "anonymous", clientIp);
       return Response.json(result, { status: 200 });
     }
 
@@ -373,10 +374,8 @@ export function civicPulseApiPlugin(): Plugin {
             if (!reportId) {
               return sendJson(res, 400, { error: "Missing reportId" });
             }
-            const clientIp =
-              req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "citizen";
-            const identifier = userIdentifier || String(clientIp);
-            const result = await upvoteReport(reportId, identifier);
+            const clientIp = req.socket?.remoteAddress || "unknown-ip";
+            const result = await upvoteReport(reportId, userIdentifier || "anonymous", clientIp);
             return sendJson(res, 200, result);
           }
 

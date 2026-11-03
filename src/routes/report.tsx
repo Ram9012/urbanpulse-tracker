@@ -159,7 +159,9 @@ function ReportPage() {
           );
           if (found) return found.name;
         }
-      } catch {}
+      } catch {
+        /* best-effort: ignore storage/network failure */
+      }
     }
     return CATEGORIES[1]!.name; // "Streetlight & electricity"
   });
@@ -344,7 +346,9 @@ function ReportPage() {
               localStorage.setItem("civicpulse_client_reports", JSON.stringify(stored));
             }
             window.dispatchEvent(new Event("storage"));
-          } catch {}
+          } catch {
+            /* best-effort: ignore storage/network failure */
+          }
         }
       }
     } catch (err) {

@@ -584,7 +584,9 @@ export function markReportDeleted(id: string): void {
     const set = getDeletedReportIds();
     set.add(id.toLowerCase().trim());
     localStorage.setItem(DELETED_REPORTS_KEY, JSON.stringify(Array.from(set)));
-  } catch {}
+  } catch {
+    /* best-effort: ignore storage/network failure */
+  }
 }
 
 export function filterOutDeletedReports(reports: CivicReport[]): CivicReport[] {
