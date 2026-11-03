@@ -71,7 +71,9 @@ function ensureStorageDir() {
       if (!fs.existsSync(STORAGE_DIR)) {
         fs.mkdirSync(STORAGE_DIR, { recursive: true });
       }
-    } catch {}
+    } catch {
+      /* best-effort: ignore storage/network failure */
+    }
   }
 }
 
@@ -98,7 +100,9 @@ function loadFromDisk(): boolean {
         if (Array.isArray(delData)) {
           deletedReportIds = new Set(delData.map((x: string) => String(x).toLowerCase().trim()));
         }
-      } catch {}
+      } catch {
+        /* best-effort: ignore storage/network failure */
+      }
     }
 
     if (fs.existsSync(reportsFile)) {
@@ -216,7 +220,7 @@ export function getReportById(id: string): CivicReport | null {
   loadFromDisk();
   const idLower = id.toLowerCase().trim();
   if (deletedReportIds.has(idLower)) return null;
-  let r = activeReports.find((item) => item.id.toLowerCase() === idLower);
+  const r = activeReports.find((item) => item.id.toLowerCase() === idLower);
   if (r) return r;
   const fallback = REPORTS.find((item) => item.id.toLowerCase() === idLower);
   if (fallback && !deletedReportIds.has(fallback.id.toLowerCase().trim())) return fallback;
@@ -625,6 +629,7 @@ export async function deleteReport(
 export async function upvoteReport(
   reportId: string,
   userIdentifier: string = "anonymous",
+  clientIp?: string,
 ): Promise<{ success: boolean; report?: CivicReport; alreadyUpvoted?: boolean; upvotes: number }> {
   loadFromDisk();
   const idLower = reportId.toLowerCase().trim();
@@ -639,7 +644,11 @@ export async function upvoteReport(
   }
 
   const cleanUser = (userIdentifier || "anonymous").toLowerCase().trim();
-  if (report.upvotedBy.map((u) => u.toLowerCase().trim()).includes(cleanUser)) {
+  // A claimed username is client-supplied and trivially changed, so also dedupe on the
+  // platform-reported IP to stop one client from voting repeatedly under different names.
+  const ipKey = clientIp ? `ip:${clientIp.split(",")[0]!.trim().toLowerCase()}` : null;
+  const voted = report.upvotedBy.map((u) => u.toLowerCase().trim());
+  if (voted.includes(cleanUser) || (ipKey && voted.includes(ipKey))) {
     return {
       success: false,
       alreadyUpvoted: true,
@@ -649,6 +658,7 @@ export async function upvoteReport(
   }
 
   report.upvotedBy.push(cleanUser);
+  if (ipKey) report.upvotedBy.push(ipKey);
   report.upvotes = (report.upvotes || 0) + 1;
   report.updatedAt = new Date().toISOString();
 

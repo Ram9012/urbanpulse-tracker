@@ -236,14 +236,16 @@ Return a strictly valid JSON object:
       "signal",
     ];
     const matchedKeywords = keywords.filter((k) => newLower.includes(k) && existLower.includes(k));
-    const isDup = matchedKeywords.length > 0;
+    // Conservative: one shared generic word (e.g. "water") is not enough to call a duplicate.
+    // Stay below the UI's 60% threshold unless at least two distinct keywords match.
+    const isDup = matchedKeywords.length >= 2;
 
     return {
       is_duplicate: isDup,
-      similarity_score: isDup ? 88 : 20,
+      similarity_score: isDup ? 70 : matchedKeywords.length === 1 ? 40 : 20,
       explanation: isDup
         ? `Both complaints mention similar issues (${matchedKeywords.join(", ")}) in the same area (${existingReport.area}).`
-        : "Complaints refer to distinct issues or different categories.",
+        : "Complaints do not share enough detail to be treated as the same issue (AI check unavailable).",
       recommended_action: isDup ? "add_info_to_existing" : "keep_separate",
     };
   }
