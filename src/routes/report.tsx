@@ -2,8 +2,18 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { SiteLayout } from "@/components/site/site-layout";
 import { Section } from "@/components/site/primitives";
-import { BRAND, CATEGORIES, LANGUAGES, mockClassify, CivicReport, REPORTS } from "@/lib/civic-data";
+import {
+  BRAND,
+  CATEGORIES,
+  LANGUAGES,
+  mockClassify,
+  CivicReport,
+  REPORTS,
+  calculateDistanceMeters,
+  getDeletedReportIds,
+} from "@/lib/civic-data";
 import { RealMap, LocationData } from "@/components/site/real-map";
+import { useAuth } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/report")({
   head: () => ({
@@ -101,9 +111,13 @@ interface DuplicateCheckResult {
   similarity_score: number;
   explanation: string;
   recommended_action: string;
+  existingReport?: CivicReport | null;
+  distanceMeters?: number;
 }
 
 function ReportPage() {
+  const { user } = useAuth();
+  const currentUsername = user?.username || "bipinyadav";
   const [step, setStep] = useState(0);
 
   // Real Media Upload & Camera State
@@ -112,6 +126,7 @@ function ReportPage() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const videoStreamRef = useRef<HTMLVideoElement>(null);
   const streamTrackRef = useRef<MediaStream | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   // File Input References
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -144,7 +159,9 @@ function ReportPage() {
           );
           if (found) return found.name;
         }
-      } catch {}
+      } catch {
+        /* best-effort: ignore storage/network failure */
+      }
     }
     return CATEGORIES[1]!.name; // "Streetlight & electricity"
   });
@@ -159,8 +176,187 @@ function ReportPage() {
   const [aiNotice, setAiNotice] = useState<string | null>(null);
   const [duplicateResult, setDuplicateResult] = useState<DuplicateCheckResult | null>(null);
   const [selectedAction, setSelectedAction] = useState<"new" | "merge">("new");
+  const [hasUpvoted, setHasUpvoted] = useState(false);
+  const [upvoting, setUpvoting] = useState(false);
+  const [upvoteSuccessMessage, setUpvoteSuccessMessage] = useState<string | null>(null);
+  const [allExistingReports, setAllExistingReports] = useState<CivicReport[]>(REPORTS);
 
-  const recognitionRef = useRef<any>(null);
+  // Fetch latest active reports from server for accurate live location-based duplicate detection
+  useEffect(() => {
+    async function loadReports() {
+      try {
+        const res = await fetch("/api/status/reports");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.reports) && data.reports.length > 0) {
+            setAllExistingReports(data.reports);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load reports for duplicate check:", err);
+      }
+    }
+    loadReports();
+  }, []);
+
+  // Duplicate Check against Nearby Complaints at the same location (e.g. <= 300 meters)
+  const checkForDuplicatesAtLocation = async (
+    textToAnalyze: string,
+    currentLocation: LocationData,
+    activeCatName: string,
+  ) => {
+    if (!textToAnalyze || textToAnalyze.trim().length < 5) return;
+
+    const deleted = getDeletedReportIds();
+    // 1. Find reports near the chosen coordinates
+    const candidates = allExistingReports
+      .filter((r) => !deleted.has(r.id.toLowerCase().trim()) && r.status !== "resolved")
+      .map((r) => {
+        const dist =
+          r.latitude && r.longitude && currentLocation.lat && currentLocation.lng
+            ? calculateDistanceMeters(
+                currentLocation.lat,
+                currentLocation.lng,
+                r.latitude,
+                r.longitude,
+              )
+            : 9999;
+        return { report: r, dist };
+      })
+      .filter(({ dist }) => dist <= 500) // Within 500 meters of the same spot
+      .sort((a, b) => a.dist - b.dist);
+
+    if (candidates.length === 0) {
+      setDuplicateResult(null);
+      return;
+    }
+
+    // Pick closest candidate in same or similar category, or closest overall
+    const catMatch = candidates.find(
+      (c) =>
+        c.report.categoryLabel.toLowerCase().includes(activeCatName.toLowerCase().slice(0, 4)) ||
+        activeCatName.toLowerCase().includes(c.report.category.toLowerCase().slice(0, 4)),
+    );
+    const bestCandidate = catMatch || candidates[0];
+
+    if (!bestCandidate) {
+      setDuplicateResult(null);
+      return;
+    }
+
+    const { report: candidateReport, dist } = bestCandidate;
+
+    try {
+      const dupRes = await fetch("/api/ai/duplicate-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          newDescription: textToAnalyze,
+          existingReport: {
+            id: candidateReport.id,
+            title: candidateReport.title,
+            description: candidateReport.description,
+            area: candidateReport.area || candidateReport.ward,
+            category: candidateReport.categoryLabel,
+          },
+        }),
+      });
+
+      if (dupRes.ok) {
+        const dupData = await dupRes.json();
+        // Check if similarity is high or close location with identical keywords
+        if (dupData.is_duplicate || dupData.similarity_score >= 60 || dist <= 80) {
+          setDuplicateResult({
+            is_duplicate: true,
+            similarity_score: Math.max(dupData.similarity_score || 75, dist <= 50 ? 92 : 75),
+            explanation:
+              dupData.explanation ||
+              `A complaint regarding this issue was already registered at this exact spot (${dist} meters away).`,
+            recommended_action: "add_info_to_existing",
+            existingReport: candidateReport,
+            distanceMeters: dist,
+          });
+
+          // Check if current user already upvoted
+          const already = candidateReport.upvotedBy?.some(
+            (u) => u.toLowerCase().trim() === currentUsername.toLowerCase().trim(),
+          );
+          setHasUpvoted(Boolean(already));
+        } else {
+          setDuplicateResult(null);
+        }
+      }
+    } catch (err) {
+      console.warn("Duplicate check error:", err);
+      // Fallback local heuristic
+      if (dist <= 150) {
+        setDuplicateResult({
+          is_duplicate: true,
+          similarity_score: 85,
+          explanation: `A similar complaint already exists within ${dist}m at ${candidateReport.area || "this location"}.`,
+          recommended_action: "add_info_to_existing",
+          existingReport: candidateReport,
+          distanceMeters: dist,
+        });
+      } else {
+        setDuplicateResult(null);
+      }
+    }
+  };
+
+  // Upvote Existing Duplicate Complaint Handler
+  const handleUpvoteExisting = async (existingId: string) => {
+    if (hasUpvoted || upvoting) return;
+    setUpvoting(true);
+    setUpvoteSuccessMessage(null);
+    try {
+      const res = await fetch("/api/reports/upvote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportId: existingId,
+          userIdentifier: currentUsername,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.alreadyUpvoted) {
+          setHasUpvoted(true);
+          setUpvoteSuccessMessage("You have already upvoted this complaint!");
+        } else {
+          setHasUpvoted(true);
+          setUpvoteSuccessMessage(`Upvoted! Total support: ${data.upvotes} citizens.`);
+          // Update the candidate report in state immediately
+          if (duplicateResult && duplicateResult.existingReport) {
+            setDuplicateResult({
+              ...duplicateResult,
+              existingReport: {
+                ...duplicateResult.existingReport,
+                upvotes: data.upvotes,
+              },
+            });
+          }
+          // Update local storage and dispatch event so map & dashboard reflect instantly
+          try {
+            const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
+            const idx = stored.findIndex((r: any) => r.id === existingId);
+            if (idx >= 0) {
+              stored[idx].upvotes = data.upvotes;
+              localStorage.setItem("civicpulse_client_reports", JSON.stringify(stored));
+            }
+            window.dispatchEvent(new Event("storage"));
+          } catch {
+            /* best-effort: ignore storage/network failure */
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Upvote failed:", err);
+    } finally {
+      setUpvoting(false);
+    }
+  };
 
   // Format file size helper
   const formatFileSize = (bytes: number): string => {
@@ -389,42 +585,13 @@ function ReportPage() {
         setAiNotice(`✓ Groq AI Analysis updated (${data.source || "Groq Qwen"})`);
         setTimeout(() => setAiNotice(null), 4000);
 
-        // Duplicate check: ONLY against reports with matching category!
-        const matchingReports = REPORTS.filter(
-          (r) =>
-            r.categoryLabel.toLowerCase().includes(activeCategory.toLowerCase().slice(0, 4)) ||
-            r.category.toLowerCase().includes(activeCategory.toLowerCase().slice(0, 4)),
-        );
-        const existingCandidate = matchingReports[0];
-        if (existingCandidate && !data.category_mismatch) {
-          const dupRes = await fetch("/api/ai/duplicate-check", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              newDescription: textToAnalyze,
-              existingReport: {
-                id: existingCandidate.id,
-                title: existingCandidate.title,
-                description: existingCandidate.description,
-                area: existingCandidate.area,
-              },
-            }),
-          });
-          if (dupRes.ok) {
-            const dupData = await dupRes.json();
-            if (dupData.is_duplicate) {
-              setDuplicateResult(dupData);
-            } else {
-              setDuplicateResult(null);
-            }
-          }
-        } else {
-          setDuplicateResult(null);
-        }
+        // Run location-aware duplicate detection
+        await checkForDuplicatesAtLocation(textToAnalyze, locationData, activeCategory);
       }
     } catch (err: any) {
       console.warn("AI analysis network fallback:", err);
       setAiNotice("Analyzed with fallback engine");
+      await checkForDuplicatesAtLocation(textToAnalyze, locationData, activeCategory);
     } finally {
       setAiLoading(false);
     }
@@ -503,6 +670,20 @@ function ReportPage() {
   async function submit() {
     setSubmitting(true);
     setError(null);
+
+    // If the citizen already upvoted the existing duplicate (or chose to merge
+    // with it), don't also create a brand-new report for the same issue.
+    if ((hasUpvoted || selectedAction === "merge") && duplicateResult?.existingReport) {
+      try {
+        if (!hasUpvoted) {
+          await handleUpvoteExisting(duplicateResult.existingReport.id);
+        }
+        setSubmittedReport(duplicateResult.existingReport);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
 
     const generatedId = `CIV-${Math.floor(10000 + Math.random() * 90000)}`;
 
@@ -850,7 +1031,13 @@ function ReportPage() {
                   <RealMap
                     initialLat={locationData.lat}
                     initialLng={locationData.lng}
-                    onLocationChange={(loc) => setLocationData(loc)}
+                    onLocationChange={(loc) => {
+                      setLocationData(loc);
+                      // Trigger duplicate recheck when location changes
+                      if (description && description.trim().length >= 5) {
+                        checkForDuplicatesAtLocation(description, loc, category);
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -1029,50 +1216,117 @@ function ReportPage() {
                   </label>
                 </div>
 
-                {/* Duplicate Analysis Alert (AI Service 3) */}
-                {duplicateResult && duplicateResult.is_duplicate && (
-                  <div className="mt-5 rounded-2xl border-2 border-warning/50 bg-warning/10 p-4 text-sm">
-                    <div className="flex items-start gap-2">
-                      <span className="text-xl">⚠️</span>
-                      <div className="flex-1">
-                        <p className="font-bold text-warning-foreground">
-                          Possible Duplicate Detected ({duplicateResult.similarity_score}% Match)
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Existing report <strong>CIV-10482</strong> is 34 metres away on Bus Stand
-                          Road.
-                        </p>
-                        <p className="mt-1 text-xs text-foreground bg-background/80 p-2 rounded-lg border border-border">
-                          {duplicateResult.explanation}
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedAction("merge")}
-                            className={`min-h-9 px-3 rounded-lg text-xs font-bold transition ${
-                              selectedAction === "merge"
-                                ? "bg-primary text-primary-foreground"
-                                : "border border-border bg-background"
-                            }`}
-                          >
-                            ✓ Add info to existing report (CIV-10482)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedAction("new")}
-                            className={`min-h-9 px-3 rounded-lg text-xs font-bold transition ${
-                              selectedAction === "new"
-                                ? "bg-primary text-primary-foreground"
-                                : "border border-border bg-background"
-                            }`}
-                          >
-                            Keep as separate new report
-                          </button>
+                {/* Duplicate Analysis Alert & Upvote Action */}
+                {duplicateResult &&
+                  duplicateResult.is_duplicate &&
+                  duplicateResult.existingReport && (
+                    <div className="mt-5 rounded-2xl border-2 border-warning/60 bg-warning/10 p-4 text-sm animate-in fade-in duration-200">
+                      <div className="flex items-start gap-3">
+                        <span className="text-2xl select-none">⚠️</span>
+                        <div className="flex-1 space-y-2">
+                          <div>
+                            <p className="font-extrabold text-base text-warning-foreground">
+                              This complaint has already been reported!
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              A similar grievance was identified at this location (
+                              {duplicateResult.distanceMeters ?? "near"}m away,{" "}
+                              {duplicateResult.similarity_score}% match).
+                            </p>
+                          </div>
+
+                          {/* Existing Complaint Details Card */}
+                          <div className="rounded-xl border border-warning/30 bg-background/95 p-3.5 shadow-sm space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-warning/20 text-warning-foreground">
+                                  {duplicateResult.existingReport.id}
+                                </span>
+                                <h4 className="font-bold text-foreground text-sm mt-1">
+                                  {duplicateResult.existingReport.title}
+                                </h4>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="text-[11px] font-semibold text-muted-foreground block">
+                                  {duplicateResult.existingReport.area ||
+                                    duplicateResult.existingReport.ward}
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full mt-0.5">
+                                  👍 {duplicateResult.existingReport.upvotes || 1} upvotes
+                                </span>
+                              </div>
+                            </div>
+
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {duplicateResult.existingReport.description}
+                            </p>
+
+                            {duplicateResult.existingReport.mediaUrls &&
+                              duplicateResult.existingReport.mediaUrls.length > 0 && (
+                                <div className="flex items-center gap-2 pt-1">
+                                  <img
+                                    src={duplicateResult.existingReport.mediaUrls[0]}
+                                    alt="Existing report proof"
+                                    className="size-12 rounded-lg object-cover border border-border"
+                                  />
+                                  <span className="text-[11px] text-muted-foreground">
+                                    Previously attached photo evidence on site.
+                                  </span>
+                                </div>
+                              )}
+
+                            <div className="text-[11px] text-muted-foreground bg-muted/40 p-2 rounded-lg border border-border/50">
+                              <strong>AI Analysis:</strong> {duplicateResult.explanation}
+                            </div>
+                          </div>
+
+                          {/* Feedback message for Upvoting */}
+                          {upvoteSuccessMessage && (
+                            <div className="p-2.5 rounded-xl bg-success/15 border border-success/30 text-xs font-bold text-success flex items-center gap-1.5 animate-in fade-in">
+                              <span>✓</span>
+                              <span>{upvoteSuccessMessage}</span>
+                            </div>
+                          )}
+
+                          {/* User Actions: Upvote Existing vs Submit New */}
+                          <div className="pt-1 flex flex-wrap items-center gap-2.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleUpvoteExisting(duplicateResult.existingReport!.id)
+                              }
+                              disabled={hasUpvoted || upvoting}
+                              className={`min-h-10 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-2 shadow-sm transition active:scale-95 ${
+                                hasUpvoted
+                                  ? "bg-success text-success-foreground cursor-default"
+                                  : "bg-primary text-primary-foreground hover:bg-primary/90"
+                              }`}
+                            >
+                              <span>👍</span>
+                              <span>
+                                {upvoting
+                                  ? "Registering Upvote…"
+                                  : hasUpvoted
+                                    ? `Upvoted (${duplicateResult.existingReport.upvotes || 1})`
+                                    : `Upvote Complaint (${duplicateResult.existingReport.upvotes || 1})`}
+                              </span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedAction("new");
+                                setDuplicateResult(null);
+                              }}
+                              className="min-h-10 px-3.5 rounded-xl text-xs font-semibold border border-input bg-background hover:bg-muted transition"
+                            >
+                              Submit as different new issue
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             )}
 

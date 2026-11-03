@@ -17,6 +17,7 @@ import {
   resetToCleanState,
   deleteReport,
   getDeletedReportIdsServer,
+  upvoteReport,
 } from "./status-engine";
 import {
   authenticateUser,
@@ -153,6 +154,22 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       const body = await request.json();
       const newReport = addReport(body.report);
       return Response.json({ success: true, report: newReport }, { status: 201 });
+    }
+
+    if (pathname === "/api/reports/upvote" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      const { reportId, userIdentifier } = body;
+      if (!reportId) {
+        return Response.json({ error: "Missing reportId" }, { status: 400 });
+      }
+      // Platform-set headers only; the client-controlled leftmost x-forwarded-for entry is ignored.
+      const clientIp =
+        request.headers.get("x-vercel-forwarded-for") ||
+        request.headers.get("x-real-ip") ||
+        request.headers.get("cf-connecting-ip") ||
+        "unknown-ip";
+      const result = await upvoteReport(reportId, userIdentifier || "anonymous", clientIp);
+      return Response.json(result, { status: 200 });
     }
 
     if (pathname === "/api/status/transition" && request.method === "POST") {
@@ -349,6 +366,17 @@ export function civicPulseApiPlugin(): Plugin {
             const body = await parseJsonBody(req);
             const newReport = addReport(body.report);
             return sendJson(res, 201, { success: true, report: newReport });
+          }
+
+          if (url === "/api/reports/upvote" && req.method === "POST") {
+            const body = await parseJsonBody(req).catch(() => ({}));
+            const { reportId, userIdentifier } = body;
+            if (!reportId) {
+              return sendJson(res, 400, { error: "Missing reportId" });
+            }
+            const clientIp = req.socket?.remoteAddress || "unknown-ip";
+            const result = await upvoteReport(reportId, userIdentifier || "anonymous", clientIp);
+            return sendJson(res, 200, result);
           }
 
           if (url === "/api/status/transition" && req.method === "POST") {

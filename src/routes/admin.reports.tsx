@@ -57,7 +57,9 @@ function ReportsTable() {
           });
           return Array.from(map.values());
         }
-      } catch {}
+      } catch {
+        /* best-effort: ignore storage/network failure */
+      }
     }
     return REPORTS.filter((r) => !deleted.has(r.id.toLowerCase()));
   });
@@ -299,7 +301,9 @@ function ReportsTable() {
           new CustomEvent("civicpulse_report_updated", { detail: updatedReport }),
         );
         window.dispatchEvent(new Event("storage"));
-      } catch {}
+      } catch {
+        /* best-effort: ignore storage/network failure */
+      }
     }
 
     // 3. Immediately close modal and camera so admin sees updated table instantly
@@ -436,7 +440,9 @@ function ReportsTable() {
               r.id !== "CIV-54728" &&
               r.id !== "CIV-42603",
           );
-        } catch {}
+        } catch {
+          /* best-effort: ignore storage/network failure */
+        }
       }
 
       const merged = mergeReportsWithPrecedence(localReports, serverReports).filter(
@@ -446,7 +452,9 @@ function ReportsTable() {
       if (typeof window !== "undefined") {
         try {
           localStorage.setItem("civicpulse_client_reports", JSON.stringify(merged));
-        } catch {}
+        } catch {
+          /* best-effort: ignore storage/network failure */
+        }
       }
     } catch (err) {
       console.warn("Could not fetch reports from API:", err);
@@ -523,7 +531,9 @@ function ReportsTable() {
         localStorage.setItem("civic_reports_queue", JSON.stringify(filteredQueue));
 
         window.dispatchEvent(new Event("civicpulse_report_deleted"));
-      } catch {}
+      } catch {
+        /* best-effort: ignore storage/network failure */
+      }
     }
 
     setActionNotice(`Deleting report ${reportId} from Supabase...`);
@@ -607,7 +617,9 @@ function ReportsTable() {
           new CustomEvent("civicpulse_report_updated", { detail: updatedReport }),
         );
         window.dispatchEvent(new Event("storage"));
-      } catch {}
+      } catch {
+        /* best-effort: ignore storage/network failure */
+      }
     }
 
     setActionNotice(

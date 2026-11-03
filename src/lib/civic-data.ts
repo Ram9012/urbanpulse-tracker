@@ -125,6 +125,7 @@ export type CivicReport = {
   aiConfidence: number;
   duplicateProbability: number;
   upvotes: number;
+  upvotedBy?: string[];
   anonymous: boolean;
   /** Percent coordinates on the illustrated demo map. */
   x: number;
@@ -583,13 +584,37 @@ export function markReportDeleted(id: string): void {
     const set = getDeletedReportIds();
     set.add(id.toLowerCase().trim());
     localStorage.setItem(DELETED_REPORTS_KEY, JSON.stringify(Array.from(set)));
-  } catch {}
+  } catch {
+    /* best-effort: ignore storage/network failure */
+  }
 }
 
 export function filterOutDeletedReports(reports: CivicReport[]): CivicReport[] {
   const deleted = getDeletedReportIds();
   if (deleted.size === 0) return reports;
   return reports.filter((r) => !deleted.has(r.id.toLowerCase().trim()));
+}
+
+/**
+ * Calculates distance in meters between two GPS coordinates using the Haversine formula
+ */
+export function calculateDistanceMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
+  const R = 6371e3; // Earth's radius in meters
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
 }
 
 /** Mock AI classifier — stands in for the NLP/vision service until a key exists. */

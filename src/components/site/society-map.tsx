@@ -126,12 +126,43 @@ export function SocietyMap({
     }
   };
 
-  const handleUpvote = (e: React.MouseEvent, id: string) => {
+  const handleUpvote = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    setUpvotes((prev) => ({
-      ...prev,
-      [id]: (prev[id] ?? reports.find((x) => x.id === id)?.upvotes ?? 0) + 1,
-    }));
+
+    // Optimistic UI update — compute the increment inside the updater so
+    // concurrent calls can't read the same stale count and clobber each other.
+    let previousCount = 0;
+    setUpvotes((prev) => {
+      previousCount = prev[id] ?? reports.find((x) => x.id === id)?.upvotes ?? 0;
+      return { ...prev, [id]: previousCount + 1 };
+    });
+
+    try {
+      const res = await fetch("/api/reports/upvote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportId: id,
+          userIdentifier: currentUsername,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.upvotes === "number") {
+          setUpvotes((prev) => ({
+            ...prev,
+            [id]: data.upvotes,
+          }));
+        }
+      } else {
+        // Roll back the optimistic increment if the server rejected it
+        setUpvotes((prev) => ({ ...prev, [id]: previousCount }));
+      }
+    } catch (err) {
+      console.warn("Failed to sync upvote:", err);
+      // Roll back the optimistic increment since the request never completed
+      setUpvotes((prev) => ({ ...prev, [id]: previousCount }));
+    }
   };
 
   // Locate User's live GPS coordinates

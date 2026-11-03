@@ -71,7 +71,9 @@ function ensureStorageDir() {
       if (!fs.existsSync(STORAGE_DIR)) {
         fs.mkdirSync(STORAGE_DIR, { recursive: true });
       }
-    } catch {}
+    } catch {
+      /* best-effort: ignore storage/network failure */
+    }
   }
 }
 
@@ -98,7 +100,9 @@ function loadFromDisk(): boolean {
         if (Array.isArray(delData)) {
           deletedReportIds = new Set(delData.map((x: string) => String(x).toLowerCase().trim()));
         }
-      } catch {}
+      } catch {
+        /* best-effort: ignore storage/network failure */
+      }
     }
 
     if (fs.existsSync(reportsFile)) {
@@ -616,5 +620,71 @@ export async function deleteReport(
     id: reportId,
     supabaseDeleted,
     deletedIds: Array.from(deletedReportIds),
+  };
+}
+
+/**
+ * Increment upvotes for a report while preventing duplicate upvotes per user / IP / fingerprint
+ */
+export async function upvoteReport(
+  reportId: string,
+  userIdentifier: string = "anonymous",
+  clientIp?: string,
+): Promise<{ success: boolean; report?: CivicReport; alreadyUpvoted?: boolean; upvotes: number }> {
+  loadFromDisk();
+  const idLower = reportId.toLowerCase().trim();
+  const report = activeReports.find((r) => r.id.toLowerCase() === idLower);
+
+  if (!report) {
+    return { success: false, upvotes: 0 };
+  }
+
+  if (!Array.isArray(report.upvotedBy)) {
+    report.upvotedBy = [];
+  }
+
+  const cleanUser = (userIdentifier || "anonymous").toLowerCase().trim();
+  // A claimed username is client-supplied and trivially changed, so also dedupe on the
+  // platform-reported IP to stop one client from voting repeatedly under different names.
+  const ipKey = clientIp ? `ip:${clientIp.split(",")[0]!.trim().toLowerCase()}` : null;
+  const voted = report.upvotedBy.map((u) => u.toLowerCase().trim());
+  if (voted.includes(cleanUser) || (ipKey && voted.includes(ipKey))) {
+    return {
+      success: false,
+      alreadyUpvoted: true,
+      report,
+      upvotes: report.upvotes || 1,
+    };
+  }
+
+  report.upvotedBy.push(cleanUser);
+  if (ipKey) report.upvotedBy.push(ipKey);
+  report.upvotes = (report.upvotes || 0) + 1;
+  report.updatedAt = new Date().toISOString();
+
+  // Audit entry for community upvote support
+  const historyEntry: StatusHistoryEntry = {
+    id: `hist-${report.id}-upvote-${Date.now()}`,
+    reportId: report.id,
+    oldStatus: report.status,
+    newStatus: report.status,
+    changedBy: cleanUser === "anonymous" ? "Citizen" : cleanUser,
+    role: "Citizen",
+    changedAt: new Date().toISOString(),
+    comment: `Citizen upvoted this complaint (Total upvotes: ${report.upvotes}). Marked as common public grievance.`,
+  };
+  statusHistories.push(historyEntry);
+
+  saveToDisk();
+
+  // Sync to Supabase
+  saveReportToSupabase(report).catch(() => {});
+  saveStatusHistoryToSupabase(historyEntry).catch(() => {});
+
+  return {
+    success: true,
+    alreadyUpvoted: false,
+    report,
+    upvotes: report.upvotes,
   };
 }

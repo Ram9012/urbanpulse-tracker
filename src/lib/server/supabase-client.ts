@@ -111,6 +111,8 @@ export async function saveReportToSupabase(report: CivicReport): Promise<boolean
         resolution_media_urls: report.resolutionMediaUrls || [],
         latitude: report.latitude,
         longitude: report.longitude,
+        upvotes: report.upvotes || 0,
+        upvoted_by: report.upvotedBy || [],
         created_at: report.createdAt,
         updated_at: report.updatedAt,
       }),
