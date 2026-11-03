@@ -216,7 +216,7 @@ export function getReportById(id: string): CivicReport | null {
   loadFromDisk();
   const idLower = id.toLowerCase().trim();
   if (deletedReportIds.has(idLower)) return null;
-  const r = activeReports.find((item) => item.id.toLowerCase() === idLower);
+  let r = activeReports.find((item) => item.id.toLowerCase() === idLower);
   if (r) return r;
   const fallback = REPORTS.find((item) => item.id.toLowerCase() === idLower);
   if (fallback && !deletedReportIds.has(fallback.id.toLowerCase().trim())) return fallback;
@@ -616,5 +616,65 @@ export async function deleteReport(
     id: reportId,
     supabaseDeleted,
     deletedIds: Array.from(deletedReportIds),
+  };
+}
+
+/**
+ * Increment upvotes for a report while preventing duplicate upvotes per user / IP / fingerprint
+ */
+export async function upvoteReport(
+  reportId: string,
+  userIdentifier: string = "anonymous",
+): Promise<{ success: boolean; report?: CivicReport; alreadyUpvoted?: boolean; upvotes: number }> {
+  loadFromDisk();
+  const idLower = reportId.toLowerCase().trim();
+  const report = activeReports.find((r) => r.id.toLowerCase() === idLower);
+
+  if (!report) {
+    return { success: false, upvotes: 0 };
+  }
+
+  if (!Array.isArray(report.upvotedBy)) {
+    report.upvotedBy = [];
+  }
+
+  const cleanUser = (userIdentifier || "anonymous").toLowerCase().trim();
+  if (report.upvotedBy.map((u) => u.toLowerCase().trim()).includes(cleanUser)) {
+    return {
+      success: false,
+      alreadyUpvoted: true,
+      report,
+      upvotes: report.upvotes || 1,
+    };
+  }
+
+  report.upvotedBy.push(cleanUser);
+  report.upvotes = (report.upvotes || 0) + 1;
+  report.updatedAt = new Date().toISOString();
+
+  // Audit entry for community upvote support
+  const historyEntry: StatusHistoryEntry = {
+    id: `hist-${report.id}-upvote-${Date.now()}`,
+    reportId: report.id,
+    oldStatus: report.status,
+    newStatus: report.status,
+    changedBy: cleanUser === "anonymous" ? "Citizen" : cleanUser,
+    role: "Citizen",
+    changedAt: new Date().toISOString(),
+    comment: `Citizen upvoted this complaint (Total upvotes: ${report.upvotes}). Marked as common public grievance.`,
+  };
+  statusHistories.push(historyEntry);
+
+  saveToDisk();
+
+  // Sync to Supabase
+  saveReportToSupabase(report).catch(() => {});
+  saveStatusHistoryToSupabase(historyEntry).catch(() => {});
+
+  return {
+    success: true,
+    alreadyUpvoted: false,
+    report,
+    upvotes: report.upvotes,
   };
 }

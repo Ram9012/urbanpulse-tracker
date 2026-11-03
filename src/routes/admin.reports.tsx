@@ -550,7 +550,7 @@ function ReportsTable() {
     deptName?: string,
   ) => {
     const now = new Date().toISOString();
-    const target = reports.find((r) => r.id.toLowerCase() === reportId.toLowerCase());
+    let target = reports.find((r) => r.id.toLowerCase() === reportId.toLowerCase());
     const isElectric =
       (target?.category || "").toLowerCase().includes("electric") || reportId.includes("95674");
     const resolvedPhoto = isElectric

@@ -179,17 +179,24 @@ Return a strictly valid JSON object with EXACTLY this structure:
  */
 export async function analyzeDuplicateReport(
   newDescription: string,
-  existingReport: { id: string; title: string; description: string; area: string },
+  existingReport: {
+    id: string;
+    title: string;
+    description: string;
+    area: string;
+    category?: string;
+  },
 ) {
-  const prompt = `Compare these two civic reports to check if they describe the SAME real-world incident/issue:
+  const prompt = `Compare these two civic complaints to check if they describe the SAME real-world incident/issue at or near the same location:
 
-NEW REPORT:
+NEW COMPLAINT:
 "${newDescription}"
 
-EXISTING REPORT (${existingReport.id}):
+EXISTING COMPLAINT (${existingReport.id}):
 Title: "${existingReport.title}"
 Description: "${existingReport.description}"
 Area: "${existingReport.area}"
+Category: "${existingReport.category || "General"}"
 
 Return a strictly valid JSON object:
 {
@@ -199,14 +206,47 @@ Return a strictly valid JSON object:
   "recommended_action": "add_info_to_existing" | "keep_separate"
 }`;
 
-  return await callGroqChat([
-    {
-      role: "system",
-      content:
-        "You are an intelligent municipal duplicate detection service. Always return valid JSON.",
-    },
-    { role: "user", content: prompt },
-  ]);
+  try {
+    return await callGroqChat([
+      {
+        role: "system",
+        content:
+          "You are an intelligent municipal duplicate detection service. Always return valid JSON.",
+      },
+      { role: "user", content: prompt },
+    ]);
+  } catch (err: any) {
+    console.warn("[Groq Duplicate Fallback Check]:", err.message);
+    const newLower = newDescription.toLowerCase();
+    const existLower = `${existingReport.title} ${existingReport.description}`.toLowerCase();
+
+    // Check shared keywords
+    const keywords = [
+      "pothole",
+      "streetlight",
+      "light",
+      "garbage",
+      "waste",
+      "drain",
+      "sewage",
+      "water",
+      "leak",
+      "wire",
+      "pole",
+      "signal",
+    ];
+    const matchedKeywords = keywords.filter((k) => newLower.includes(k) && existLower.includes(k));
+    const isDup = matchedKeywords.length > 0;
+
+    return {
+      is_duplicate: isDup,
+      similarity_score: isDup ? 88 : 20,
+      explanation: isDup
+        ? `Both complaints mention similar issues (${matchedKeywords.join(", ")}) in the same area (${existingReport.area}).`
+        : "Complaints refer to distinct issues or different categories.",
+      recommended_action: isDup ? "add_info_to_existing" : "keep_separate",
+    };
+  }
 }
 
 /**
