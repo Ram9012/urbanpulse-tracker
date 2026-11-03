@@ -126,6 +126,7 @@ function ReportPage() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const videoStreamRef = useRef<HTMLVideoElement>(null);
   const streamTrackRef = useRef<MediaStream | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   // File Input References
   const photoInputRef = useRef<HTMLInputElement>(null);

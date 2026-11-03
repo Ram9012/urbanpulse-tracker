@@ -115,6 +115,7 @@ CREATE TABLE IF NOT EXISTS public.reports (
   reopened_at TIMESTAMPTZ,
   
   upvotes INT DEFAULT 0,
+  upvoted_by TEXT[] DEFAULT '{}',
   anonymous BOOLEAN DEFAULT FALSE,
   x NUMERIC(5,2) DEFAULT 50.0,
   y NUMERIC(5,2) DEFAULT 50.0
@@ -171,6 +172,9 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.report_status_history;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
 
 -- 8. Row Level Security (RLS)
+-- Migration for existing databases created before upvoted_by existed
+ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS upvoted_by TEXT[] DEFAULT '{}';
+
 ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.report_status_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
