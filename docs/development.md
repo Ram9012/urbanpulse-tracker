@@ -80,9 +80,6 @@ There is **no automated test suite** yet. Until one exists:
 - Run `typecheck`, `lint` (changed files), `format:check`, `build`.
 - Manually exercise: report submission (incl. voice, camera, duplicate prompt), upvote, admin
   transition flow, delete, sign-in/out, PulseBot with and without a Groq key.
-- Suggested first tests: unit tests for `status-engine` (transition + upvote dedupe),
-  `calculateDistanceMeters`, `analyzeDuplicateReport` fallback; API tests with Vitest; Playwright
-  smoke test for the report flow.
 
 ## Pull request checklist
 
@@ -103,5 +100,5 @@ and link it from the PR. Supersede rather than rewrite old decisions.
 
 - Both `bun.lock` and `package-lock.json` exist; update both when changing dependencies (CI uses
   npm).
-- Run `npm audit` periodically; see [known-issues-and-roadmap.md](known-issues-and-roadmap.md) for
+- Run `npm audit` periodically; see [known-issues.md](known-issues.md) for
   the current advisory picture.

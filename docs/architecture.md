@@ -73,8 +73,8 @@ Reads and writes go through `status-engine.ts` / `auth-store.ts`:
 Consequences: on Vercel, files in `/tmp` do not survive cold starts or span containers, so
 **Supabase is the only durable store in production** — and because sync is fire-and-forget and the
 app does not read reports back from Supabase on cold start, durability is currently weaker than it
-looks. Details and fix proposals: [ADR-0005](adr/0005-hybrid-persistence.md),
-[known issues](known-issues-and-roadmap.md).
+looks. Details: [ADR-0005](adr/0005-hybrid-persistence.md),
+[known issues](known-issues.md).
 
 Users additionally get a cross-container sync trick: the server sets a cookie
 (`civicpulse_client_users`) containing the user list, and `syncUsersFromCookie` merges it back on
@@ -133,5 +133,5 @@ Fallback" ([ADR-0006](adr/0006-groq-ai-with-fallbacks.md)).
 - The server holds state in module-level variables → **not safe across multiple serverless
   instances**; on Vercel each container has its own copy.
 - API endpoints currently trust the caller; there is no server-side authentication or authorization
-  ([ADR-0011](adr/0011-client-held-session-auth.md), [ADR-0012](adr/0012-server-side-auth-and-rbac.md)).
+  ([ADR-0011](adr/0011-client-held-session-auth.md)).
 - `src/routeTree.gen.ts` is generated — never edit by hand.

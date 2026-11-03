@@ -47,7 +47,7 @@ GitHub (main) ──▶ Vercel (Nitro "vercel" preset, serverless functions + st
 1. **Ephemeral filesystem.** On Vercel the JSON files live in `/tmp` and vanish on cold start or
    differ per container. Without Supabase, data is lost; with Supabase, writes are
    fire-and-forget and the app does not reload reports from it on cold start
-   ([ADR-0005](adr/0005-hybrid-persistence.md)). Fixing this is the highest-value reliability work.
+   ([ADR-0005](adr/0005-hybrid-persistence.md)).
 2. **No server-side auth** on any endpoint ([security.md](security.md)).
 3. **Single-instance assumptions.** In-memory state means two concurrent function instances can
    diverge (e.g. upvote counts).

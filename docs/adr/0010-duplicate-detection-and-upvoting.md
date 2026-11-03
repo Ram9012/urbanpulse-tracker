@@ -17,7 +17,6 @@ Before submitting, the client looks for nearby reports using GPS distance and as
   − The 80 m / 60 % thresholds are heuristics, untested against real data.
   − Identity is weak (client-supplied username, shared NATs, rotating IPs); no rate limiting.
   − `upvotedBy` now stores IP-derived keys (personal data) in a column readable under permissive RLS.
-  **Follow-up:** tie upvotes to authenticated users once [ADR-0012](0012-server-side-auth-and-rbac.md) lands; tune thresholds with data.
 
 ## Alternatives considered
 

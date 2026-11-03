@@ -16,7 +16,6 @@ Feature/fix branches merge by PR into `dev`; `dev` is promoted to `main` by PR; 
 - Clear promotion path; previews on every PR; cheap checks.
   − Non-blocking typecheck/lint means regressions (e.g. a missing `recognitionRef` declaration) can merge unnoticed — compare against the baseline locally.
   − No automated tests; gitleaks didn't flag keys already in history.
-  **Follow-up:** fix type errors then make typecheck blocking; add tests; add branch protection requiring CI and review.
 
 ## Alternatives considered
 

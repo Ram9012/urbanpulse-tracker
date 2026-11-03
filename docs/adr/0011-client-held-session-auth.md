@@ -1,6 +1,6 @@
 # ADR-0011: Unified username/password auth with a client-held session (current state)
 
-- **Status:** Accepted as a demo-stage shortcut — **Superseded by ADR-0012 (proposed)**
+- **Status:** Accepted (current) — a demo-stage shortcut
 - **Recorded:** 2026-11-04 (retrospective — rationale inferred from the code and history unless stated)
 
 ## Context
@@ -19,4 +19,4 @@ Users (`admin`, `citizen`) are stored in `app_users` / `civic-users.json`, with 
 
 ## Alternatives considered
 
-- **Supabase Auth / Auth.js / Clerk** — see ADR-0012.
+- **Supabase Auth / Auth.js / Clerk** — not used.

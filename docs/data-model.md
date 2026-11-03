@@ -29,33 +29,18 @@ storage yet.
 The product timeline (`TIMELINE_STEPS`) is: Submitted → Verified → Department assigned → Field worker
 assigned → In progress → Resolved → Citizen notified.
 
-```mermaid
-stateDiagram-v2
-  [*] --> SUBMITTED
-  SUBMITTED --> UNDER_REVIEW
-  UNDER_REVIEW --> VERIFIED
-  VERIFIED --> DEPARTMENT_ASSIGNED
-  DEPARTMENT_ASSIGNED --> WORKER_ASSIGNED
-  WORKER_ASSIGNED --> IN_PROGRESS
-  IN_PROGRESS --> RESOLUTION_SUBMITTED
-  RESOLUTION_SUBMITTED --> STAFF_REVIEW
-  STAFF_REVIEW --> RESOLVED
-  STAFF_REVIEW --> IN_PROGRESS: evidence rejected
-  RESOLVED --> REOPENED: citizen disputes
-  REOPENED --> WORKER_ASSIGNED
-  SUBMITTED --> REJECTED
-  SUBMITTED --> DUPLICATE
-```
+The schema's 12-value `report_status` enum, in declaration order:
 
-This is the **schema's** 12-value `report_status` enum arranged as a _proposed_ flow. The linear
-order follows the enum and the product timeline; the side branches (`REJECTED`, `DUPLICATE`,
-`REOPENED`, "evidence rejected") are illustrative — the code does not define them. Be aware of
-two inconsistencies (tracked in [known issues](known-issues-and-roadmap.md)):
+`SUBMITTED` → `UNDER_REVIEW` → `VERIFIED` → `DEPARTMENT_ASSIGNED` → `WORKER_ASSIGNED` →
+`IN_PROGRESS` → `RESOLUTION_SUBMITTED` → `STAFF_REVIEW` → `RESOLVED`, plus `REJECTED`, `DUPLICATE`
+and `REOPENED`.
+
+Be aware of two inconsistencies (tracked in [known issues](known-issues.md)):
 
 1. The front-end `ReportStatus` type in `civic-data.ts` has only six lowercase values:
    `submitted, verified, assigned, in_progress, resolved, duplicate`.
 2. `transitionReportStatus` does **not** validate allowed transitions; any caller can set any
-   status. The diagram above is the intent, not an enforced state machine.
+   status. There is no enforced state machine.
 
 Each transition:
 

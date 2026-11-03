@@ -21,7 +21,7 @@ Configuration is via environment variables (`.env` locally, Vercel Project Setti
 ## Variables in `.env.example` that nothing reads
 
 `CEREBRAS_*`, `CLOUDFLARE_API_KEY`, `ZENSERP_API_KEY`, `SUPABASE_DB_PASSWORD`,
-`VITE_COMPANY_NAME`. They are placeholders for planned integrations; remove or implement them.
+`VITE_COMPANY_NAME`. They are unused placeholders.
 
 ## ⚠️ Fallback secrets and hardcoded defaults in code
 
@@ -33,7 +33,7 @@ Some source files fall back to embedded values when an env var is missing:
 
 Because the repository is public, embedded keys must be treated as **compromised**: rotate them,
 set the real values in the environment, and delete the fallbacks. This is tracked as the top item in
-[known-issues-and-roadmap.md](known-issues-and-roadmap.md) and [security.md](security.md).
+[known-issues.md](known-issues.md) and [security.md](security.md).
 
 ## Client vs server variables
 

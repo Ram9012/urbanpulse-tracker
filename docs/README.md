@@ -7,7 +7,7 @@ Start here, then follow the reading order that fits your role.
 | New to the project        | [Getting started](getting-started.md) → [Architecture](architecture.md) → [Data model](data-model.md) |
 | Building features         | [Development guide](development.md) → [API reference](api.md) → [ADRs](adr/README.md)                 |
 | Deploying / operating     | [Configuration](configuration.md) → [Deployment](deployment.md) → [Security](security.md)             |
-| Reviewing risk / planning | [Security](security.md) → [Known issues & roadmap](known-issues-and-roadmap.md)                       |
+| Reviewing risk / planning | [Security](security.md) → [Known issues](known-issues.md)                                             |
 
 ## Index
 
@@ -21,7 +21,7 @@ Start here, then follow the reading order that fits your role.
 8. [Development guide](development.md)
 9. [Deployment](deployment.md)
 10. [Security](security.md)
-11. [Known issues & roadmap](known-issues-and-roadmap.md)
+11. [Known issues](known-issues.md)
 
 ## About these docs
 

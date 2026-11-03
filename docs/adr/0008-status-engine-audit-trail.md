@@ -16,7 +16,6 @@ All report mutations go through `status-engine.ts`. Each creation, status transi
 - Single place for business rules and a complete timeline for the UI and for audits.
   − Transitions are **not validated** (any status can be set); status vocabularies differ between UI types and schema.
   − Unknown report ids create synthetic placeholder reports.
-  **Follow-up:** define an explicit transition table per role and enforce it server-side.
 
 ## Alternatives considered
 

@@ -35,19 +35,19 @@ Useful scripts: `dev`, `build`, `preview`, `typecheck`, `lint`, `format`, `forma
 
 Everything lives in [`docs/`](docs/README.md):
 
-| Doc                                                        | What it covers                                          |
-| ---------------------------------------------------------- | ------------------------------------------------------- |
-| [Architecture](docs/architecture.md)                       | System design, request flow, persistence, key modules   |
-| [Tech stack](docs/tech-stack.md)                           | Every technology, its version and why it is used        |
-| [ADRs](docs/adr/README.md)                                 | Architecture Decision Records (14) incl. proposed fixes |
-| [API reference](docs/api.md)                               | All `/api/*` endpoints                                  |
-| [Data model](docs/data-model.md)                           | Report lifecycle, entities, Supabase schema             |
-| [Getting started](docs/getting-started.md)                 | Setup, running, troubleshooting                         |
-| [Configuration](docs/configuration.md)                     | Environment variables                                   |
-| [Development guide](docs/development.md)                   | Repo layout, conventions, CI, branching, PR flow        |
-| [Deployment](docs/deployment.md)                           | Vercel + Supabase, release checklist                    |
-| [Security](docs/security.md)                               | Current security posture, known gaps, remediation plan  |
-| [Known issues & roadmap](docs/known-issues-and-roadmap.md) | Tech debt, inconsistencies, prioritized next steps      |
+| Doc                                        | What it covers                                        |
+| ------------------------------------------ | ----------------------------------------------------- |
+| [Architecture](docs/architecture.md)       | System design, request flow, persistence, key modules |
+| [Tech stack](docs/tech-stack.md)           | Every technology, its version and why it is used      |
+| [ADRs](docs/adr/README.md)                 | Architecture Decision Records (13)                    |
+| [API reference](docs/api.md)               | All `/api/*` endpoints                                |
+| [Data model](docs/data-model.md)           | Report lifecycle, entities, Supabase schema           |
+| [Getting started](docs/getting-started.md) | Setup, running, troubleshooting                       |
+| [Configuration](docs/configuration.md)     | Environment variables                                 |
+| [Development guide](docs/development.md)   | Repo layout, conventions, CI, branching, PR flow      |
+| [Deployment](docs/deployment.md)           | Vercel + Supabase, release checklist                  |
+| [Security](docs/security.md)               | Current security posture, known gaps                  |
+| [Known issues](docs/known-issues.md)       | Tech debt and inconsistencies                         |
 
 ## License / ownership
 

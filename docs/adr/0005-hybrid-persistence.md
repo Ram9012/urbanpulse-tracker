@@ -1,6 +1,6 @@
 # ADR-0005: Hybrid persistence — in-memory + JSON files + best-effort Supabase sync
 
-- **Status:** Accepted (with known weaknesses) — superseded in intent by a proposed move to Supabase as the single source of truth
+- **Status:** Accepted (current; known weaknesses listed below)
 - **Recorded:** 2026-11-04 (retrospective — rationale inferred from the code and history unless stated)
 
 ## Context
@@ -17,7 +17,6 @@ State lives in module-level memory, mirrored to JSON files (`storage/` locally, 
   − **Not durable or consistent on serverless:** cold starts drop `/tmp`; instances diverge; reports are never rehydrated from Supabase.
   − Silent sync failures (e.g. missing column) lose data without any signal.
   − Demo data and user hashes are committed to the repo.
-  **Follow-up:** make Supabase the source of truth (read-through, await writes with retries), keep JSON only as a dev fallback, move users to a proper auth store, and stop committing runtime data.
 
 ## Alternatives considered
 

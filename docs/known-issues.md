@@ -1,23 +1,7 @@
-# Known Issues & Roadmap
+# Known Issues
 
 Snapshot as of 2026-11-04 on `main` (`e6159ae`). Security items are detailed in
 [security.md](security.md).
-
-## Prioritized roadmap
-
-| Pri | Item                                                                | Why                                   | Ref          |
-| --- | ------------------------------------------------------------------- | ------------------------------------- | ------------ |
-| P0  | Rotate embedded API keys; remove source fallbacks                   | Public repo exposure                  | security S1  |
-| P0  | Server-side auth, sessions, RBAC; lock destructive endpoints        | Anyone can delete/alter data          | ADR-0012     |
-| P0  | Real durable persistence (read from Supabase; drop `/tmp` reliance) | Data loss / divergence on serverless  | ADR-0005     |
-| P1  | Enforce a real status state machine (validated transitions)         | Any status can be set by any caller   | data-model   |
-| P1  | Request validation (zod), payload limits, media to object storage   | Robustness, DoS                       | security S9  |
-| P1  | Automated tests + make typecheck/lint blocking in CI                | No safety net today                   | development  |
-| P1  | Dependency upgrades (`npm audit fix`, `zod` 4)                      | 22 advisories                         | security S11 |
-| P2  | Unify the two API implementations (Fetch + Node)                    | Duplicated logic, drift risk          | ADR-0007     |
-| P2  | Observability (error tracking, metrics, uptime)                     | Logs only                             | architecture |
-| P2  | i18n (Kannada/Hindi), accessibility audit                           | Languages listed but not implemented  | —            |
-| P2  | Real notifications (email/SMS), realtime via Supabase Realtime      | Notifications are in-app records only | —            |
 
 ## Known issues
 
