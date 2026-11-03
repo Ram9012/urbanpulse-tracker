@@ -12,7 +12,10 @@ export const Route = createFileRoute("/admin")({
           "Review incoming civic reports, assign responsibility, track field work and monitor department performance.",
       },
       { property: "og:title", content: "Municipal Staff Portal — CivicPulse" },
-      { property: "og:description", content: "Report intake, routing, assignment and analytics for municipal teams." },
+      {
+        property: "og:description",
+        content: "Report intake, routing, assignment and analytics for municipal teams.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -46,8 +49,12 @@ function AdminLayout() {
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-base">🛡️</span>
                   <div className="truncate">
-                    <p className="font-bold truncate text-sidebar-foreground">Admin: {user?.username}</p>
-                    <p className="text-[10px] text-emerald-400 font-semibold">● Full Municipal Access</p>
+                    <p className="font-bold truncate text-sidebar-foreground">
+                      Admin: {user?.username}
+                    </p>
+                    <p className="text-[10px] text-emerald-400 font-semibold">
+                      ● Full Municipal Access
+                    </p>
                   </div>
                 </div>
                 <button
@@ -69,7 +76,8 @@ function AdminLayout() {
                   <span>{user ? `Signed in as ${user.username} (Citizen)` : "Not Signed In"}</span>
                 </div>
                 <p className="text-[11px] text-sidebar-foreground/70">
-                  Full admin privileges require username <code className="font-bold text-sidebar-foreground">admin</code>.
+                  Full admin privileges require username{" "}
+                  <code className="font-bold text-sidebar-foreground">admin</code>.
                 </p>
                 <Link
                   to="/signin"
@@ -88,22 +96,30 @@ function AdminLayout() {
                   <Link
                     to={m.to}
                     activeOptions={{ exact: m.to === "/admin" }}
-                    activeProps={{ className: "bg-sidebar-primary text-sidebar-primary-foreground" }}
+                    activeProps={{
+                      className: "bg-sidebar-primary text-sidebar-primary-foreground",
+                    }}
                     className="block rounded-xl px-3 py-2.5 text-sm font-semibold whitespace-nowrap text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   >
                     {m.label}
                   </Link>
                 </li>
               ))}
-              {["Departments", "Field Workers", "Assignments", "Analytics", "Notifications", "Settings", "Audit Logs"].map(
-                (label) => (
-                  <li key={label}>
-                    <span className="block rounded-xl px-3 py-2.5 text-sm font-semibold whitespace-nowrap text-sidebar-foreground/45">
-                      {label}
-                    </span>
-                  </li>
-                ),
-              )}
+              {[
+                "Departments",
+                "Field Workers",
+                "Assignments",
+                "Analytics",
+                "Notifications",
+                "Settings",
+                "Audit Logs",
+              ].map((label) => (
+                <li key={label}>
+                  <span className="block rounded-xl px-3 py-2.5 text-sm font-semibold whitespace-nowrap text-sidebar-foreground/45">
+                    {label}
+                  </span>
+                </li>
+              ))}
             </ul>
           </nav>
         </div>
@@ -126,7 +142,9 @@ function AdminLayout() {
               <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 font-semibold">
                 <span className="text-base">ℹ️</span>
                 <span>
-                  You are currently logged in as citizen <strong>{user?.username}</strong>. You are previewing municipal operations. Sign in with <strong>admin / admin123</strong> for municipal administrative actions.
+                  You are currently logged in as citizen <strong>{user?.username}</strong>. You are
+                  previewing municipal operations. Sign in with <strong>admin / admin123</strong>{" "}
+                  for municipal administrative actions.
                 </span>
               </div>
               <Link

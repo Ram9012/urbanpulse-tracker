@@ -71,7 +71,6 @@ function UnifiedAuthPage() {
     }
   }, []);
 
-
   // Quick autofill for Admin
   const fillAdmin = () => {
     setMode("signin");
@@ -123,7 +122,9 @@ function UnifiedAuthPage() {
       setLoading(false);
 
       if (res.success && res.user) {
-        setSuccess(`✓ Account "${cleanUsername}" created! Your credentials are filled below. Click "Sign In to Dashboard" to log in, or continue directly.`);
+        setSuccess(
+          `✓ Account "${cleanUsername}" created! Your credentials are filled below. Click "Sign In to Dashboard" to log in, or continue directly.`,
+        );
         setMode("signin");
         setUsername(cleanUsername);
         setPassword(password);
@@ -160,7 +161,6 @@ function UnifiedAuthPage() {
     <SiteLayout>
       <div className="container-page min-h-[calc(100vh-140px)] py-12 lg:py-20">
         <div className="mx-auto max-w-5xl grid items-center gap-10 lg:grid-cols-12">
-          
           {/* Left Hero & Guidance Column */}
           <div className="lg:col-span-5 space-y-6">
             <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary">
@@ -177,7 +177,8 @@ function UnifiedAuthPage() {
                 One Login for CivicPulse
               </h1>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                Access your personalized dashboard using your single username and password. The system automatically routes you to the correct interface based on your credentials.
+                Access your personalized dashboard using your single username and password. The
+                system automatically routes you to the correct interface based on your credentials.
               </p>
             </div>
 
@@ -190,7 +191,8 @@ function UnifiedAuthPage() {
                 <div>
                   <span className="font-bold text-foreground">Citizen Account</span>
                   <p className="text-muted-foreground mt-0.5">
-                    Create an account with username & password to submit and track complaints, upvote issues, and get live status alerts.
+                    Create an account with username & password to submit and track complaints,
+                    upvote issues, and get live status alerts.
                   </p>
                 </div>
               </div>
@@ -202,7 +204,15 @@ function UnifiedAuthPage() {
                 <div>
                   <span className="font-bold text-foreground">Municipal Administrator</span>
                   <p className="text-muted-foreground mt-0.5">
-                    Municipal staff sign in with username <code className="rounded bg-muted px-1 py-0.5 font-mono text-primary font-bold">admin</code> and password <code className="rounded bg-muted px-1 py-0.5 font-mono text-primary font-bold">admin123</code> to access the live administrative queue.
+                    Municipal staff sign in with username{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 font-mono text-primary font-bold">
+                      admin
+                    </code>{" "}
+                    and password{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 font-mono text-primary font-bold">
+                      admin123
+                    </code>{" "}
+                    to access the live administrative queue.
                   </p>
                 </div>
               </div>
@@ -225,7 +235,8 @@ function UnifiedAuthPage() {
             {isAuthenticated && user && (
               <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-foreground">
                 <p className="font-bold text-emerald-700 dark:text-emerald-400">
-                  Currently signed in as: <span className="underline">{user.username}</span> ({user.role})
+                  Currently signed in as: <span className="underline">{user.username}</span> (
+                  {user.role})
                 </p>
                 <div className="mt-2.5 flex items-center gap-2">
                   <Link
@@ -249,7 +260,6 @@ function UnifiedAuthPage() {
           {/* Right Form Card */}
           <div className="lg:col-span-7">
             <div className="relative overflow-hidden rounded-3xl border border-border bg-card p-6 shadow-xl md:p-8 backdrop-blur">
-              
               {/* Card top tab toggle */}
               <div className="grid grid-cols-2 gap-2 rounded-2xl bg-muted p-2 mb-6 text-sm font-bold">
                 <button
@@ -302,7 +312,6 @@ function UnifiedAuthPage() {
 
               {/* Form Element */}
               <form onSubmit={handleSubmit} noValidate className="space-y-4">
-                
                 {/* Username Input */}
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
@@ -318,7 +327,11 @@ function UnifiedAuthPage() {
                       onChange={(e) => setUsername(e.target.value)}
                       autoComplete="username"
                       className="h-12 w-full rounded-xl border border-input bg-background pl-10 pr-4 text-sm font-medium text-foreground transition-all placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      placeholder={mode === "signin" ? "Enter username (e.g. admin or your username)" : "Choose a username (e.g. citizen_jane)"}
+                      placeholder={
+                        mode === "signin"
+                          ? "Enter username (e.g. admin or your username)"
+                          : "Choose a username (e.g. citizen_jane)"
+                      }
                       required
                     />
                   </div>
@@ -353,7 +366,11 @@ function UnifiedAuthPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       autoComplete={mode === "signin" ? "current-password" : "new-password"}
                       className="h-12 w-full rounded-xl border border-input bg-background pl-10 pr-10 text-sm font-medium text-foreground transition-all placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      placeholder={mode === "signin" ? "Enter your password" : "Create password (min 6 characters)"}
+                      placeholder={
+                        mode === "signin"
+                          ? "Enter your password"
+                          : "Create password (min 6 characters)"
+                      }
                       required
                     />
                   </div>
@@ -383,10 +400,14 @@ function UnifiedAuthPage() {
                       <p
                         className={
                           "mt-1 text-[11px] font-semibold " +
-                          (password === confirmPassword ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")
+                          (password === confirmPassword
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-destructive")
                         }
                       >
-                        {password === confirmPassword ? "✓ Passwords match" : "✗ Passwords do not match"}
+                        {password === confirmPassword
+                          ? "✓ Passwords match"
+                          : "✗ Passwords do not match"}
                       </p>
                     )}
                   </div>
@@ -435,7 +456,9 @@ function UnifiedAuthPage() {
                   {loading ? (
                     <>
                       <span className="size-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                      <span>{mode === "signin" ? "Verifying Credentials…" : "Creating Account…"}</span>
+                      <span>
+                        {mode === "signin" ? "Verifying Credentials…" : "Creating Account…"}
+                      </span>
                     </>
                   ) : mode === "signin" ? (
                     <>

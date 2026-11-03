@@ -15,7 +15,11 @@ export function BrandMark({ className }: { className?: string }) {
     >
       <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11Z" strokeLinejoin="round" />
-        <path d="M8.5 10.2h2l1.2-2.4 1.4 4 1-1.6h1.6" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="M8.5 10.2h2l1.2-2.4 1.4 4 1-1.6h1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     </span>
   );
@@ -45,19 +49,14 @@ export function Section({
       <div className="container-page">
         {(eyebrow || title || description) && (
           <header
-            className={cn(
-              "mb-10 max-w-2xl md:mb-14",
-              align === "center" && "mx-auto text-center",
-            )}
+            className={cn("mb-10 max-w-2xl md:mb-14", align === "center" && "mx-auto text-center")}
           >
             {eyebrow && (
               <p className="mb-3 text-xs font-bold tracking-[0.16em] text-primary uppercase">
                 {eyebrow}
               </p>
             )}
-            {title && (
-              <h2 className="text-3xl font-extrabold text-balance md:text-4xl">{title}</h2>
-            )}
+            {title && <h2 className="text-3xl font-extrabold text-balance md:text-4xl">{title}</h2>}
             {description && (
               <p className="mt-4 text-base leading-relaxed text-muted-foreground md:text-lg">
                 {description}
@@ -235,15 +234,7 @@ export function DemoDataNote({ className }: { className?: string }) {
   );
 }
 
-export function Stat({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: ReactNode;
-  hint?: string;
-}) {
+export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
     <div className="surface-card p-5">
       <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{label}</p>

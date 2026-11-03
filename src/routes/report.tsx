@@ -15,7 +15,10 @@ export const Route = createFileRoute("/report")({
           "Add real photos, capture camera images or video, pinpoint exact location on world map, and submit.",
       },
       { property: "og:title", content: "Report a Civic Issue in Under a Minute — CivicPulse" },
-      { property: "og:description", content: "Real camera, photo upload, world interactive map, and Groq AI triage." },
+      {
+        property: "og:description",
+        content: "Real camera, photo upload, world interactive map, and Groq AI triage.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -125,7 +128,7 @@ function ReportPage() {
   });
 
   const [description, setDescription] = useState(
-    "Six streetlights between the school gate and the water tank have been off for four nights. The stretch is dark and hazardous."
+    "Six streetlights between the school gate and the water tank have been off for four nights. The stretch is dark and hazardous.",
   );
   const [listening, setListening] = useState(false);
   const [category, setCategory] = useState<string>(() => {
@@ -135,7 +138,9 @@ function ReportPage() {
         const catParam = urlParams.get("category");
         if (catParam) {
           const found = CATEGORIES.find(
-            (c) => c.id.toLowerCase() === catParam.toLowerCase() || c.name.toLowerCase() === catParam.toLowerCase()
+            (c) =>
+              c.id.toLowerCase() === catParam.toLowerCase() ||
+              c.name.toLowerCase() === catParam.toLowerCase(),
           );
           if (found) return found.name;
         }
@@ -270,7 +275,9 @@ function ReportPage() {
       }
     } catch (err: any) {
       console.warn("Camera access error:", err);
-      setCameraError(`Camera permission denied or camera unavailable: ${err.message}. You can also use "Upload Photo" directly.`);
+      setCameraError(
+        `Camera permission denied or camera unavailable: ${err.message}. You can also use "Upload Photo" directly.`,
+      );
     }
   };
 
@@ -320,9 +327,12 @@ function ReportPage() {
       return;
     }
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setError("Speech recognition is not supported in this browser. Please type your description.");
+      setError(
+        "Speech recognition is not supported in this browser. Please type your description.",
+      );
       return;
     }
 
@@ -383,7 +393,7 @@ function ReportPage() {
         const matchingReports = REPORTS.filter(
           (r) =>
             r.categoryLabel.toLowerCase().includes(activeCategory.toLowerCase().slice(0, 4)) ||
-            r.category.toLowerCase().includes(activeCategory.toLowerCase().slice(0, 4))
+            r.category.toLowerCase().includes(activeCategory.toLowerCase().slice(0, 4)),
         );
         const existingCandidate = matchingReports[0];
         if (existingCandidate && !data.category_mismatch) {
@@ -422,8 +432,10 @@ function ReportPage() {
 
   const handleCategoryChange = (newCat: string) => {
     setCategory(newCat);
-    const isPotholeText = description.toLowerCase().includes("pothole") || description.toLowerCase().includes("road");
-    const isLightCat = newCat.toLowerCase().includes("light") || newCat.toLowerCase().includes("electr");
+    const isPotholeText =
+      description.toLowerCase().includes("pothole") || description.toLowerCase().includes("road");
+    const isLightCat =
+      newCat.toLowerCase().includes("light") || newCat.toLowerCase().includes("electr");
     if (!description || (isLightCat && isPotholeText)) {
       const defaultTpl =
         CATEGORY_TEMPLATES[newCat]?.[0]?.text ||
@@ -472,7 +484,9 @@ function ReportPage() {
   function next() {
     setError(null);
     if (step === 0 && mediaItems.length === 0) {
-      setError("Please upload at least one real photo, video or take a camera capture so staff can verify the issue.");
+      setError(
+        "Please upload at least one real photo, video or take a camera capture so staff can verify the issue.",
+      );
       return;
     }
     if (step === 1 && !locationData.address) {
@@ -514,7 +528,8 @@ function ReportPage() {
       title: reportTitle,
       category: catObj.id,
       categoryLabel: catObj.name,
-      description: description.trim() || `${catObj.name} issue reported with verified photo evidence.`,
+      description:
+        description.trim() || `${catObj.name} issue reported with verified photo evidence.`,
       ward: locationData.ward || "Rangoli Halla",
       area: locationData.address.split(",")[0] || "Racecourse Road",
       status: "submitted",
@@ -523,14 +538,21 @@ function ReportPage() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       aiConfidence: activeAi.confidence || 0.95,
-      duplicateProbability: duplicateResult?.is_duplicate ? duplicateResult.similarity_score / 100 : 0.05,
+      duplicateProbability: duplicateResult?.is_duplicate
+        ? duplicateResult.similarity_score / 100
+        : 0.05,
       upvotes: 1,
       anonymous,
       x: 42,
       y: 50,
-      mediaUrls: mediaItems.length > 0
-        ? mediaItems.map((m) => m.url)
-        : [catObj.id === "electricity" ? "/media/evidence/streetlight_before.jpg" : "/media/evidence/pothole_before.jpg"],
+      mediaUrls:
+        mediaItems.length > 0
+          ? mediaItems.map((m) => m.url)
+          : [
+              catObj.id === "electricity"
+                ? "/media/evidence/streetlight_before.jpg"
+                : "/media/evidence/pothole_before.jpg",
+            ],
       latitude: locationData.lat,
       longitude: locationData.lng,
       address: locationData.address,
@@ -541,7 +563,11 @@ function ReportPage() {
       try {
         const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
         const purged = stored.filter(
-          (r: any) => !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603" && r.id !== newReport.id,
+          (r: any) =>
+            !r.id.startsWith("CIV-104") &&
+            r.id !== "CIV-54728" &&
+            r.id !== "CIV-42603" &&
+            r.id !== newReport.id,
         );
         purged.unshift(newReport);
         localStorage.setItem("civicpulse_client_reports", JSON.stringify(purged));
@@ -583,9 +609,15 @@ function ReportPage() {
             >
               ✓
             </span>
-            <h2 className="mt-5 font-display text-2xl font-extrabold">Report Successfully Submitted</h2>
+            <h2 className="mt-5 font-display text-2xl font-extrabold">
+              Report Successfully Submitted
+            </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Your tracking ID is <strong className="text-foreground font-mono text-base bg-muted px-2 py-0.5 rounded">{submittedReport.id}</strong>.
+              Your tracking ID is{" "}
+              <strong className="text-foreground font-mono text-base bg-muted px-2 py-0.5 rounded">
+                {submittedReport.id}
+              </strong>
+              .
             </p>
 
             <div className="mt-4 rounded-xl bg-mint/40 border border-mint p-4 text-left text-sm text-mint-foreground">
@@ -594,17 +626,23 @@ function ReportPage() {
                 Status: SUBMITTED (Stage 1 of 8)
               </p>
               <p className="mt-1 text-xs opacity-90">
-                Location: <strong>{locationData.address}</strong> ({locationData.lat.toFixed(5)}°, {locationData.lng.toFixed(5)}°)
+                Location: <strong>{locationData.address}</strong> ({locationData.lat.toFixed(5)}°,{" "}
+                {locationData.lng.toFixed(5)}°)
               </p>
             </div>
 
             {/* Uploaded Media Previews */}
             {mediaItems.length > 0 && (
               <div className="mt-4 text-left">
-                <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Verified Real Media Attached:</p>
+                <p className="text-xs font-bold text-muted-foreground uppercase mb-2">
+                  Verified Real Media Attached:
+                </p>
                 <div className="grid grid-cols-3 gap-2">
                   {mediaItems.map((m) => (
-                    <div key={m.id} className="relative rounded-lg overflow-hidden border border-border aspect-square bg-black/10">
+                    <div
+                      key={m.id}
+                      className="relative rounded-lg overflow-hidden border border-border aspect-square bg-black/10"
+                    >
                       {m.type === "image" ? (
                         <img src={m.url} alt={m.name} className="w-full h-full object-cover" />
                       ) : (
@@ -662,13 +700,13 @@ function ReportPage() {
 
         <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
           <div className="surface-card p-6">
-
             {/* STEP 0: REAL PHOTO / CAMERA / VIDEO UPLOAD */}
             {step === 0 && (
               <div>
                 <h2 className="text-lg font-bold">1. Add Real Photo or Video Evidence</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Upload actual photos from your gallery, capture live with camera, or upload a video.
+                  Upload actual photos from your gallery, capture live with camera, or upload a
+                  video.
                 </p>
 
                 {/* Hidden File Inputs for Real File Selection */}
@@ -706,7 +744,9 @@ function ReportPage() {
                   >
                     <span className="text-2xl mb-1 group-hover:scale-110 transition">📷</span>
                     <span className="font-bold text-primary">Use Live Camera</span>
-                    <span className="text-[10px] text-muted-foreground mt-0.5">Capture real live snapshot</span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5">
+                      Capture real live snapshot
+                    </span>
                   </button>
 
                   {/* Real Photo Upload Button */}
@@ -717,7 +757,9 @@ function ReportPage() {
                   >
                     <span className="text-2xl mb-1 group-hover:scale-110 transition">🖼️</span>
                     <span className="font-bold">Upload Photos</span>
-                    <span className="text-[10px] text-muted-foreground mt-0.5">JPEG, PNG, WEBP</span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5">
+                      JPEG, PNG, WEBP
+                    </span>
                   </button>
 
                   {/* Real Video Upload Button */}
@@ -788,7 +830,8 @@ function ReportPage() {
                   </div>
                 ) : (
                   <div className="mt-4 p-4 rounded-xl bg-muted/20 border border-dashed border-border text-center text-xs text-muted-foreground">
-                    No files attached yet. Click above to take a photo with your camera or select pictures from your phone/computer.
+                    No files attached yet. Click above to take a photo with your camera or select
+                    pictures from your phone/computer.
                   </div>
                 )}
               </div>
@@ -799,7 +842,8 @@ function ReportPage() {
               <div>
                 <h2 className="text-lg font-bold">2. Pinpoint Incident on World Map</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Use the real interactive map to place the issue. Click anywhere, drag the marker, or auto-detect with GPS.
+                  Use the real interactive map to place the issue. Click anywhere, drag the marker,
+                  or auto-detect with GPS.
                 </p>
 
                 <div className="mt-4">
@@ -818,14 +862,18 @@ function ReportPage() {
                 <h2 className="text-lg font-bold">3. Describe the Issue (Text or Voice)</h2>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <label className="block">
-                    <span className="mb-1.5 block text-sm font-semibold">Category (Standard dropdown)</span>
+                    <span className="mb-1.5 block text-sm font-semibold">
+                      Category (Standard dropdown)
+                    </span>
                     <select
                       value={category}
                       onChange={(e) => handleCategoryChange(e.target.value)}
                       className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-medium"
                     >
                       {CATEGORIES.map((c) => (
-                        <option key={c.id} value={c.name}>{c.name}</option>
+                        <option key={c.id} value={c.name}>
+                          {c.name}
+                        </option>
                       ))}
                     </select>
                   </label>
@@ -841,8 +889,14 @@ function ReportPage() {
 
                 {/* Quick Templates for Category */}
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                  <span className="text-xs font-semibold text-muted-foreground mr-1">Quick templates:</span>
-                  {(CATEGORY_TEMPLATES[category] ?? CATEGORY_TEMPLATES["Streetlight & electricity"] ?? []).map((tpl) => (
+                  <span className="text-xs font-semibold text-muted-foreground mr-1">
+                    Quick templates:
+                  </span>
+                  {(
+                    CATEGORY_TEMPLATES[category] ??
+                    CATEGORY_TEMPLATES["Streetlight & electricity"] ??
+                    []
+                  ).map((tpl) => (
                     <button
                       key={tpl.label}
                       type="button"
@@ -865,14 +919,21 @@ function ReportPage() {
                       <span className="text-xl">⚠️</span>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-foreground text-sm">Groq AI Mismatch Detected</span>
+                          <span className="font-bold text-foreground text-sm">
+                            Groq AI Mismatch Detected
+                          </span>
                           <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-foreground font-bold text-[10px]">
                             Qwen AI
                           </span>
                         </div>
                         <p className="mt-1.5 text-muted-foreground text-xs leading-relaxed">
-                          You selected category <strong className="text-foreground">"{category}"</strong>, but your description describes{" "}
-                          <strong className="text-foreground">"{activeAi.detected_category || "Road damage"}"</strong>.
+                          You selected category{" "}
+                          <strong className="text-foreground">"{category}"</strong>, but your
+                          description describes{" "}
+                          <strong className="text-foreground">
+                            "{activeAi.detected_category || "Road damage"}"
+                          </strong>
+                          .
                         </p>
                         <div className="mt-3 flex flex-wrap items-center gap-2">
                           <button
@@ -896,7 +957,7 @@ function ReportPage() {
                               const matched = CATEGORIES.find(
                                 (c) =>
                                   c.name.toLowerCase().includes(targetCat.toLowerCase()) ||
-                                  targetCat.toLowerCase().includes(c.id)
+                                  targetCat.toLowerCase().includes(c.id),
                               );
                               const newCatName = matched ? matched.name : targetCat;
                               setCategory(newCatName);
@@ -948,7 +1009,9 @@ function ReportPage() {
                     type="button"
                     onClick={toggleListening}
                     className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold transition ${
-                      listening ? "bg-destructive text-destructive-foreground animate-pulse" : "border border-border hover:bg-accent"
+                      listening
+                        ? "bg-destructive text-destructive-foreground animate-pulse"
+                        : "border border-border hover:bg-accent"
                     }`}
                   >
                     <span aria-hidden="true">{listening ? "🔴" : "🎙"}</span>
@@ -976,7 +1039,8 @@ function ReportPage() {
                           Possible Duplicate Detected ({duplicateResult.similarity_score}% Match)
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Existing report <strong>CIV-10482</strong> is 34 metres away on Bus Stand Road.
+                          Existing report <strong>CIV-10482</strong> is 34 metres away on Bus Stand
+                          Road.
                         </p>
                         <p className="mt-1 text-xs text-foreground bg-background/80 p-2 rounded-lg border border-border">
                           {duplicateResult.explanation}
@@ -986,7 +1050,9 @@ function ReportPage() {
                             type="button"
                             onClick={() => setSelectedAction("merge")}
                             className={`min-h-9 px-3 rounded-lg text-xs font-bold transition ${
-                              selectedAction === "merge" ? "bg-primary text-primary-foreground" : "border border-border bg-background"
+                              selectedAction === "merge"
+                                ? "bg-primary text-primary-foreground"
+                                : "border border-border bg-background"
                             }`}
                           >
                             ✓ Add info to existing report (CIV-10482)
@@ -995,7 +1061,9 @@ function ReportPage() {
                             type="button"
                             onClick={() => setSelectedAction("new")}
                             className={`min-h-9 px-3 rounded-lg text-xs font-bold transition ${
-                              selectedAction === "new" ? "bg-primary text-primary-foreground" : "border border-border bg-background"
+                              selectedAction === "new"
+                                ? "bg-primary text-primary-foreground"
+                                : "border border-border bg-background"
                             }`}
                           >
                             Keep as separate new report
@@ -1016,10 +1084,15 @@ function ReportPage() {
                 {/* Media Preview in Review */}
                 {mediaItems.length > 0 && (
                   <div className="mt-4 mb-4">
-                    <span className="text-xs font-bold text-muted-foreground uppercase block mb-2">Verified Real Media ({mediaItems.length})</span>
+                    <span className="text-xs font-bold text-muted-foreground uppercase block mb-2">
+                      Verified Real Media ({mediaItems.length})
+                    </span>
                     <div className="grid grid-cols-3 gap-2">
                       {mediaItems.map((m) => (
-                        <div key={m.id} className="relative rounded-lg overflow-hidden border border-border aspect-square bg-black/10">
+                        <div
+                          key={m.id}
+                          className="relative rounded-lg overflow-hidden border border-border aspect-square bg-black/10"
+                        >
                           {m.type === "image" ? (
                             <img src={m.url} alt={m.name} className="w-full h-full object-cover" />
                           ) : (
@@ -1033,13 +1106,27 @@ function ReportPage() {
 
                 <dl className="mt-4 space-y-3 text-sm">
                   {[
-                    ["Verified Location", `${locationData.address} (${locationData.lat.toFixed(5)}° N, ${locationData.lng.toFixed(5)}° E)`],
+                    [
+                      "Verified Location",
+                      `${locationData.address} (${locationData.lat.toFixed(5)}° N, ${locationData.lng.toFixed(5)}° E)`,
+                    ],
                     ["Selected Category", category],
                     ["AI Issue Summary", activeAi.summary],
-                    ["Recommended Priority", `${activeAi.priority_recommendation.toUpperCase()} — ${activeAi.priority_reason}`],
+                    [
+                      "Recommended Priority",
+                      `${activeAi.priority_recommendation.toUpperCase()} — ${activeAi.priority_reason}`,
+                    ],
                     ["Handling Department", "Public Works — Roads"],
-                    ["Citizen Visibility", anonymous ? "Anonymous (Identity Protected)" : "Verified Citizen"],
-                    ["Duplicate Policy", selectedAction === "merge" ? "Merge with existing CIV-10482" : "Submit as distinct report"],
+                    [
+                      "Citizen Visibility",
+                      anonymous ? "Anonymous (Identity Protected)" : "Verified Citizen",
+                    ],
+                    [
+                      "Duplicate Policy",
+                      selectedAction === "merge"
+                        ? "Merge with existing CIV-10482"
+                        : "Submit as distinct report",
+                    ],
                   ].map(([k, v]) => (
                     <div key={k} className="rounded-xl border border-border p-3 bg-muted/20">
                       <dt className="text-xs font-bold text-muted-foreground uppercase">{k}</dt>
@@ -1051,7 +1138,10 @@ function ReportPage() {
             )}
 
             {error && (
-              <p role="alert" className="mt-5 rounded-xl bg-destructive/10 p-3 text-sm font-semibold text-destructive">
+              <p
+                role="alert"
+                className="mt-5 rounded-xl bg-destructive/10 p-3 text-sm font-semibold text-destructive"
+              >
                 {error}
               </p>
             )}
@@ -1091,8 +1181,12 @@ function ReportPage() {
           <aside className="surface-card h-fit bg-navy p-6 text-navy-foreground shadow-lg rounded-2xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <p className="text-xs font-bold uppercase tracking-wider text-teal">Groq AI Advisory Layer</p>
-                <span className="px-1.5 py-0.5 rounded bg-teal/20 text-teal text-[10px] font-bold">Qwen 27B</span>
+                <p className="text-xs font-bold uppercase tracking-wider text-teal">
+                  Groq AI Advisory Layer
+                </p>
+                <span className="px-1.5 py-0.5 rounded bg-teal/20 text-teal text-[10px] font-bold">
+                  Qwen 27B
+                </span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="size-2 rounded-full bg-teal animate-pulse" />
@@ -1111,18 +1205,23 @@ function ReportPage() {
                     <span>⚠️</span> Category Mismatch Detected
                   </span>
                   <p className="mt-1 opacity-90 leading-tight">
-                    Issue text appears to describe <strong>{activeAi.detected_category}</strong> rather than {category}.
+                    Issue text appears to describe <strong>{activeAi.detected_category}</strong>{" "}
+                    rather than {category}.
                   </p>
                 </div>
               )}
 
               <div className="rounded-xl bg-navy-foreground/10 p-3">
-                <span className="font-bold text-teal block uppercase tracking-wider text-[10px]">AI Issue Summary</span>
+                <span className="font-bold text-teal block uppercase tracking-wider text-[10px]">
+                  AI Issue Summary
+                </span>
                 <p className="mt-1 text-white font-medium">{activeAi.summary}</p>
               </div>
 
               <div className="rounded-xl bg-navy-foreground/10 p-3">
-                <span className="font-bold text-teal block uppercase tracking-wider text-[10px]">Priority Recommendation</span>
+                <span className="font-bold text-teal block uppercase tracking-wider text-[10px]">
+                  Priority Recommendation
+                </span>
                 <div className="mt-1 flex items-center gap-2">
                   <span className="px-2 py-0.5 rounded font-bold uppercase bg-warm text-warm-foreground text-[10px]">
                     {activeAi.priority_recommendation}
@@ -1133,10 +1232,15 @@ function ReportPage() {
 
               {activeAi.severity_signals && activeAi.severity_signals.length > 0 && (
                 <div className="rounded-xl bg-navy-foreground/10 p-3">
-                  <span className="font-bold text-teal block uppercase tracking-wider text-[10px]">Detected Severity Signals</span>
+                  <span className="font-bold text-teal block uppercase tracking-wider text-[10px]">
+                    Detected Severity Signals
+                  </span>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {activeAi.severity_signals.map((sig) => (
-                      <span key={sig} className="px-2 py-0.5 rounded-full bg-navy-foreground/15 text-white text-[10px]">
+                      <span
+                        key={sig}
+                        className="px-2 py-0.5 rounded-full bg-navy-foreground/15 text-white text-[10px]"
+                      >
                         ⚠️ {sig}
                       </span>
                     ))}
@@ -1145,13 +1249,16 @@ function ReportPage() {
               )}
 
               <div className="rounded-xl bg-navy-foreground/10 p-3">
-                <span className="font-bold text-teal block uppercase tracking-wider text-[10px]">Extracted Keywords</span>
+                <span className="font-bold text-teal block uppercase tracking-wider text-[10px]">
+                  Extracted Keywords
+                </span>
                 <p className="mt-1 text-white/80">{activeAi.keywords.join(", ")}</p>
               </div>
             </div>
 
             <p className="mt-4 text-[11px] opacity-75 border-t border-navy-foreground/15 pt-3">
-              <strong>Architecture Note:</strong> AI predictions are advisory suggestions. The municipal department, priority, and workflow decisions are finalized by staff.
+              <strong>Architecture Note:</strong> AI predictions are advisory suggestions. The
+              municipal department, priority, and workflow decisions are finalized by staff.
             </p>
           </aside>
         </div>
@@ -1197,7 +1304,9 @@ function ReportPage() {
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-4 border-2 border-dashed border-white/50 rounded-xl pointer-events-none flex items-center justify-center">
-                      <span className="text-white/60 text-xs font-semibold">Center issue in frame</span>
+                      <span className="text-white/60 text-xs font-semibold">
+                        Center issue in frame
+                      </span>
                     </div>
                   </div>
 

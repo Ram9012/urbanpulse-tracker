@@ -1,23 +1,61 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import {
-  CATEGORIES,
-  type CivicReport,
-  type CategoryId,
-} from "@/lib/civic-data";
+import { CATEGORIES, type CivicReport, type CategoryId } from "@/lib/civic-data";
 import { StatusBadge, PriorityBadge } from "./primitives";
 
 const CATEGORY_COLORS: Record<
   CategoryId,
   { bg: string; border: string; text: string; dot: string; icon: string; hex: string }
 > = {
-  electricity: { bg: "bg-amber-500/15", border: "border-amber-500/40", text: "text-amber-500", dot: "bg-amber-500", icon: "⚡", hex: "#f59e0b" },
-  water: { bg: "bg-cyan-500/15", border: "border-cyan-500/40", text: "text-cyan-500", dot: "bg-cyan-500", icon: "💧", hex: "#06b6d4" },
-  roads: { bg: "bg-blue-500/15", border: "border-blue-500/40", text: "text-blue-500", dot: "bg-blue-500", icon: "🕳️", hex: "#2563eb" },
-  waste: { bg: "bg-emerald-500/15", border: "border-emerald-500/40", text: "text-emerald-500", dot: "bg-emerald-500", icon: "🗑️", hex: "#10b981" },
-  safety: { bg: "bg-rose-500/15", border: "border-rose-500/40", text: "text-rose-500", dot: "bg-rose-500", icon: "🚦", hex: "#e11d48" },
-  parks: { bg: "bg-green-500/15", border: "border-green-500/40", text: "text-green-500", dot: "bg-green-500", icon: "🌳", hex: "#16a34a" },
+  electricity: {
+    bg: "bg-amber-500/15",
+    border: "border-amber-500/40",
+    text: "text-amber-500",
+    dot: "bg-amber-500",
+    icon: "⚡",
+    hex: "#f59e0b",
+  },
+  water: {
+    bg: "bg-cyan-500/15",
+    border: "border-cyan-500/40",
+    text: "text-cyan-500",
+    dot: "bg-cyan-500",
+    icon: "💧",
+    hex: "#06b6d4",
+  },
+  roads: {
+    bg: "bg-blue-500/15",
+    border: "border-blue-500/40",
+    text: "text-blue-500",
+    dot: "bg-blue-500",
+    icon: "🕳️",
+    hex: "#2563eb",
+  },
+  waste: {
+    bg: "bg-emerald-500/15",
+    border: "border-emerald-500/40",
+    text: "text-emerald-500",
+    dot: "bg-emerald-500",
+    icon: "🗑️",
+    hex: "#10b981",
+  },
+  safety: {
+    bg: "bg-rose-500/15",
+    border: "border-rose-500/40",
+    text: "text-rose-500",
+    dot: "bg-rose-500",
+    icon: "🚦",
+    hex: "#e11d48",
+  },
+  parks: {
+    bg: "bg-green-500/15",
+    border: "border-green-500/40",
+    text: "text-green-500",
+    dot: "bg-green-500",
+    icon: "🌳",
+    hex: "#16a34a",
+  },
 };
 
 interface SocietyMapProps {
@@ -36,7 +74,7 @@ export function SocietyMap({
   onDeleteReport,
 }: SocietyMapProps) {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(
-    reports[0]?.id || "CIV-95674"
+    reports[0]?.id || "CIV-95674",
   );
   const [mapLayer, setMapLayer] = useState<"streets" | "satellite">("streets");
   const [filterScope, setFilterScope] = useState<"all" | "mine" | "critical">("all");
@@ -54,8 +92,7 @@ export function SocietyMap({
   // Filter reports based on scope and category
   const filteredReports = reports.filter((r) => {
     const isMine =
-      r.reportedBy?.toLowerCase() === currentUsername.toLowerCase() ||
-      r.id === "CIV-95674";
+      r.reportedBy?.toLowerCase() === currentUsername.toLowerCase() || r.id === "CIV-95674";
 
     if (filterScope === "mine" && !isMine) return false;
     if (filterScope === "critical" && r.priority !== "critical" && r.priority !== "high")
@@ -122,7 +159,7 @@ export function SocietyMap({
           leafletInstanceRef.current.flyTo([coords.lat, coords.lng], 16, { duration: 1 });
         }
       },
-      { timeout: 8000 }
+      { timeout: 8000 },
     );
   };
 
@@ -206,7 +243,9 @@ export function SocietyMap({
           ? '&copy; <a href="https://www.esri.com/">Esri</a>'
           : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
-      tileLayerRef.current = L.tileLayer(tileUrl, { maxZoom: 19, attribution }).addTo(leafletInstanceRef.current);
+      tileLayerRef.current = L.tileLayer(tileUrl, { maxZoom: 19, attribution }).addTo(
+        leafletInstanceRef.current,
+      );
     });
   }, [mapLayer]);
 
@@ -220,8 +259,7 @@ export function SocietyMap({
       filteredReports.forEach((r, idx) => {
         const isSelected = r.id === selectedReportId;
         const isMine =
-          r.reportedBy?.toLowerCase() === currentUsername.toLowerCase() ||
-          r.id === "CIV-95674";
+          r.reportedBy?.toLowerCase() === currentUsername.toLowerCase() || r.id === "CIV-95674";
         const cat = CATEGORY_COLORS[r.category] || CATEGORY_COLORS.roads;
 
         const pinHtml = `
@@ -232,10 +270,10 @@ export function SocietyMap({
                 : ""
             }
             <div style="background: ${isMine ? "#146ef5" : "#0f172a"}; color: white; width: 34px; height: 34px; border-radius: 50%; border: 3px solid ${
-          isSelected ? "#38bdf8" : isMine ? "#f59e0b" : "white"
-        }; box-shadow: 0 4px 14px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: bold; transform: ${
-          isSelected ? "scale(1.2)" : "scale(1)"
-        }; transition: transform 0.2s;">
+              isSelected ? "#38bdf8" : isMine ? "#f59e0b" : "white"
+            }; box-shadow: 0 4px 14px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: bold; transform: ${
+              isSelected ? "scale(1.2)" : "scale(1)"
+            }; transition: transform 0.2s;">
               ${cat.icon}
             </div>
             <div style="position: absolute; bottom: -3px; right: -3px; background: ${
@@ -312,7 +350,8 @@ export function SocietyMap({
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Real geographic coordinates of civic issues reported by you & neighbors in your society
+              Real geographic coordinates of civic issues reported by you & neighbors in your
+              society
             </p>
           </div>
         </div>
@@ -349,7 +388,7 @@ export function SocietyMap({
                 "px-2.5 py-1 rounded-lg text-xs font-bold transition",
                 mapLayer === "streets"
                   ? "bg-surface text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               🗺️ Streets
@@ -361,7 +400,7 @@ export function SocietyMap({
                 "px-2.5 py-1 rounded-lg text-xs font-bold transition",
                 mapLayer === "satellite"
                   ? "bg-surface text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               🛰️ Satellite
@@ -378,7 +417,9 @@ export function SocietyMap({
             onClick={() => setFilterScope("all")}
             className={cn(
               "px-3 py-1 rounded-lg text-xs font-bold transition",
-              filterScope === "all" ? "bg-surface text-primary shadow-xs" : "text-muted-foreground hover:text-foreground"
+              filterScope === "all"
+                ? "bg-surface text-primary shadow-xs"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             🌐 All Society Issues ({reports.length})
@@ -388,7 +429,9 @@ export function SocietyMap({
             onClick={() => setFilterScope("mine")}
             className={cn(
               "px-3 py-1 rounded-lg text-xs font-bold transition",
-              filterScope === "mine" ? "bg-surface text-primary shadow-xs" : "text-muted-foreground hover:text-foreground"
+              filterScope === "mine"
+                ? "bg-surface text-primary shadow-xs"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             👤 My Issues
@@ -398,7 +441,9 @@ export function SocietyMap({
             onClick={() => setFilterScope("critical")}
             className={cn(
               "px-3 py-1 rounded-lg text-xs font-bold transition",
-              filterScope === "critical" ? "bg-surface text-destructive shadow-xs" : "text-muted-foreground hover:text-foreground"
+              filterScope === "critical"
+                ? "bg-surface text-destructive shadow-xs"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             🚨 Critical / High
@@ -443,9 +488,7 @@ export function SocietyMap({
               <span>Neighbor Report</span>
             </span>
             <span className="text-muted-foreground">|</span>
-            <span className="text-teal font-bold">
-              {filteredReports.length} real points mapped
-            </span>
+            <span className="text-teal font-bold">{filteredReports.length} real points mapped</span>
           </div>
 
           {/* Center Coordinates HUD */}
@@ -465,7 +508,8 @@ export function SocietyMap({
                     {selectedReport.id}
                   </span>
                   <span className="text-xs font-semibold text-muted-foreground">
-                    Point {reports.findIndex((x) => x.id === selectedReport.id) + 1} of {reports.length}
+                    Point {reports.findIndex((x) => x.id === selectedReport.id) + 1} of{" "}
+                    {reports.length}
                   </span>
                 </div>
                 <StatusBadge status={selectedReport.status} />
@@ -489,11 +533,16 @@ export function SocietyMap({
                 <div className="flex items-start gap-2 text-foreground font-medium">
                   <span className="text-sm mt-0.5">📍</span>
                   <div>
-                    <span className="font-bold">{selectedReport.societyName || selectedReport.area}</span>
-                    <p className="text-muted-foreground text-[11px]">{selectedReport.address || selectedReport.area}</p>
+                    <span className="font-bold">
+                      {selectedReport.societyName || selectedReport.area}
+                    </span>
+                    <p className="text-muted-foreground text-[11px]">
+                      {selectedReport.address || selectedReport.area}
+                    </p>
                     {selectedReport.latitude && selectedReport.longitude && (
                       <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
-                        GPS: {selectedReport.latitude.toFixed(4)}° N, {selectedReport.longitude.toFixed(4)}° E
+                        GPS: {selectedReport.latitude.toFixed(4)}° N,{" "}
+                        {selectedReport.longitude.toFixed(4)}° E
                       </p>
                     )}
                   </div>
@@ -508,9 +557,7 @@ export function SocietyMap({
                         : "Near your society"}
                     </span>
                   </span>
-                  <span className="text-muted-foreground font-semibold">
-                    {selectedReport.ward}
-                  </span>
+                  <span className="text-muted-foreground font-semibold">{selectedReport.ward}</span>
                 </div>
               </div>
 
@@ -518,7 +565,9 @@ export function SocietyMap({
               <div className="flex items-center justify-between rounded-xl border border-border/60 px-3 py-2 text-xs">
                 <div className="flex items-center gap-2">
                   <span className="text-sm">
-                    {selectedReport.reportedBy?.toLowerCase() === currentUsername.toLowerCase() ? "👤" : "👥"}
+                    {selectedReport.reportedBy?.toLowerCase() === currentUsername.toLowerCase()
+                      ? "👤"
+                      : "👥"}
                   </span>
                   <div>
                     <span className="text-[10px] uppercase font-bold text-muted-foreground block">
@@ -570,15 +619,16 @@ export function SocietyMap({
                 >
                   View Live Status & Timeline →
                 </Link>
-                {onDeleteReport && (
-                  isConfirmingDelete ? (
+                {onDeleteReport &&
+                  (isConfirmingDelete ? (
                     <div className="flex flex-col gap-2 rounded-2xl border border-destructive/40 bg-destructive/10 p-3 animate-in fade-in duration-200">
                       <div className="flex items-center gap-1.5 text-xs font-bold text-destructive">
                         <span>⚠️</span>
                         <span>Permanently delete {selectedReport.id}?</span>
                       </div>
                       <p className="text-[11px] text-muted-foreground leading-tight">
-                        This cannot be undone. This problem will be permanently erased from the map, database, and Supabase.
+                        This cannot be undone. This problem will be permanently erased from the map,
+                        database, and Supabase.
                       </p>
                       <div className="flex items-center gap-2 pt-1">
                         <button
@@ -610,13 +660,14 @@ export function SocietyMap({
                       <span>🗑️</span>
                       <span>Delete This Report Permanently</span>
                     </button>
-                  )
-                )}
+                  ))}
               </div>
             </div>
           ) : (
             <div className="p-8 text-center text-muted-foreground">
-              <p className="text-sm font-semibold">Click on any point on the real map to view problem details.</p>
+              <p className="text-sm font-semibold">
+                Click on any point on the real map to view problem details.
+              </p>
             </div>
           )}
         </aside>
@@ -637,8 +688,7 @@ export function SocietyMap({
           {filteredReports.map((r, idx) => {
             const isSelected = selectedReport?.id === r.id;
             const isMine =
-              r.reportedBy?.toLowerCase() === currentUsername.toLowerCase() ||
-              r.id === "CIV-95674";
+              r.reportedBy?.toLowerCase() === currentUsername.toLowerCase() || r.id === "CIV-95674";
             const cat = CATEGORY_COLORS[r.category] || CATEGORY_COLORS.roads;
 
             return (
@@ -650,7 +700,7 @@ export function SocietyMap({
                   "p-3 rounded-xl border text-left transition-all flex flex-col justify-between gap-1.5",
                   isSelected
                     ? "border-primary bg-primary/5 shadow-sm ring-2 ring-primary/20 scale-[1.01]"
-                    : "border-border/70 bg-surface hover:border-primary/40 hover:bg-muted/30"
+                    : "border-border/70 bg-surface hover:border-primary/40 hover:bg-muted/30",
                 )}
               >
                 <div>
@@ -664,9 +714,7 @@ export function SocietyMap({
                       </span>
                     )}
                   </div>
-                  <h5 className="text-xs font-bold text-foreground line-clamp-1">
-                    {r.title}
-                  </h5>
+                  <h5 className="text-xs font-bold text-foreground line-clamp-1">{r.title}</h5>
                   <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
                     {r.societyName || r.area}
                   </p>

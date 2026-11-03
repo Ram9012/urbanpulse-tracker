@@ -31,7 +31,9 @@ export type SafeUser = {
 };
 
 const IS_VERCEL = Boolean(process.env["VERCEL"] || process.env["AWS_LAMBDA_FUNCTION_NAME"]);
-const STORAGE_DIR = IS_VERCEL ? path.join("/tmp", "civic-storage") : path.join(process.cwd(), "storage");
+const STORAGE_DIR = IS_VERCEL
+  ? path.join("/tmp", "civic-storage")
+  : path.join(process.cwd(), "storage");
 const USERS_FILE = path.join(STORAGE_DIR, "civic-users.json");
 const BUNDLED_USERS_FILE = path.join(process.cwd(), "storage", "civic-users.json");
 
@@ -70,7 +72,11 @@ export function syncUsersFromCookie(cookieHeader?: string | null) {
       const parsed = JSON.parse(decodeURIComponent(match[1]));
       if (Array.isArray(parsed)) {
         for (const u of parsed) {
-          if (u && u.username && !cachedUsers.some((x) => x.username.toLowerCase() === u.username.toLowerCase())) {
+          if (
+            u &&
+            u.username &&
+            !cachedUsers.some((x) => x.username.toLowerCase() === u.username.toLowerCase())
+          ) {
             cachedUsers.push({
               id: u.id || `USR-${Date.now().toString(36).toUpperCase()}`,
               username: u.username,
@@ -86,7 +92,6 @@ export function syncUsersFromCookie(cookieHeader?: string | null) {
     }
   } catch {}
 }
-
 
 function ensureStorage() {
   try {
@@ -166,7 +171,11 @@ function persistUsersToDisk() {
   try {
     ensureStorage();
     fs.writeFileSync(USERS_FILE, JSON.stringify(cachedUsers, null, 2), "utf-8");
-    if (!IS_VERCEL && BUNDLED_USERS_FILE !== USERS_FILE && fs.existsSync(path.dirname(BUNDLED_USERS_FILE))) {
+    if (
+      !IS_VERCEL &&
+      BUNDLED_USERS_FILE !== USERS_FILE &&
+      fs.existsSync(path.dirname(BUNDLED_USERS_FILE))
+    ) {
       try {
         fs.writeFileSync(BUNDLED_USERS_FILE, JSON.stringify(cachedUsers, null, 2), "utf-8");
       } catch {}
@@ -260,7 +269,11 @@ export async function authenticateUser(
   }
 
   // 3. If not found in current container, recover from clientBackupUser if provided and valid
-  if (!user && clientBackupUser && clientBackupUser.username.toLowerCase() === username.toLowerCase()) {
+  if (
+    !user &&
+    clientBackupUser &&
+    clientBackupUser.username.toLowerCase() === username.toLowerCase()
+  ) {
     const rawPass = clientBackupUser.password || password;
     const storedHash = clientBackupUser.passwordHash || hashPassword(rawPass);
     const restoredUser: AppUser = {
@@ -348,11 +361,16 @@ export async function registerUser(
   }
 
   if (password !== confirmPassword) {
-    return { success: false, error: "Passwords do not match. Please verify your confirm password." };
+    return {
+      success: false,
+      error: "Passwords do not match. Please verify your confirm password.",
+    };
   }
 
   // 2. Check if username already exists locally
-  const existingLocal = cachedUsers.find((u) => u.username.toLowerCase() === username.toLowerCase());
+  const existingLocal = cachedUsers.find(
+    (u) => u.username.toLowerCase() === username.toLowerCase(),
+  );
   if (existingLocal) {
     return {
       success: false,

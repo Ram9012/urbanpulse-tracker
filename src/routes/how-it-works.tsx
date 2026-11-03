@@ -38,17 +38,29 @@ function HowItWorks() {
             {
               t: "Capture",
               d: "Take a photo or video. Your location is captured automatically and you can nudge the map marker if the detected point is slightly off.",
-              points: ["Camera or gallery upload", "GPS location with accuracy reading", "Works offline and syncs later"],
+              points: [
+                "Camera or gallery upload",
+                "GPS location with accuracy reading",
+                "Works offline and syncs later",
+              ],
             },
             {
               t: "Connect",
               d: "Add a short text or voice description. The classifier suggests a category, priority and department — you can edit all of it.",
-              points: ["Voice to text in English, Kannada, Hindi", "AI category suggestion with confidence", "Duplicate check before submission"],
+              points: [
+                "Voice to text in English, Kannada, Hindi",
+                "AI category suggestion with confidence",
+                "Duplicate check before submission",
+              ],
             },
             {
               t: "Resolve",
               d: "Your report gets a tracking ID. Every status change is logged and you are notified until the work is closed.",
-              points: ["Unique tracking ID", "Status timeline", "Before-and-after resolution media"],
+              points: [
+                "Unique tracking ID",
+                "Status timeline",
+                "Before-and-after resolution media",
+              ],
             },
           ].map((s, i) => (
             <Reveal key={s.t} delay={i * 100}>
@@ -82,7 +94,10 @@ function HowItWorks() {
       >
         <ol className="grid gap-3 md:grid-cols-2">
           {TIMELINE_STEPS.map((s, i) => (
-            <li key={s.key} className="flex gap-4 rounded-2xl border border-border bg-background p-4">
+            <li
+              key={s.key}
+              className="flex gap-4 rounded-2xl border border-border bg-background p-4"
+            >
               <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-mint text-xs font-bold text-mint-foreground">
                 {i + 1}
               </span>

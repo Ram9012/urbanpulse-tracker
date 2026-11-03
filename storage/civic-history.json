@@ -9,9 +9,7 @@
     "changedAt": "2026-09-25T01:30:00Z",
     "comment": "Report created and submitted to municipal triage queue.",
     "metadata": {
-      "mediaUrls": [
-        "/media/evidence/streetlight_before.jpg"
-      ],
+      "mediaUrls": ["/media/evidence/streetlight_before.jpg"],
       "address": "Racecourse Road, Rangoli Halla, हासन",
       "latitude": 13.0072,
       "longitude": 76.1023

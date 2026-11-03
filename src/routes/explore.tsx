@@ -124,8 +124,12 @@ function Explore() {
             map.set(lr.id.toLowerCase(), {
               ...lr,
               ...existing,
-              resolutionMediaUrls: existing.resolutionMediaUrls?.length ? existing.resolutionMediaUrls : lr.resolutionMediaUrls,
-              workerMediaUrls: existing.workerMediaUrls?.length ? existing.workerMediaUrls : lr.workerMediaUrls,
+              resolutionMediaUrls: existing.resolutionMediaUrls?.length
+                ? existing.resolutionMediaUrls
+                : lr.resolutionMediaUrls,
+              workerMediaUrls: existing.workerMediaUrls?.length
+                ? existing.workerMediaUrls
+                : lr.workerMediaUrls,
             });
           }
         }
@@ -133,7 +137,11 @@ function Explore() {
     });
 
     const merged = Array.from(map.values()).filter(
-      (r) => !freshDeleted.has(r.id.toLowerCase()) && !r.id.startsWith("CIV-104") && r.id !== "CIV-54728" && r.id !== "CIV-42603",
+      (r) =>
+        !freshDeleted.has(r.id.toLowerCase()) &&
+        !r.id.startsWith("CIV-104") &&
+        r.id !== "CIV-54728" &&
+        r.id !== "CIV-42603",
     );
     setReportsList(merged);
   };
@@ -168,7 +176,9 @@ function Explore() {
         localStorage.setItem("civicpulse_client_reports", JSON.stringify(filtered));
 
         const queue = JSON.parse(localStorage.getItem("civic_reports_queue") || "[]");
-        const filteredQueue = queue.filter((r: any) => r.id.toLowerCase() !== reportId.toLowerCase());
+        const filteredQueue = queue.filter(
+          (r: any) => r.id.toLowerCase() !== reportId.toLowerCase(),
+        );
         localStorage.setItem("civic_reports_queue", JSON.stringify(filteredQueue));
       } catch {}
     }
@@ -214,7 +224,9 @@ function Explore() {
         {deleteNotice && (
           <div className="mb-4 rounded-xl bg-destructive/10 border border-destructive/30 p-3 text-sm font-semibold text-destructive flex items-center justify-between">
             <span>{deleteNotice}</span>
-            <button onClick={() => setDeleteNotice(null)} className="text-xs font-bold underline">✕</button>
+            <button onClick={() => setDeleteNotice(null)} className="text-xs font-bold underline">
+              ✕
+            </button>
           </div>
         )}
 
@@ -229,7 +241,9 @@ function Explore() {
             />
           </label>
           <label>
-            <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">Category</span>
+            <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
+              Category
+            </span>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -326,7 +340,8 @@ function Explore() {
                     className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-border px-3 text-xs font-bold transition-colors hover:bg-accent"
                   >
                     <span aria-hidden="true">▲</span>
-                    {confirmed[r.id] ? "Confirmed" : "Confirm"} ({r.upvotes + (confirmed[r.id] ? 1 : 0)})
+                    {confirmed[r.id] ? "Confirmed" : "Confirm"} (
+                    {r.upvotes + (confirmed[r.id] ? 1 : 0)})
                   </button>
                   {deleteConfirmId === r.id ? (
                     <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
