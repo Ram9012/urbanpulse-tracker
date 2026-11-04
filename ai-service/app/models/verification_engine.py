@@ -87,48 +87,14 @@ def _combine_scores(
     quality: float,
 ) -> float:
     """
-    Combine component scores into a final weighted verification score.
-
-    Weights (from config):
-        scene_consistency: 0.30
-        siamese_similarity: 0.25
-        bidirectional:      0.20
-        segmentation:       0.15 (redistributed to others if not run)
-        quality:            0.10
-
-    IMPORTANT: This combination logic is a documented baseline.
-    It has NOT been validated against labeled civic image pairs.
-    Weights should be empirically tuned once a labeled dataset exists.
-
-    If segmentation was not run, its weight is redistributed proportionally
-    to the other components.
+    Compute Final Verification Score as the unweighted arithmetic average of active sub-models.
+    If segmentation is not run (None), averages the 4 active sub-models.
     """
-    w_scene = settings.weight_scene_consistency
-    w_siamese = settings.weight_siamese_similarity
-    w_bidir = settings.weight_bidirectional
-    w_seg = settings.weight_segmentation
-    w_quality = settings.weight_quality
+    active_scores = [scene_consistency, siamese_similarity, bidirectional, quality]
+    if segmentation is not None:
+        active_scores.append(segmentation)
 
-    if segmentation is None:
-        # Redistribute segmentation weight proportionally
-        total_without_seg = w_scene + w_siamese + w_bidir + w_quality
-        scale = 1.0 / total_without_seg
-        w_scene *= scale
-        w_siamese *= scale
-        w_bidir *= scale
-        w_quality *= scale
-        w_seg = 0.0
-        seg_score = 0.0
-    else:
-        seg_score = segmentation
-
-    final = (
-        w_scene * scene_consistency
-        + w_siamese * siamese_similarity
-        + w_bidir * bidirectional
-        + w_seg * seg_score
-        + w_quality * quality
-    )
+    final = sum(active_scores) / len(active_scores)
     return float(np.clip(final, 0.0, 1.0))
 
 

@@ -282,10 +282,14 @@ export function VerificationPanel({
               <div className="text-[11px] font-bold text-primary">Final Verification Score</div>
               <div className="text-2xl font-black mt-1 text-primary font-mono">
                 {latest?.finalVerificationScore !== undefined && latest?.finalVerificationScore !== null
-                  ? `${Math.round(latest.finalVerificationScore * 100)}%`
+                  ? `${(
+                      latest.finalVerificationScore <= 1
+                        ? latest.finalVerificationScore * 100
+                        : latest.finalVerificationScore
+                    ).toFixed(1)}%`
                   : "—"}
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">Weighted Multi-Evidence Composite</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">Average Score of Sub-Models</div>
             </div>
           </div>
 

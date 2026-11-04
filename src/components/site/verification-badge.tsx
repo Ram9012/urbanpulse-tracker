@@ -14,7 +14,7 @@ export function VerificationBadge({
   compact = false,
 }: {
   status: string | undefined | null;
-  score?: number | null;
+  score?: number | null | undefined;
   compact?: boolean;
 }) {
   const normalized = (status || "PENDING").toUpperCase() as VerificationOutcome;
@@ -51,6 +51,11 @@ export function VerificationBadge({
       break;
   }
 
+  const formatScore = (val: number) => {
+    const pct = val <= 1 ? val * 100 : val;
+    return `${pct.toFixed(1)}%`;
+  };
+
   if (compact) {
     return (
       <span
@@ -59,7 +64,7 @@ export function VerificationBadge({
         <span>{icon}</span>
         <span>{label}</span>
         {typeof score === "number" && (
-          <span className="opacity-80">({Math.round(score * 100)}%)</span>
+          <span className="opacity-80">({formatScore(score)})</span>
         )}
       </span>
     );
@@ -70,7 +75,7 @@ export function VerificationBadge({
       <span>{icon}</span>
       <span>{label}</span>
       {typeof score === "number" && (
-        <span className="font-mono text-xs opacity-85">({Math.round(score * 100)}%)</span>
+        <span className="font-mono text-xs opacity-85">({formatScore(score)})</span>
       )}
     </Badge>
   );
