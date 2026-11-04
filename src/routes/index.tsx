@@ -1,15 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import {
-  BRAND,
-  CATEGORIES,
-  TESTIMONIALS,
-  TIMELINE_STEPS,
-  LANGUAGES,
-  mockClassify,
-} from "@/lib/civic-data";
+import { BRAND, CATEGORIES, TIMELINE_STEPS, LANGUAGES, mockClassify } from "@/lib/civic-data";
 import { SiteLayout } from "@/components/site/site-layout";
-import { Counter, DemoDataNote, Reveal, Section, StatusBadge } from "@/components/site/primitives";
+import { Reveal, Section, StatusBadge } from "@/components/site/primitives";
 import { ActivityMap, MapCanvas } from "@/components/site/civic-map";
 
 export const Route = createFileRoute("/")({
@@ -153,24 +146,6 @@ function Hero() {
               </dl>
             </div>
           </MapCanvas>
-
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            {[
-              { label: "issues resolved", value: 1248 },
-              { label: "citizen satisfaction", value: 92, suffix: "%" },
-              { label: "active departments", value: 18 },
-            ].map((m) => (
-              <div key={m.label} className="surface-card p-3 text-center">
-                <p className="font-display text-xl font-extrabold">
-                  <Counter to={m.value} suffix={m.suffix ?? ""} />
-                </p>
-                <p className="text-[11px] leading-tight text-muted-foreground">{m.label}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-3 flex justify-center">
-            <DemoDataNote />
-          </div>
         </div>
       </div>
     </section>
@@ -466,69 +441,6 @@ function Home() {
         </div>
       </Section>
 
-      <Section
-        className="bg-surface border-y border-border"
-        eyebrow="Impact"
-        title="Measured, Not Claimed"
-        description="Counters start at zero and fill from real municipal data once a city connects its departments."
-      >
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { l: "reports submitted", v: 0 },
-            { l: "issues resolved", v: 0 },
-            { l: "departments connected", v: 0 },
-            { l: "average response time (days)", v: 0 },
-          ].map((m) => (
-            <div key={m.l} className="surface-card p-6 text-center">
-              <p className="font-display text-4xl font-extrabold">
-                <Counter to={m.v} />
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">{m.l}</p>
-            </div>
-          ))}
-        </div>
-        <div className="mt-6 flex justify-center">
-          <DemoDataNote />
-        </div>
-        <Reveal className="mt-10">
-          <BeforeAfter />
-        </Reveal>
-      </Section>
-
-      <Section eyebrow="Citizen voices" title="What Residents Say">
-        <div className="grid gap-4 md:grid-cols-3">
-          {TESTIMONIALS.map((t, i) => (
-            <Reveal key={t.name} delay={i * 80}>
-              <figure className="surface-card h-full p-6">
-                <p aria-label={`${t.rating} out of 5`} className="text-sm text-warning-foreground">
-                  {"★".repeat(t.rating)}
-                  <span className="text-muted-foreground">{"★".repeat(5 - t.rating)}</span>
-                </p>
-                <blockquote className="mt-3 text-sm leading-relaxed">“{t.quote}”</blockquote>
-                <figcaption className="mt-5 flex items-center gap-3">
-                  <span
-                    aria-hidden="true"
-                    className="inline-flex size-10 items-center justify-center rounded-full bg-mint font-bold text-mint-foreground"
-                  >
-                    {t.name.charAt(0)}
-                  </span>
-                  <span>
-                    <span className="block text-sm font-bold">{t.name}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {t.area}
-                      {t.verified ? " · Verified citizen" : ""}
-                    </span>
-                  </span>
-                </figcaption>
-              </figure>
-            </Reveal>
-          ))}
-        </div>
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          Placeholder quotes shown for demonstration. No official endorsements are implied.
-        </p>
-      </Section>
-
       <section className="relative overflow-hidden border-b border-border bg-surface py-20">
         <div aria-hidden="true" className="absolute inset-0 civic-grid-bg opacity-70" />
         <div aria-hidden="true" className="absolute inset-0 topo-texture" />
@@ -560,45 +472,5 @@ function Home() {
         </div>
       </section>
     </SiteLayout>
-  );
-}
-
-function BeforeAfter() {
-  const [pos, setPos] = useState(50);
-  return (
-    <div className="mx-auto max-w-3xl">
-      <div className="relative h-64 overflow-hidden rounded-3xl border border-border md:h-80">
-        <div className="absolute inset-0 flex items-center justify-center bg-muted">
-          <span className="text-sm font-bold text-muted-foreground">
-            After — road resurfaced and marked
-          </span>
-        </div>
-        <div
-          className="absolute inset-y-0 left-0 flex items-center justify-center bg-navy text-navy-foreground"
-          style={{ width: `${pos}%` }}
-        >
-          <span className="px-4 text-sm font-bold">Before — damaged road surface</span>
-        </div>
-        <span
-          aria-hidden="true"
-          className="absolute inset-y-0 w-0.5 bg-surface"
-          style={{ left: `${pos}%` }}
-        />
-      </div>
-      <label className="mt-4 block">
-        <span className="mb-2 block text-xs font-semibold text-muted-foreground">
-          Drag to compare before and after resolution (sample placeholders until real media is
-          uploaded)
-        </span>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={pos}
-          onChange={(e) => setPos(Number(e.target.value))}
-          className="w-full accent-[var(--color-primary)]"
-        />
-      </label>
-    </div>
   );
 }

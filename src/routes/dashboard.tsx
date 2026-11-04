@@ -1,13 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { SiteLayout } from "@/components/site/site-layout";
-import {
-  DemoDataNote,
-  PriorityBadge,
-  Section,
-  Stat,
-  StatusBadge,
-} from "@/components/site/primitives";
+import { PriorityBadge, Section, Stat, StatusBadge } from "@/components/site/primitives";
 import { ActivityMap } from "@/components/site/civic-map";
 import {
   NOTIFICATIONS,
@@ -326,7 +320,6 @@ function Dashboard() {
             <span>🤖</span>
             <span>Open PulseBot AI Assistant</span>
           </button>
-          <DemoDataNote />
           <Link
             to="/report"
             className="ml-auto inline-flex min-h-11 items-center rounded-xl bg-warm px-5 text-sm font-bold text-warm-foreground shadow hover:bg-warm/90 transition"

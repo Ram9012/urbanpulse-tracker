@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { SiteLayout } from "@/components/site/site-layout";
-import { DemoDataNote, Section, StatusBadge, PriorityBadge } from "@/components/site/primitives";
+import { Section, StatusBadge, PriorityBadge } from "@/components/site/primitives";
 import { SocietyMap } from "@/components/site/society-map";
 import {
   CATEGORIES,
@@ -272,7 +272,6 @@ function Explore() {
               <option value="resolved">Resolved</option>
             </select>
           </label>
-          <DemoDataNote className="ml-auto" />
         </div>
 
         {list.length === 0 ? (

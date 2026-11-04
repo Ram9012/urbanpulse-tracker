@@ -237,11 +237,6 @@ function Footer() {
             A civic reporting platform that connects residents with the municipal teams responsible
             for their streets, water, waste and public spaces.
           </p>
-          <ul className="mt-4 space-y-1 text-sm text-navy-foreground/70">
-            <li>{BRAND.email}</li>
-            <li>Helpline {BRAND.phone}</li>
-            <li>{BRAND.city}</li>
-          </ul>
           <div className="mt-4 flex gap-2">
             {["X", "in", "f", "▶"].map((s) => (
               <a
