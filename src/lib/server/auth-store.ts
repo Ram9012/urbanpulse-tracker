@@ -222,14 +222,22 @@ export function initializeAuthStore(): void {
 function persistUsersToDisk() {
   try {
     ensureStorage();
-    fs.writeFileSync(USERS_FILE, JSON.stringify(cachedUsers, null, 2), "utf-8");
+
+    // Never persist the admin row to BUNDLED_USERS_FILE — in local dev
+    // (non-Vercel) that path IS the tracked repo file, and the admin
+    // account must always be re-bootstrapped fresh from
+    // ADMIN_SEED_PASSWORD, never shipped as a committed hash.
+    const usersWithoutAdmin = cachedUsers.filter((u) => u.role !== "admin");
+    const writeTarget = USERS_FILE === BUNDLED_USERS_FILE ? usersWithoutAdmin : cachedUsers;
+
+    fs.writeFileSync(USERS_FILE, JSON.stringify(writeTarget, null, 2), "utf-8");
     if (
       !IS_VERCEL &&
       BUNDLED_USERS_FILE !== USERS_FILE &&
       fs.existsSync(path.dirname(BUNDLED_USERS_FILE))
     ) {
       try {
-        fs.writeFileSync(BUNDLED_USERS_FILE, JSON.stringify(cachedUsers, null, 2), "utf-8");
+        fs.writeFileSync(BUNDLED_USERS_FILE, JSON.stringify(usersWithoutAdmin, null, 2), "utf-8");
       } catch {}
     }
   } catch (err: any) {

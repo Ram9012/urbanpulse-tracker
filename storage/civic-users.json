@@ -1,14 +1,5 @@
 [
   {
-    "id": "USR-ADMIN-01",
-    "username": "admin",
-    "passwordHash": "$2b$10$lWmzcEVNNvN8rSNKsMfKm.Uur57cI4orNMSVgTC4eejXgRg9ddeFq",
-    "role": "admin",
-    "displayName": "Municipal Administrator",
-    "createdAt": "2026-09-25T15:31:06.017Z",
-    "updatedAt": "2026-09-25T15:31:06.018Z"
-  },
-  {
     "id": "USR-MUH4DO9R-6405",
     "username": "bipinyadav",
     "passwordHash": "$2b$10$HbeUa.URQeVn/Mswn6TH..rN6dJn/CQSlrJjII7ItdqUiNs15tsDK",
@@ -43,23 +34,5 @@
     "displayName": "priya_patel",
     "createdAt": "2026-09-25T16:10:07.919Z",
     "updatedAt": "2026-09-25T16:10:07.920Z"
-  },
-  {
-    "id": "USR-MW1PWID3-5243",
-    "username": "smoketest_citizen",
-    "passwordHash": "$2b$10$MLSj/1DY8L3f7MiafxmMMeXFXOogYXCX13bOJt19RCH5Na.Nfzo8G",
-    "role": "citizen",
-    "displayName": "Smoke Test Citizen",
-    "createdAt": "2026-11-04T06:10:18.282Z",
-    "updatedAt": "2026-11-04T06:10:18.282Z"
-  },
-  {
-    "id": "USR-MW1PYATN-4966",
-    "username": "smoketest_citizen2",
-    "passwordHash": "$2b$10$5HBWCNhYXpvZ.USG6JFMp.rPNwVVjgDh0/dIZUxJmd9hIRFyxWqqy",
-    "role": "citizen",
-    "displayName": "Smoke Test Citizen 2",
-    "createdAt": "2026-11-04T06:11:41.819Z",
-    "updatedAt": "2026-11-04T06:11:41.819Z"
   }
 ]
