@@ -15,7 +15,6 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as HelpRouteImport } from './routes/help'
 import { Route as HowItWorksRouteImport } from './routes/how-it-works'
-import { Route as ImpactRouteImport } from './routes/impact'
 import { Route as ReportRouteImport } from './routes/report'
 import { Route as SigninRouteImport } from './routes/signin'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
@@ -51,11 +50,6 @@ const HelpRoute = HelpRouteImport.update({
 const HowItWorksRoute = HowItWorksRouteImport.update({
   id: '/how-it-works',
   path: '/how-it-works',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ImpactRoute = ImpactRouteImport.update({
-  id: '/impact',
-  path: '/impact',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportRoute = ReportRouteImport.update({
@@ -96,7 +90,6 @@ export interface FileRoutesByFullPath {
   '/explore': typeof ExploreRoute
   '/help': typeof HelpRoute
   '/how-it-works': typeof HowItWorksRoute
-  '/impact': typeof ImpactRoute
   '/report': typeof ReportRoute
   '/signin': typeof SigninRoute
   '/admin/map': typeof AdminMapRoute
@@ -110,7 +103,6 @@ export interface FileRoutesByTo {
   '/explore': typeof ExploreRoute
   '/help': typeof HelpRoute
   '/how-it-works': typeof HowItWorksRoute
-  '/impact': typeof ImpactRoute
   '/report': typeof ReportRoute
   '/signin': typeof SigninRoute
   '/admin/map': typeof AdminMapRoute
@@ -126,7 +118,6 @@ export interface FileRoutesById {
   '/explore': typeof ExploreRoute
   '/help': typeof HelpRoute
   '/how-it-works': typeof HowItWorksRoute
-  '/impact': typeof ImpactRoute
   '/report': typeof ReportRoute
   '/signin': typeof SigninRoute
   '/admin/map': typeof AdminMapRoute
@@ -143,7 +134,6 @@ export interface FileRouteTypes {
     | '/explore'
     | '/help'
     | '/how-it-works'
-    | '/impact'
     | '/report'
     | '/signin'
     | '/admin/map'
@@ -157,7 +147,6 @@ export interface FileRouteTypes {
     | '/explore'
     | '/help'
     | '/how-it-works'
-    | '/impact'
     | '/report'
     | '/signin'
     | '/admin/map'
@@ -172,7 +161,6 @@ export interface FileRouteTypes {
     | '/explore'
     | '/help'
     | '/how-it-works'
-    | '/impact'
     | '/report'
     | '/signin'
     | '/admin/map'
@@ -188,7 +176,6 @@ export interface RootRouteChildren {
   ExploreRoute: typeof ExploreRoute
   HelpRoute: typeof HelpRoute
   HowItWorksRoute: typeof HowItWorksRoute
-  ImpactRoute: typeof ImpactRoute
   ReportRoute: typeof ReportRoute
   SigninRoute: typeof SigninRoute
   ReportsIdRoute: typeof ReportsIdRoute
@@ -236,13 +223,6 @@ declare module '@tanstack/react-router' {
       path: '/how-it-works'
       fullPath: '/how-it-works'
       preLoaderRoute: typeof HowItWorksRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/impact': {
-      id: '/impact'
-      path: '/impact'
-      fullPath: '/impact'
-      preLoaderRoute: typeof ImpactRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/report': {
@@ -311,7 +291,6 @@ const rootRouteChildren: RootRouteChildren = {
   ExploreRoute: ExploreRoute,
   HelpRoute: HelpRoute,
   HowItWorksRoute: HowItWorksRoute,
-  ImpactRoute: ImpactRoute,
   ReportRoute: ReportRoute,
   SigninRoute: SigninRoute,
   ReportsIdRoute: ReportsIdRoute,

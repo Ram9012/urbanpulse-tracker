@@ -10,7 +10,6 @@ const NAV = [
   { to: "/", label: "Home" },
   { to: "/how-it-works", label: "How It Works" },
   { to: "/explore", label: "Explore Reports" },
-  { to: "/impact", label: "Impact" },
   { to: "/help", label: "Help Center" },
 ] as const;
 
@@ -198,7 +197,6 @@ function Footer() {
       links: [
         { to: "/how-it-works", label: "How it works" },
         { to: "/explore", label: "Explore reports" },
-        { to: "/impact", label: "Community impact" },
       ],
     },
     {

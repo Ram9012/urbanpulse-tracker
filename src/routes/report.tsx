@@ -28,7 +28,7 @@ export const Route = createFileRoute("/report")({
       { property: "og:title", content: "Report a Civic Issue in Under a Minute — CivicPulse" },
       {
         property: "og:description",
-        content: "Real camera, photo upload, world interactive map, and Groq AI triage.",
+        content: "Real camera, photo upload, world interactive map, and AI triage.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -564,12 +564,12 @@ function ReportPage() {
     }
   };
 
-  // Trigger Live AI Analysis via backend API (Groq Qwen Engine)
+  // Trigger Live AI Analysis via backend API
   const runAiAnalysis = async (textToAnalyze: string, explicitCategory?: string) => {
     const activeCategory = explicitCategory || category;
     if (!textToAnalyze || textToAnalyze.trim().length < 5) return;
     setAiLoading(true);
-    setAiNotice("⚡ Groq Qwen AI analyzing description...");
+    setAiNotice("⚡ AI analyzing description...");
     try {
       const res = await fetch("/api/ai/analyze", {
         method: "POST",
@@ -583,7 +583,7 @@ function ReportPage() {
       if (res.ok) {
         const data = await res.json();
         setAiAnalysis(data);
-        setAiNotice(`✓ Groq AI Analysis updated (${data.source || "Groq Qwen"})`);
+        setAiNotice(`✓ AI Analysis updated (${data.source || "PulseBot AI"})`);
         setTimeout(() => setAiNotice(null), 4000);
 
         // Run location-aware duplicate detection
@@ -646,7 +646,7 @@ function ReportPage() {
     category_mismatch: aiAnalysis?.category_mismatch,
     detected_category: aiAnalysis?.detected_category,
     suggested_description: aiAnalysis?.suggested_description,
-    source: aiAnalysis?.source || "Groq Qwen AI Engine",
+    source: aiAnalysis?.source || "PulseBot AI Engine",
   };
 
   function next() {
@@ -1113,10 +1113,7 @@ function ReportPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-foreground text-sm">
-                            Groq AI Mismatch Detected
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-foreground font-bold text-[10px]">
-                            Qwen AI
+                            AI Mismatch Detected
                           </span>
                         </div>
                         <p className="mt-1.5 text-muted-foreground text-xs leading-relaxed">
@@ -1181,10 +1178,10 @@ function ReportPage() {
                       onClick={() => runAiAnalysis(description, category)}
                       disabled={aiLoading}
                       className="text-xs font-bold text-primary hover:underline flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 transition"
-                      title="Re-analyze description with Groq Qwen AI"
+                      title="Re-analyze description with AI"
                     >
                       <span className={aiLoading ? "animate-spin" : ""}>⚡</span>
-                      {aiLoading ? "AI Analyzing with Groq…" : "Re-analyze with Groq"}
+                      {aiLoading ? "AI Analyzing…" : "Re-analyze with AI"}
                     </button>
                   </div>
                   <textarea
@@ -1442,11 +1439,8 @@ function ReportPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <p className="text-xs font-bold uppercase tracking-wider text-teal">
-                  Groq AI Advisory Layer
+                  AI Advisory Layer
                 </p>
-                <span className="px-1.5 py-0.5 rounded bg-teal/20 text-teal text-[10px] font-bold">
-                  Qwen 27B
-                </span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="size-2 rounded-full bg-teal animate-pulse" />

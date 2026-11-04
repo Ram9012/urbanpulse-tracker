@@ -140,7 +140,7 @@ Return a strictly valid JSON object with EXACTLY this structure:
         (isLightCat
           ? "Streetlight pole not illuminating the roadway. Several lamps are unlit for multiple nights, causing hazardous dark stretch."
           : description),
-      source: "Groq Qwen AI Engine",
+      source: "PulseBot AI Engine",
     };
   } catch (err: any) {
     console.warn("[Groq AI Analysis Fallback]:", err.message);
@@ -402,7 +402,7 @@ INSTRUCTIONS:
 - If the citizen asks about their specific report (e.g. CIV-95674 or "my complaint"), look up the details in the CITIZEN CONTEXT above and provide accurate, live status updates.
 - If the citizen asks how to file a new report, guide them to click the "+ Report New Issue" button on the dashboard, take/upload a clear photo, enable location, and describe the problem.
 - Format responses cleanly with bold highlights, bullet points, or markdown when explaining multi-step procedures. Keep answers concise and direct.
-- You are powered by Groq's high-speed LPU inference engine.`;
+- Never mention which AI provider or model powers you; if asked, say you're the CivicPulse PulseBot assistant.`;
 
   const chatMessages = [{ role: "system", content: systemPrompt }, ...messages.slice(-10)];
 
@@ -436,7 +436,7 @@ INSTRUCTIONS:
           success: true,
           reply: content,
           model,
-          source: "Groq AI Engine",
+          source: "PulseBot AI Engine",
         };
       } else {
         const errText = await response.text();
@@ -449,7 +449,7 @@ INSTRUCTIONS:
 
   console.warn("[Groq Chatbot Fallback Triggered]:", lastError?.message);
   const lastUserMsg = messages[messages.length - 1]?.content?.toLowerCase() || "";
-  let fallbackReply = `Hello ${citizenName}! I am PulseBot, your Hassan Municipal Council civic assistant.\n\n`;
+  let fallbackReply = `Hello ${citizenName}! I am PulseBot, your civic assistant.\n\n`;
 
   if (
     lastUserMsg.includes("status") ||
@@ -498,6 +498,6 @@ INSTRUCTIONS:
     success: true,
     reply: fallbackReply,
     model: "CivicPulse Deterministic Engine (Offline Fallback)",
-    source: "Groq Local Fallback",
+    source: "PulseBot Offline Engine",
   };
 }
