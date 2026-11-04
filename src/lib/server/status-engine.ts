@@ -11,6 +11,7 @@ import fs from "fs";
 import path from "path";
 import { CivicReport, Priority, ReportStatus, REPORTS } from "../civic-data";
 import { verifyResolutionEvidence } from "./ai-service";
+import { submitVerificationJob } from "./vision-service";
 import {
   saveReportToSupabase,
   saveStatusHistoryToSupabase,
@@ -578,6 +579,29 @@ export async function transitionReportStatus(params: {
     activeReports[existingIdx] = { ...activeReports[existingIdx], ...report };
   } else {
     activeReports.unshift(report);
+  }
+
+  // Trigger background AI Computer Vision verification if resolution photo submitted
+  if (
+    params.newStatus === "resolved" &&
+    report.resolutionMediaUrls &&
+    report.resolutionMediaUrls.length > 0
+  ) {
+    const origPhoto = report.mediaUrls?.[0] || "";
+    const resPhoto = report.resolutionMediaUrls[0] || "";
+    if (origPhoto && resPhoto) {
+      const submittedBy = params.changedBy || report.worker;
+      submitVerificationJob({
+        reportId: report.id,
+        originalImageUrl: origPhoto,
+        resolutionImageUrl: resPhoto,
+        reportCategory: report.category,
+        reportDescription: report.description,
+        ...(submittedBy ? { submittedBy } : {}),
+      }).catch((err: any) => {
+        console.warn("[StatusEngine Vision Trigger Notice]:", err.message);
+      });
+    }
   }
 
   // Append to Status History

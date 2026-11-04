@@ -1,11 +1,20 @@
 import type { Plugin, ViteDevServer } from "vite";
 import {
   analyzeReportDescription,
+  analyzeIssueImage,
   analyzeDuplicateReport,
   verifyResolutionEvidence,
   generateWorkloadInsights,
   handleCivicChatbot,
 } from "./ai-service";
+import {
+  getVerificationsForReport,
+  getVerificationById,
+  recordAdminDecision,
+  checkAiServiceHealth,
+  submitVerificationJob,
+  pollVerificationResult,
+} from "./vision-service";
 import {
   initializeStatusEngine,
   getAllReports,
@@ -118,6 +127,17 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       return Response.json(result, { status: 200 });
     }
 
+    // 1.1 Vision Analysis of Uploaded Evidence Photo
+    if (pathname === "/api/ai/analyze-image" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      const { imageDataUrl, categoryName } = body;
+      if (!imageDataUrl) {
+        return Response.json({ error: "Missing imageDataUrl" }, { status: 400 });
+      }
+      const result = await analyzeIssueImage(imageDataUrl, categoryName);
+      return Response.json(result, { status: 200 });
+    }
+
     // 2. Duplicate Detection Analysis
     if (pathname === "/api/ai/duplicate-check" && request.method === "POST") {
       const body = await request.json();
@@ -147,6 +167,47 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       const { messages, citizenContext } = body;
       const result = await handleCivicChatbot(messages || [], citizenContext);
       return Response.json(result, { status: 200 });
+    }
+
+    // 4.2 AI Vision Verification APIs
+    if (pathname.startsWith("/api/vision/report/") && request.method === "GET") {
+      const reportId = pathname.replace("/api/vision/report/", "").trim();
+      const verifications = getVerificationsForReport(reportId);
+      // Attempt poll if pending
+      const latestVerification = verifications[0];
+      if (latestVerification && latestVerification.jobStatus === "processing") {
+        await pollVerificationResult(latestVerification.id);
+      }
+      return Response.json(
+        { reportId, verifications: getVerificationsForReport(reportId) },
+        { status: 200 },
+      );
+    }
+
+    if (pathname.startsWith("/api/vision/verification/") && request.method === "GET") {
+      const vId = pathname.replace("/api/vision/verification/", "").trim();
+      const updated = await pollVerificationResult(vId);
+      return Response.json({ verification: updated || getVerificationById(vId) }, { status: 200 });
+    }
+
+    if (pathname === "/api/vision/admin-decision" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      const { verificationId, decision, adminUsername, note } = body;
+      if (!verificationId || !decision) {
+        return Response.json({ error: "Missing required fields" }, { status: 400 });
+      }
+      const updated = await recordAdminDecision(
+        verificationId,
+        decision,
+        adminUsername || "admin",
+        note,
+      );
+      return Response.json({ success: true, verification: updated }, { status: 200 });
+    }
+
+    if (pathname === "/api/vision/health" && request.method === "GET") {
+      const healthy = await checkAiServiceHealth();
+      return Response.json({ status: healthy ? "connected" : "disconnected" }, { status: 200 });
     }
 
     // 5. Municipal Search (SerpAPI / Zenserp)
@@ -345,6 +406,17 @@ export function civicPulseApiPlugin(): Plugin {
             return sendJson(res, 200, result);
           }
 
+          // 1.1 Vision Analysis of Uploaded Evidence Photo
+          if (url === "/api/ai/analyze-image" && req.method === "POST") {
+            const body = await parseJsonBody(req).catch(() => ({}));
+            const { imageDataUrl, categoryName } = body;
+            if (!imageDataUrl) {
+              return sendJson(res, 400, { error: "Missing imageDataUrl" });
+            }
+            const result = await analyzeIssueImage(imageDataUrl, categoryName);
+            return sendJson(res, 200, result);
+          }
+
           // 2. Duplicate Detection Analysis
           if (url === "/api/ai/duplicate-check" && req.method === "POST") {
             const body = await parseJsonBody(req);
@@ -378,6 +450,46 @@ export function civicPulseApiPlugin(): Plugin {
             const { messages, citizenContext } = body;
             const result = await handleCivicChatbot(messages || [], citizenContext);
             return sendJson(res, 200, result);
+          }
+
+          // 4.2 AI Vision Verification APIs (Vite middleware)
+          if (url.startsWith("/api/vision/report/") && req.method === "GET") {
+            const reportId = url.replace("/api/vision/report/", "").split("?")[0]?.trim() || "";
+            const verifs = getVerificationsForReport(reportId);
+            const latestVerif = verifs[0];
+            if (latestVerif && latestVerif.jobStatus === "processing") {
+              await pollVerificationResult(latestVerif.id);
+            }
+            return sendJson(res, 200, {
+              reportId,
+              verifications: getVerificationsForReport(reportId),
+            });
+          }
+
+          if (url.startsWith("/api/vision/verification/") && req.method === "GET") {
+            const vId = url.replace("/api/vision/verification/", "").split("?")[0]?.trim() || "";
+            const updated = await pollVerificationResult(vId);
+            return sendJson(res, 200, { verification: updated || getVerificationById(vId) });
+          }
+
+          if (url === "/api/vision/admin-decision" && req.method === "POST") {
+            const body = await parseJsonBody(req).catch(() => ({}));
+            const { verificationId, decision, adminUsername, note } = body;
+            if (!verificationId || !decision) {
+              return sendJson(res, 400, { error: "Missing required fields" });
+            }
+            const updated = await recordAdminDecision(
+              verificationId,
+              decision,
+              adminUsername || "admin",
+              note,
+            );
+            return sendJson(res, 200, { success: true, verification: updated });
+          }
+
+          if (url === "/api/vision/health" && req.method === "GET") {
+            const healthy = await checkAiServiceHealth();
+            return sendJson(res, 200, { status: healthy ? "connected" : "disconnected" });
           }
 
           // 5. Municipal Search (SerpAPI / Zenserp)
