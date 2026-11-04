@@ -21,7 +21,6 @@ export type VerificationRecordUI = {
   viewpointScore?: number;
   defectVisibleScore?: number;
   repairQualityScore?: number;
-  geometricError?: string;
   vlmVerdict?: string;
   vlmModel?: string;
   visionError?: string;
@@ -371,51 +370,6 @@ export function VerificationPanel({
             </div>
           </div>
 
-          <div>
-            <div className="mb-2 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
-              Computer-vision checks (optional)
-            </div>
-            {[
-              latest?.sceneConsistencyScore,
-              latest?.siameseSimilarityScore,
-              latest?.bidirectionalScore,
-              latest?.segmentationScore,
-            ].some((v) => typeof v === "number") ? (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <ScoreTile
-                  label="Scene Consistency"
-                  hint="MobileNetV3 shared encoder"
-                  value={pct(latest?.sceneConsistencyScore)}
-                />
-                <ScoreTile
-                  label="Siamese Match"
-                  hint="Cosine similarity of embeddings"
-                  value={pct(latest?.siameseSimilarityScore)}
-                />
-                <ScoreTile
-                  label="Keypoint Match"
-                  hint="Forward and backward ORB"
-                  value={pct(latest?.bidirectionalScore)}
-                />
-                <ScoreTile
-                  label="Segmentation"
-                  hint="DeepLabV3 structure change"
-                  value={pct(latest?.segmentationScore)}
-                  emptyText="Not needed"
-                />
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground leading-relaxed">
-                Siamese, keypoint and segmentation checks are optional extras that run in a separate
-                Python AI service.{" "}
-                {latest?.geometricError
-                  ? `They did not run: ${latest.geometricError}.`
-                  : "They are not available for this report."}{" "}
-                The verdict above does not depend on them.
-              </div>
-            )}
-          </div>
-
           {/* Final Composite Verdict */}
           <div className="p-3 rounded-xl border border-primary/30 bg-primary/5">
             <div className="text-[11px] font-bold text-primary">Final Verification Score</div>
@@ -428,9 +382,6 @@ export function VerificationPanel({
                     : 0
                   ).toFixed(1)}%`
                 : "—"}
-            </div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">
-              35% same place · 65% defect fixed
             </div>
           </div>
 
