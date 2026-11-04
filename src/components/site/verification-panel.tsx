@@ -14,6 +14,10 @@ export type VerificationRecordUI = {
   segmentationScore?: number;
   qualityScore?: number;
   finalVerificationScore?: number;
+  resolutionScore?: number;
+  locationMatchScore?: number;
+  vlmVerdict?: string;
+  vlmModel?: string;
   evidenceExplanation?: string;
   flags?: string[];
   modelVersion?: string;
@@ -31,6 +35,7 @@ export function VerificationPanel({
   originalImageUrl,
   resolutionImageUrl,
   category,
+  description,
   adminUsername,
   onDecisionComplete,
 }: {
@@ -38,11 +43,12 @@ export function VerificationPanel({
   originalImageUrl: string;
   resolutionImageUrl: string;
   category?: string;
+  description?: string;
   adminUsername?: string;
   onDecisionComplete?: () => void;
 }) {
   const [verifications, setVerifications] = useState<VerificationRecordUI[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [running, setRunning] = useState(false);
   const [submittingDecision, setSubmittingDecision] = useState(false);
   const [decisionNote, setDecisionNote] = useState("");
   const [activeTab, setActiveTab] = useState<"side-by-side" | "scores" | "pipeline">(
@@ -54,7 +60,9 @@ export function VerificationPanel({
       const res = await fetch(`/api/vision/report/${reportId}`);
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data.verifications)) {
+        // Never let a transient empty response wipe out results we already
+        // have — that is what made the panel flicker back to "Awaiting".
+        if (Array.isArray(data.verifications) && data.verifications.length > 0) {
           setVerifications(data.verifications);
         }
       }
@@ -70,6 +78,35 @@ export function VerificationPanel({
   }, [reportId]);
 
   const latest = verifications[0];
+  const inProgress =
+    running || latest?.jobStatus === "pending" || latest?.jobStatus === "processing";
+
+  const handleRunAnalysis = async () => {
+    setRunning(true);
+    try {
+      const res = await fetch("/api/vision/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportId,
+          originalImageUrl,
+          resolutionImageUrl,
+          category,
+          description,
+          requestedBy: adminUsername,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.verification) setVerifications((prev) => [data.verification, ...prev]);
+      }
+    } catch (err) {
+      console.warn("Failed to start AI verification:", err);
+    } finally {
+      setRunning(false);
+      fetchVerifications();
+    }
+  };
 
   const handleAdminDecision = async (decision: "approved" | "rejected" | "manual_review") => {
     if (!latest?.id) return;
@@ -112,6 +149,14 @@ export function VerificationPanel({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleRunAnalysis}
+            disabled={inProgress}
+            className="h-8 px-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-sm transition hover:opacity-90 disabled:opacity-50"
+          >
+            {inProgress ? "Analyzing…" : latest ? "Re-run AI Analysis" : "Run AI Analysis"}
+          </button>
           {latest ? (
             <VerificationBadge
               status={latest.verificationStatus}
@@ -301,6 +346,23 @@ export function VerificationPanel({
               </div>
             </div>
 
+            {/* Vision-language: is the defect actually fixed? */}
+            <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+              <div className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                Defect Resolved (Vision AI)
+              </div>
+              <div className="text-xl font-extrabold mt-1 text-foreground font-mono">
+                {typeof latest?.resolutionScore === "number"
+                  ? `${Math.round(latest.resolutionScore * 100)}%`
+                  : "—"}
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                {latest?.vlmVerdict
+                  ? latest.vlmVerdict.replace(/_/g, " ").toLowerCase()
+                  : "Before/after visual judgement"}
+              </div>
+            </div>
+
             {/* Final Composite Verdict */}
             <div className="p-3 rounded-xl border border-primary/30 bg-primary/5">
               <div className="text-[11px] font-bold text-primary">Final Verification Score</div>
@@ -314,7 +376,7 @@ export function VerificationPanel({
                   : "—"}
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">
-                Average Score of Sub-Models
+                35% same place · 65% defect fixed
               </div>
             </div>
           </div>

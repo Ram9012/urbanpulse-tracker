@@ -10,8 +10,7 @@
  * 6. Workload analytics assistant for municipal staff
  */
 
-const GROQ_API_KEY =
-  process.env["GROQ_API_KEY"] || "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";
+const GROQ_API_KEY = process.env["GROQ_API_KEY"] || "";
 const GROQ_BASE_URL = process.env["GROQ_BASE_URL"] || "https://api.groq.com/openai/v1";
 const GROQ_MODEL = process.env["GROQ_MODEL"] || "qwen/qwen3.8-27b";
 // Image analysis uses Gemini (not Groq): this Groq account has no accessible
@@ -52,12 +51,15 @@ async function callGroqChat(
   return jsonMode ? JSON.parse(content) : content;
 }
 
-async function callGeminiVision(imageDataUrl: string, prompt: string, maxTokens = 500) {
+async function callGeminiVision(imageDataUrls: string | string[], prompt: string, maxTokens = 500) {
   if (!GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY is not configured");
   }
-  const [header, base64Data] = imageDataUrl.split(",");
-  const mimeType = header?.match(/data:(.*);base64/)?.[1] || "image/jpeg";
+  const imageParts = (Array.isArray(imageDataUrls) ? imageDataUrls : [imageDataUrls]).map((url) => {
+    const [header, base64Data] = url.split(",");
+    const mimeType = header?.match(/data:(.*);base64/)?.[1] || "image/jpeg";
+    return { inline_data: { mime_type: mimeType, data: base64Data } };
+  });
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_VISION_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
@@ -67,7 +69,7 @@ async function callGeminiVision(imageDataUrl: string, prompt: string, maxTokens 
       body: JSON.stringify({
         contents: [
           {
-            parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64Data } }],
+            parts: [{ text: prompt }, ...imageParts],
           },
         ],
         generationConfig: {
@@ -551,6 +553,82 @@ Return a strictly valid JSON object matching this schema:
       flags: ["manual_supervisor_review_required"],
     };
   }
+}
+
+/**
+ * Vision-language judgement of whether a civic defect was actually fixed.
+ *
+ * Complements the Siamese/ORB pipeline, which can only say whether two photos
+ * show the same place — not whether the problem in the first one is gone.
+ * Both photos are sent to the vision model together.
+ */
+export type ResolutionVlmAssessment = {
+  sameLocationScore: number;
+  resolvedScore: number;
+  evidenceClarityScore: number;
+  looksStagedOrReused: boolean;
+  verdict: "RESOLVED" | "PARTIALLY_RESOLVED" | "NOT_RESOLVED" | "DIFFERENT_LOCATION";
+  explanation: string;
+  flags: string[];
+  model: string;
+};
+
+export async function assessResolutionWithVision(params: {
+  originalDataUrl: string;
+  resolutionDataUrl: string;
+  category?: string;
+  description?: string;
+}): Promise<ResolutionVlmAssessment> {
+  for (const url of [params.originalDataUrl, params.resolutionDataUrl]) {
+    if (!url.startsWith("data:image/")) throw new Error("Expected base64 data URL images");
+    if (Math.floor(((url.split(",")[1] || "").length * 3) / 4) > MAX_VISION_IMAGE_BYTES) {
+      throw new Error("Image too large for vision analysis (max 4MB)");
+    }
+  }
+
+  const prompt = `You are a municipal quality-assurance inspector verifying that a civic complaint was actually fixed.
+You are given TWO photos, in this order:
+  IMAGE 1: the original photo of the problem, taken by the citizen (BEFORE).
+  IMAGE 2: the photo taken by the field worker after the claimed repair (AFTER).
+Complaint category: "${params.category || "General"}"
+Complaint description: "${params.description || "Not provided"}"
+
+Judge only from what is visible. Answer:
+1. Do both photos show the same physical location (same road, pole, drain, surroundings)? Camera angle and lighting may differ.
+2. Is the specific defect from IMAGE 1 clearly repaired/removed in IMAGE 2?
+3. Is IMAGE 2 clear enough to decide?
+4. Does IMAGE 2 look staged, reused, a screenshot, or a photo of a different place?
+
+Be strict. If IMAGE 2 shows a different scene, or the defect is still present, resolved_score MUST be below 0.3 and verdict must not be RESOLVED.
+
+Return strictly valid JSON with EXACTLY this structure:
+{
+  "same_location_score": number 0-1,
+  "resolved_score": number 0-1 (1 = defect fully and properly fixed),
+  "evidence_clarity_score": number 0-1,
+  "looks_staged_or_reused": true or false,
+  "verdict": "RESOLVED" | "PARTIALLY_RESOLVED" | "NOT_RESOLVED" | "DIFFERENT_LOCATION",
+  "explanation": "2 sentences: what changed between the photos and why you reached this verdict",
+  "flags": ["short snake_case flags for any concerns, empty if none"]
+}`;
+
+  const raw: any = await callGeminiVision(
+    [params.originalDataUrl, params.resolutionDataUrl],
+    prompt,
+    700,
+  );
+  const clamp = (v: unknown, d: number) => Math.min(Math.max(Number(v) || d, 0), 1);
+  const verdicts = ["RESOLVED", "PARTIALLY_RESOLVED", "NOT_RESOLVED", "DIFFERENT_LOCATION"];
+  return {
+    sameLocationScore: clamp(raw.same_location_score, 0),
+    resolvedScore: clamp(raw.resolved_score, 0),
+    evidenceClarityScore: clamp(raw.evidence_clarity_score, 0.5),
+    looksStagedOrReused: Boolean(raw.looks_staged_or_reused),
+    verdict: verdicts.includes(raw.verdict) ? raw.verdict : "NOT_RESOLVED",
+    explanation: String(raw.explanation || "Vision assessment completed."),
+    flags: Array.isArray(raw.flags) ? raw.flags.map(String) : [],
+    model: GEMINI_VISION_MODEL,
+  };
 }
 
 /**
