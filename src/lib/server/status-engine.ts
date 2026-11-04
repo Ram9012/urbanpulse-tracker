@@ -536,17 +536,22 @@ export async function transitionReportStatus(params: {
   }
 
   // Trigger background AI Computer Vision verification if resolution photo submitted
-  if (params.newStatus === "resolved" && report.resolutionMediaUrls && report.resolutionMediaUrls.length > 0) {
+  if (
+    params.newStatus === "resolved" &&
+    report.resolutionMediaUrls &&
+    report.resolutionMediaUrls.length > 0
+  ) {
     const origPhoto = report.mediaUrls?.[0] || "";
     const resPhoto = report.resolutionMediaUrls[0] || "";
     if (origPhoto && resPhoto) {
+      const submittedBy = params.changedBy || report.worker;
       submitVerificationJob({
         reportId: report.id,
         originalImageUrl: origPhoto,
         resolutionImageUrl: resPhoto,
         reportCategory: report.category,
         reportDescription: report.description,
-        submittedBy: params.changedBy || report.worker,
+        ...(submittedBy ? { submittedBy } : {}),
       }).catch((err: any) => {
         console.warn("[StatusEngine Vision Trigger Notice]:", err.message);
       });

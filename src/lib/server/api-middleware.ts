@@ -34,6 +34,7 @@ import {
   initializeAuthStore,
   syncUsersFromCookie,
 } from "./auth-store";
+import { checkSupabaseStatus } from "./supabase-client";
 import { REPORTS } from "../civic-data";
 
 // Initialize reports & auth store
@@ -119,10 +120,14 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       const reportId = pathname.replace("/api/vision/report/", "").trim();
       const verifications = getVerificationsForReport(reportId);
       // Attempt poll if pending
-      if (verifications.length > 0 && verifications[0]?.jobStatus === "processing") {
-        await pollVerificationResult(verifications[0].id);
+      const latestVerification = verifications[0];
+      if (latestVerification && latestVerification.jobStatus === "processing") {
+        await pollVerificationResult(latestVerification.id);
       }
-      return Response.json({ reportId, verifications: getVerificationsForReport(reportId) }, { status: 200 });
+      return Response.json(
+        { reportId, verifications: getVerificationsForReport(reportId) },
+        { status: 200 },
+      );
     }
 
     if (pathname.startsWith("/api/vision/verification/") && request.method === "GET") {
@@ -137,7 +142,12 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       if (!verificationId || !decision) {
         return Response.json({ error: "Missing required fields" }, { status: 400 });
       }
-      const updated = recordAdminDecision(verificationId, decision, adminUsername || "admin", note);
+      const updated = await recordAdminDecision(
+        verificationId,
+        decision,
+        adminUsername || "admin",
+        note,
+      );
       return Response.json({ success: true, verification: updated }, { status: 200 });
     }
 
@@ -358,16 +368,20 @@ export function civicPulseApiPlugin(): Plugin {
 
           // 4.2 AI Vision Verification APIs (Vite middleware)
           if (url.startsWith("/api/vision/report/") && req.method === "GET") {
-            const reportId = url.replace("/api/vision/report/", "").split("?")[0].trim();
+            const reportId = url.replace("/api/vision/report/", "").split("?")[0]?.trim() || "";
             const verifs = getVerificationsForReport(reportId);
-            if (verifs.length > 0 && verifs[0]?.jobStatus === "processing") {
-              await pollVerificationResult(verifs[0].id);
+            const latestVerif = verifs[0];
+            if (latestVerif && latestVerif.jobStatus === "processing") {
+              await pollVerificationResult(latestVerif.id);
             }
-            return sendJson(res, 200, { reportId, verifications: getVerificationsForReport(reportId) });
+            return sendJson(res, 200, {
+              reportId,
+              verifications: getVerificationsForReport(reportId),
+            });
           }
 
           if (url.startsWith("/api/vision/verification/") && req.method === "GET") {
-            const vId = url.replace("/api/vision/verification/", "").split("?")[0].trim();
+            const vId = url.replace("/api/vision/verification/", "").split("?")[0]?.trim() || "";
             const updated = await pollVerificationResult(vId);
             return sendJson(res, 200, { verification: updated || getVerificationById(vId) });
           }
@@ -378,7 +392,12 @@ export function civicPulseApiPlugin(): Plugin {
             if (!verificationId || !decision) {
               return sendJson(res, 400, { error: "Missing required fields" });
             }
-            const updated = recordAdminDecision(verificationId, decision, adminUsername || "admin", note);
+            const updated = await recordAdminDecision(
+              verificationId,
+              decision,
+              adminUsername || "admin",
+              note,
+            );
             return sendJson(res, 200, { success: true, verification: updated });
           }
 

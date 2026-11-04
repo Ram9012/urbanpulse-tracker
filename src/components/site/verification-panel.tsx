@@ -31,19 +31,23 @@ export function VerificationPanel({
   originalImageUrl,
   resolutionImageUrl,
   category,
+  adminUsername,
   onDecisionComplete,
 }: {
   reportId: string;
   originalImageUrl: string;
   resolutionImageUrl: string;
   category?: string;
+  adminUsername?: string;
   onDecisionComplete?: () => void;
 }) {
   const [verifications, setVerifications] = useState<VerificationRecordUI[]>([]);
   const [loading, setLoading] = useState(false);
   const [submittingDecision, setSubmittingDecision] = useState(false);
   const [decisionNote, setDecisionNote] = useState("");
-  const [activeTab, setActiveTab] = useState<"side-by-side" | "scores" | "pipeline">("side-by-side");
+  const [activeTab, setActiveTab] = useState<"side-by-side" | "scores" | "pipeline">(
+    "side-by-side",
+  );
 
   const fetchVerifications = async () => {
     try {
@@ -77,7 +81,7 @@ export function VerificationPanel({
         body: JSON.stringify({
           verificationId: latest.id,
           decision,
-          adminUsername: "admin",
+          adminUsername: adminUsername || "admin",
           note: decisionNote || `Resolution ${decision} by Municipal Administrator.`,
         }),
       });
@@ -210,9 +214,7 @@ export function VerificationPanel({
                 <span>🤖</span>
                 <span>Automated Vision Inspection Assessment:</span>
               </div>
-              <p className="text-muted-foreground leading-relaxed">
-                {latest.evidenceExplanation}
-              </p>
+              <p className="text-muted-foreground leading-relaxed">{latest.evidenceExplanation}</p>
             </div>
           )}
         </div>
@@ -224,72 +226,96 @@ export function VerificationPanel({
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {/* Scene Consistency */}
             <div className="p-3 rounded-xl border border-border/70 bg-background">
-              <div className="text-[11px] font-semibold text-muted-foreground">Scene Consistency</div>
+              <div className="text-[11px] font-semibold text-muted-foreground">
+                Scene Consistency
+              </div>
               <div className="text-xl font-extrabold mt-1 text-foreground font-mono">
-                {latest?.sceneConsistencyScore !== undefined && latest?.sceneConsistencyScore !== null
+                {latest?.sceneConsistencyScore !== undefined &&
+                latest?.sceneConsistencyScore !== null
                   ? `${Math.round(latest.sceneConsistencyScore * 100)}%`
                   : "—"}
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">MobileNetV3 Shared Encoder</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                MobileNetV3 Shared Encoder
+              </div>
             </div>
 
             {/* Siamese Perceptual Similarity */}
             <div className="p-3 rounded-xl border border-border/70 bg-background">
-              <div className="text-[11px] font-semibold text-muted-foreground">Siamese Feature Match</div>
+              <div className="text-[11px] font-semibold text-muted-foreground">
+                Siamese Feature Match
+              </div>
               <div className="text-xl font-extrabold mt-1 text-foreground font-mono">
-                {latest?.siameseSimilarityScore !== undefined && latest?.siameseSimilarityScore !== null
+                {latest?.siameseSimilarityScore !== undefined &&
+                latest?.siameseSimilarityScore !== null
                   ? `${Math.round(latest.siameseSimilarityScore * 100)}%`
                   : "—"}
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">Cosine Similarity on L2 Embeddings</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                Cosine Similarity on L2 Embeddings
+              </div>
             </div>
 
             {/* Bidirectional Correspondence */}
             <div className="p-3 rounded-xl border border-border/70 bg-background">
-              <div className="text-[11px] font-semibold text-muted-foreground">Bidirectional Match</div>
+              <div className="text-[11px] font-semibold text-muted-foreground">
+                Bidirectional Match
+              </div>
               <div className="text-xl font-extrabold mt-1 text-foreground font-mono">
                 {latest?.bidirectionalScore !== undefined && latest?.bidirectionalScore !== null
                   ? `${Math.round(latest.bidirectionalScore * 100)}%`
                   : "—"}
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">Forward & Backward ORB Keypoints</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                Forward & Backward ORB Keypoints
+              </div>
             </div>
 
             {/* Semantic Segmentation Change */}
             <div className="p-3 rounded-xl border border-border/70 bg-background">
-              <div className="text-[11px] font-semibold text-muted-foreground">Segmentation Structure</div>
+              <div className="text-[11px] font-semibold text-muted-foreground">
+                Segmentation Structure
+              </div>
               <div className="text-xl font-extrabold mt-1 text-foreground font-mono">
                 {latest?.segmentationScore !== undefined && latest?.segmentationScore !== null
                   ? `${Math.round(latest.segmentationScore * 100)}%`
                   : "N/A (Skipped)"}
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">DeepLabV3 MobileNetV3 Large</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                DeepLabV3 MobileNetV3 Large
+              </div>
             </div>
 
             {/* Quality & Resolution */}
             <div className="p-3 rounded-xl border border-border/70 bg-background">
-              <div className="text-[11px] font-semibold text-muted-foreground">Evidence Clarity</div>
+              <div className="text-[11px] font-semibold text-muted-foreground">
+                Evidence Clarity
+              </div>
               <div className="text-xl font-extrabold mt-1 text-foreground font-mono">
                 {latest?.qualityScore !== undefined && latest?.qualityScore !== null
                   ? `${Math.round(latest.qualityScore * 100)}%`
                   : "—"}
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">Laplacian Blur & Contrast</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                Laplacian Blur & Contrast
+              </div>
             </div>
 
             {/* Final Composite Verdict */}
             <div className="p-3 rounded-xl border border-primary/30 bg-primary/5">
               <div className="text-[11px] font-bold text-primary">Final Verification Score</div>
               <div className="text-2xl font-black mt-1 text-primary font-mono">
-                {latest?.finalVerificationScore !== undefined && latest?.finalVerificationScore !== null
-                  ? `${(
-                      latest.finalVerificationScore <= 1
-                        ? latest.finalVerificationScore * 100
-                        : latest.finalVerificationScore
+                {latest?.finalVerificationScore !== undefined &&
+                latest?.finalVerificationScore !== null
+                  ? `${(latest.finalVerificationScore <= 1
+                      ? latest.finalVerificationScore * 100
+                      : latest.finalVerificationScore
                     ).toFixed(1)}%`
                   : "—"}
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">Average Score of Sub-Models</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                Average Score of Sub-Models
+              </div>
             </div>
           </div>
 
@@ -332,7 +358,9 @@ export function VerificationPanel({
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Processing Time:</span>
               <span className="font-mono text-foreground">
-                {latest?.processingDurationMs ? `${Math.round(latest.processingDurationMs)} ms` : "—"}
+                {latest?.processingDurationMs
+                  ? `${Math.round(latest.processingDurationMs)} ms`
+                  : "—"}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -392,11 +420,13 @@ export function VerificationPanel({
             Previous supervisor decision:{" "}
             <strong className="text-foreground uppercase">{latest.adminDecision}</strong> by{" "}
             {latest.adminDecisionBy || "admin"} on{" "}
-            {latest.adminDecisionAt ? new Date(latest.adminDecisionAt).toLocaleString("en-IN") : "recent"}.
+            {latest.adminDecisionAt
+              ? new Date(latest.adminDecisionAt).toLocaleString("en-IN")
+              : "recent"}
+            .
           </span>
         </div>
       )}
     </div>
   );
 }
-

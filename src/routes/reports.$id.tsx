@@ -13,6 +13,7 @@ import {
 } from "@/lib/civic-data";
 import { RealMap } from "@/components/site/real-map";
 import { VerificationPanel } from "@/components/site/verification-panel";
+import { useAuth } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/reports/$id")({
   loader: ({ params }) => {
@@ -113,6 +114,8 @@ function getStageIndex(status: ReportStatus): number {
 function ReportDetails() {
   const { initialReport } = Route.useLoaderData();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const currentUsername = user?.username || "admin";
   const [report, setReport] = useState<CivicReport>(initialReport);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -737,12 +740,13 @@ function ReportDetails() {
             </div>
 
             {/* AI-Powered Bidirectional Resolution Verification System Panel */}
-            {(report.resolutionMediaUrls && report.resolutionMediaUrls.length > 0) && (
+            {report.resolutionMediaUrls && report.resolutionMediaUrls.length > 0 && (
               <VerificationPanel
                 reportId={report.id}
                 originalImageUrl={report.mediaUrls?.[0] || "/media/evidence/pothole_before.jpg"}
-                resolutionImageUrl={report.resolutionMediaUrls[0]}
+                resolutionImageUrl={report.resolutionMediaUrls[0] || ""}
                 category={report.category}
+                adminUsername={currentUsername}
                 onDecisionComplete={fetchLiveState}
               />
             )}

@@ -94,6 +94,25 @@ function saveVerifications(records: VerificationRecord[]): void {
   }
 }
 
+// Serializes every read-modify-write cycle against the verifications file
+// within this process. Node is single-threaded, but an `await` inside an
+// unprotected load→mutate→save sequence still lets two concurrent requests
+// interleave and clobber each other's write — this chains them instead.
+let verificationsMutex: Promise<unknown> = Promise.resolve();
+
+function withVerificationsLock<T>(fn: (all: VerificationRecord[]) => T): Promise<T> {
+  const run = verificationsMutex.then(() => {
+    const all = loadVerifications();
+    const result = fn(all);
+    saveVerifications(all);
+    return result;
+  });
+  // Keep the chain alive even if this step rejects, so later callers aren't
+  // stuck behind a permanently-rejected promise.
+  verificationsMutex = run.catch(() => undefined);
+  return run;
+}
+
 export function getVerificationsForReport(reportId: string): VerificationRecord[] {
   const all = loadVerifications();
   const list = all
@@ -121,15 +140,30 @@ export function getVerificationById(id: string): VerificationRecord | null {
   return all.find((v) => v.id === id) || null;
 }
 
-export function upsertVerification(record: VerificationRecord): void {
-  const all = loadVerifications();
-  const idx = all.findIndex((v) => v.id === record.id);
-  if (idx >= 0) {
-    all[idx] = { ...all[idx], ...record };
-  } else {
-    all.unshift(record);
-  }
-  saveVerifications(all);
+export function upsertVerification(record: VerificationRecord): Promise<void> {
+  return withVerificationsLock((all) => {
+    const idx = all.findIndex((v) => v.id === record.id);
+    if (idx >= 0) {
+      all[idx] = { ...all[idx], ...record };
+    } else {
+      all.unshift(record);
+    }
+  });
+}
+
+/**
+ * Replace a record's id (used when the local pending id is superseded by
+ * the AI microservice's real job id) and apply the given updates, under
+ * the same lock as every other write so this can't race a concurrent
+ * upsert/poll for the same record.
+ */
+function replaceVerificationId(oldId: string, updated: VerificationRecord): Promise<void> {
+  return withVerificationsLock((all) => {
+    const filtered = all.filter((v) => v.id !== oldId);
+    filtered.unshift(updated);
+    all.length = 0;
+    all.push(...filtered);
+  });
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -145,20 +179,26 @@ export async function saveUploadedImage(
   reportId: string,
   slot: "worker" | "resolution",
 ): Promise<string> {
-  if (!fs.existsSync(UPLOADS_DIR)) {
-    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-  }
-
-  const timestamp = Date.now();
-  const filename = `${reportId}_${slot}_${timestamp}.jpg`;
-  const filePath = path.join(UPLOADS_DIR, filename);
-
   if (dataUrl.startsWith("data:")) {
+    if (IS_VERCEL) {
+      // /tmp is a private, ephemeral lambda directory — Vercel never serves
+      // it over HTTP, so writing there and returning a "/tmp/..." URL would
+      // 404 in the browser. Until real object storage (e.g. a Storage
+      // bucket) is wired up here, return the data: URL itself so the image
+      // still renders — it just won't persist beyond this request/response.
+      return dataUrl;
+    }
+
+    if (!fs.existsSync(UPLOADS_DIR)) {
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    }
+    const timestamp = Date.now();
+    const filename = `${reportId}_${slot}_${timestamp}.jpg`;
+    const filePath = path.join(UPLOADS_DIR, filename);
     const parts = dataUrl.split(",");
     const base64 = parts[1] ?? "";
     fs.writeFileSync(filePath, Buffer.from(base64, "base64"));
-    const publicUrl = IS_VERCEL ? `/tmp/civic-uploads/${filename}` : `/media/uploads/${filename}`;
-    return publicUrl;
+    return `/media/uploads/${filename}`;
   }
 
   // Already a URL or path — return as-is
@@ -247,7 +287,7 @@ export async function submitVerificationJob(params: {
     updatedAt: now,
   };
 
-  upsertVerification(pendingRecord);
+  await upsertVerification(pendingRecord);
 
   // Submit to AI service asynchronously (fire and forget from the caller's perspective)
   setImmediate(async () => {
@@ -269,10 +309,7 @@ export async function submitVerificationJob(params: {
         updatedAt: new Date().toISOString(),
       };
       // Remove old local record and insert with new ID
-      const all = loadVerifications();
-      const filtered = all.filter((v) => v.id !== localId);
-      filtered.unshift(updated);
-      saveVerifications(filtered);
+      await replaceVerificationId(localId, updated);
 
       console.info(
         `[Vision Service] Verification job submitted for report ${params.reportId}: ${String(response["job_id"] ?? "")}`,
@@ -290,8 +327,8 @@ export async function submitVerificationJob(params: {
           title: params.reportCategory || "Civic Complaint",
           description: params.reportDescription || "Field resolution photo submitted by worker.",
           resolutionNotes: params.reportDescription || "Remediation work completed on site.",
-          originalImageLabel: params.originalImageUrl ? "Original citizen complaint photo on site" : undefined,
-          resolutionImageLabel: params.resolutionImageUrl ? "Field worker resolution photo proof" : undefined,
+          originalImageLabel: "Original citizen complaint photo on site",
+          resolutionImageLabel: "Field worker resolution photo proof",
         });
 
         const verifiedRecord: VerificationRecord = {
@@ -311,15 +348,17 @@ export async function submitVerificationJob(params: {
           updatedAt: new Date().toISOString(),
         };
 
-        upsertVerification(verifiedRecord);
-        console.info(`[Vision Service] AI Verification completed successfully via Groq engine for ${params.reportId}.`);
+        await upsertVerification(verifiedRecord);
+        console.info(
+          `[Vision Service] AI Verification completed successfully via Groq engine for ${params.reportId}.`,
+        );
       } catch (fallbackErr: any) {
         console.error("[Vision Service] Fallback error:", fallbackErr);
         const verifiedRecord: VerificationRecord = {
           ...pendingRecord,
           jobStatus: "completed",
           verificationStatus: "NEEDS_REVIEW",
-          sceneConsistencyScore: 0.20,
+          sceneConsistencyScore: 0.2,
           siameseSimilarityScore: 0.18,
           bidirectionalScore: 0.15,
           segmentationScore: 0.15,
@@ -332,7 +371,7 @@ export async function submitVerificationJob(params: {
           processingDurationMs: 380,
           updatedAt: new Date().toISOString(),
         };
-        upsertVerification(verifiedRecord);
+        await upsertVerification(verifiedRecord);
       }
     }
   });
@@ -408,7 +447,7 @@ export async function pollVerificationResult(
             : undefined,
         updatedAt: new Date().toISOString(),
       };
-      upsertVerification(updated);
+      await upsertVerification(updated);
       return updated;
     }
   } catch (err: unknown) {
@@ -422,12 +461,12 @@ export async function pollVerificationResult(
 /**
  * Record an administrator decision on a verification record.
  */
-export function recordAdminDecision(
+export async function recordAdminDecision(
   verificationId: string,
   decision: "approved" | "rejected" | "manual_review",
   adminUsername: string,
   note?: string,
-): VerificationRecord | null {
+): Promise<VerificationRecord | null> {
   const record = getVerificationById(verificationId);
   if (!record) return null;
 
@@ -439,6 +478,6 @@ export function recordAdminDecision(
     ...(note !== undefined ? { adminDecisionNote: note } : {}),
     updatedAt: new Date().toISOString(),
   };
-  upsertVerification(updated);
+  await upsertVerification(updated);
   return updated;
 }

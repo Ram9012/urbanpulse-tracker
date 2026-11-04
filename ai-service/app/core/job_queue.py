@@ -16,12 +16,20 @@ are detected and rejected before insertion.
 import json
 import logging
 import os
+import sys
 import time
 import uuid
-import fcntl
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Any
+
+# fcntl is POSIX-only; msvcrt is the Windows equivalent for file locking.
+# This service must be able to at least import and run on Windows dev
+# machines, not just Linux production hosts.
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
 
 from app.core.config import settings
 
@@ -59,7 +67,7 @@ def _save_json(filepath: str, data: Any) -> bool:
 
 
 def _with_lock(filepath: str):
-    """Context manager for file-based advisory locking."""
+    """Context manager for file-based advisory locking (cross-platform)."""
     import contextlib
 
     @contextlib.contextmanager
@@ -67,10 +75,20 @@ def _with_lock(filepath: str):
         lock_path = filepath + ".lock"
         with open(lock_path, "w") as lock_file:
             try:
-                fcntl.flock(lock_file, fcntl.LOCK_EX)
+                if sys.platform == "win32":
+                    # msvcrt.locking requires a non-zero byte count; lock a
+                    # single byte of the lock file as an advisory mutex.
+                    lock_file.seek(0)
+                    msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+                else:
+                    fcntl.flock(lock_file, fcntl.LOCK_EX)
                 yield
             finally:
-                fcntl.flock(lock_file, fcntl.LOCK_UN)
+                if sys.platform == "win32":
+                    lock_file.seek(0)
+                    msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(lock_file, fcntl.LOCK_UN)
 
     return _lock()
 
