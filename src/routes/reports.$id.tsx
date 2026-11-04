@@ -12,6 +12,7 @@ import {
   markReportDeleted,
 } from "@/lib/civic-data";
 import { RealMap } from "@/components/site/real-map";
+import { VerificationPanel } from "@/components/site/verification-panel";
 
 export const Route = createFileRoute("/reports/$id")({
   loader: ({ params }) => {
@@ -734,6 +735,17 @@ function ReportDetails() {
                 </Link>
               </div>
             </div>
+
+            {/* AI-Powered Bidirectional Resolution Verification System Panel */}
+            {(report.resolutionMediaUrls && report.resolutionMediaUrls.length > 0) && (
+              <VerificationPanel
+                reportId={report.id}
+                originalImageUrl={report.mediaUrls?.[0] || "/media/evidence/pothole_before.jpg"}
+                resolutionImageUrl={report.resolutionMediaUrls[0]}
+                category={report.category}
+                onDecisionComplete={fetchLiveState}
+              />
+            )}
 
             {/* AI Resolution Evidence Analysis (Service 5) */}
             {aiVerification && (

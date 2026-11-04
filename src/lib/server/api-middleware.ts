@@ -7,6 +7,14 @@ import {
   handleCivicChatbot,
 } from "./ai-service";
 import {
+  getVerificationsForReport,
+  getVerificationById,
+  recordAdminDecision,
+  checkAiServiceHealth,
+  submitVerificationJob,
+  pollVerificationResult,
+} from "./vision-service";
+import {
   initializeStatusEngine,
   getAllReports,
   getReportById,
@@ -104,6 +112,38 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       const { messages, citizenContext } = body;
       const result = await handleCivicChatbot(messages || [], citizenContext);
       return Response.json(result, { status: 200 });
+    }
+
+    // 4.2 AI Vision Verification APIs
+    if (pathname.startsWith("/api/vision/report/") && request.method === "GET") {
+      const reportId = pathname.replace("/api/vision/report/", "").trim();
+      const verifications = getVerificationsForReport(reportId);
+      // Attempt poll if pending
+      if (verifications.length > 0 && verifications[0]?.jobStatus === "processing") {
+        await pollVerificationResult(verifications[0].id);
+      }
+      return Response.json({ reportId, verifications: getVerificationsForReport(reportId) }, { status: 200 });
+    }
+
+    if (pathname.startsWith("/api/vision/verification/") && request.method === "GET") {
+      const vId = pathname.replace("/api/vision/verification/", "").trim();
+      const updated = await pollVerificationResult(vId);
+      return Response.json({ verification: updated || getVerificationById(vId) }, { status: 200 });
+    }
+
+    if (pathname === "/api/vision/admin-decision" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      const { verificationId, decision, adminUsername, note } = body;
+      if (!verificationId || !decision) {
+        return Response.json({ error: "Missing required fields" }, { status: 400 });
+      }
+      const updated = recordAdminDecision(verificationId, decision, adminUsername || "admin", note);
+      return Response.json({ success: true, verification: updated }, { status: 200 });
+    }
+
+    if (pathname === "/api/vision/health" && request.method === "GET") {
+      const healthy = await checkAiServiceHealth();
+      return Response.json({ status: healthy ? "connected" : "disconnected" }, { status: 200 });
     }
 
     // 5. Municipal Search (SerpAPI / Zenserp)
@@ -314,6 +354,37 @@ export function civicPulseApiPlugin(): Plugin {
             const { messages, citizenContext } = body;
             const result = await handleCivicChatbot(messages || [], citizenContext);
             return sendJson(res, 200, result);
+          }
+
+          // 4.2 AI Vision Verification APIs (Vite middleware)
+          if (url.startsWith("/api/vision/report/") && req.method === "GET") {
+            const reportId = url.replace("/api/vision/report/", "").split("?")[0].trim();
+            const verifs = getVerificationsForReport(reportId);
+            if (verifs.length > 0 && verifs[0]?.jobStatus === "processing") {
+              await pollVerificationResult(verifs[0].id);
+            }
+            return sendJson(res, 200, { reportId, verifications: getVerificationsForReport(reportId) });
+          }
+
+          if (url.startsWith("/api/vision/verification/") && req.method === "GET") {
+            const vId = url.replace("/api/vision/verification/", "").split("?")[0].trim();
+            const updated = await pollVerificationResult(vId);
+            return sendJson(res, 200, { verification: updated || getVerificationById(vId) });
+          }
+
+          if (url === "/api/vision/admin-decision" && req.method === "POST") {
+            const body = await parseJsonBody(req).catch(() => ({}));
+            const { verificationId, decision, adminUsername, note } = body;
+            if (!verificationId || !decision) {
+              return sendJson(res, 400, { error: "Missing required fields" });
+            }
+            const updated = recordAdminDecision(verificationId, decision, adminUsername || "admin", note);
+            return sendJson(res, 200, { success: true, verification: updated });
+          }
+
+          if (url === "/api/vision/health" && req.method === "GET") {
+            const healthy = await checkAiServiceHealth();
+            return sendJson(res, 200, { status: healthy ? "connected" : "disconnected" });
           }
 
           // 5. Municipal Search (SerpAPI / Zenserp)
