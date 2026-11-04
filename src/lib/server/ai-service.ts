@@ -372,15 +372,22 @@ Return a strictly valid JSON object matching this schema:
     ]);
 
     // Ensure scores are numbers in [0, 1]
-    const sceneConsistency = Math.max(0, Math.min(1, Number(result.scene_consistency_score) || 0.15));
-    const siameseSimilarity = Math.max(0, Math.min(1, Number(result.siamese_similarity_score) || 0.12));
-    const bidirectional = Math.max(0, Math.min(1, Number(result.bidirectional_score) || 0.10));
-    const segmentation = Math.max(0, Math.min(1, Number(result.segmentation_score) || 0.10));
-    const quality = Math.max(0, Math.min(1, Number(result.evidence_clarity_score) || 0.90));
+    const sceneConsistency = Math.max(
+      0,
+      Math.min(1, Number(result.scene_consistency_score) || 0.15),
+    );
+    const siameseSimilarity = Math.max(
+      0,
+      Math.min(1, Number(result.siamese_similarity_score) || 0.12),
+    );
+    const bidirectional = Math.max(0, Math.min(1, Number(result.bidirectional_score) || 0.1));
+    const segmentation = Math.max(0, Math.min(1, Number(result.segmentation_score) || 0.1));
+    const quality = Math.max(0, Math.min(1, Number(result.evidence_clarity_score) || 0.9));
 
     // Compute arithmetic average of the sub-models
     const subScores = [sceneConsistency, siameseSimilarity, bidirectional, segmentation, quality];
-    const avgScore = Math.round((subScores.reduce((a, b) => a + b, 0) / subScores.length) * 1000) / 1000;
+    const avgScore =
+      Math.round((subScores.reduce((a, b) => a + b, 0) / subScores.length) * 1000) / 1000;
 
     let status = result.verification_status;
     if (avgScore < 0.65 && status === "VERIFIED") {
@@ -408,7 +415,8 @@ Return a strictly valid JSON object matching this schema:
       segmentationScore: 0.12,
       qualityScore: 0.85,
       finalVerificationScore: 0.288,
-      evidenceExplanation: "AI Verification flagged evidence for manual supervisor audit: Scene mismatch or insufficient photographic correspondence detected.",
+      evidenceExplanation:
+        "AI Verification flagged evidence for manual supervisor audit: Scene mismatch or insufficient photographic correspondence detected.",
       flags: ["manual_supervisor_review_required"],
     };
   }

@@ -1,12 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 
 export type VerificationOutcome =
-  | "VERIFIED"
-  | "NEEDS_REVIEW"
-  | "INSUFFICIENT_EVIDENCE"
-  | "PENDING"
-  | "PROCESSING"
-  | "UNAVAILABLE";
+  "VERIFIED" | "NEEDS_REVIEW" | "INSUFFICIENT_EVIDENCE" | "PENDING" | "PROCESSING" | "UNAVAILABLE";
 
 export function VerificationBadge({
   status,
@@ -63,9 +58,7 @@ export function VerificationBadge({
       >
         <span>{icon}</span>
         <span>{label}</span>
-        {typeof score === "number" && (
-          <span className="opacity-80">({formatScore(score)})</span>
-        )}
+        {typeof score === "number" && <span className="opacity-80">({formatScore(score)})</span>}
       </span>
     );
   }
@@ -80,4 +73,3 @@ export function VerificationBadge({
     </Badge>
   );
 }
-
