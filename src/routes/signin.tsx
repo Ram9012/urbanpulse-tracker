@@ -71,15 +71,6 @@ function UnifiedAuthPage() {
     }
   }, []);
 
-  // Quick autofill for Admin
-  const fillAdmin = () => {
-    setMode("signin");
-    setUsername("admin");
-    setPassword("admin123");
-    setError(null);
-    setSuccess("Admin credentials filled! Click 'Sign In' to enter the Admin Dashboard.");
-  };
-
   // Form submission handler
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -208,11 +199,8 @@ function UnifiedAuthPage() {
                     <code className="rounded bg-muted px-1 py-0.5 font-mono text-primary font-bold">
                       admin
                     </code>{" "}
-                    and password{" "}
-                    <code className="rounded bg-muted px-1 py-0.5 font-mono text-primary font-bold">
-                      admin123
-                    </code>{" "}
-                    to access the live administrative queue.
+                    and their configured administrator password to access the live administrative
+                    queue.
                   </p>
                 </div>
               </div>
@@ -305,7 +293,7 @@ function UnifiedAuthPage() {
                 </h2>
                 <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
                   {mode === "signin"
-                    ? "Sign in with your username and password. For Admin, use username 'admin' and password 'admin123' to enter the Admin Dashboard. Users use their created credentials."
+                    ? "Sign in with your username and password. Admins use the username 'admin' with the configured administrator password."
                     : "Create a user account with username, password, and confirm password. You can create multiple user accounts to submit and track reports."}
                 </p>
               </div>
@@ -472,20 +460,6 @@ function UnifiedAuthPage() {
                     </>
                   )}
                 </button>
-
-                {/* Quick Admin Auto-fill Button for Convenience */}
-                {mode === "signin" && (
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      onClick={fillAdmin}
-                      className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-primary/30 bg-primary/5 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
-                    >
-                      <span>⚡ Quick fill Admin:</span>
-                      <span className="font-mono font-bold">admin / admin123</span>
-                    </button>
-                  </div>
-                )}
 
                 {/* Mode toggle link */}
                 <div className="pt-2 text-center text-xs text-muted-foreground">

@@ -61,24 +61,6 @@ export async function loginUser(
     return { success: false, error: "Please enter your password." };
   }
 
-  // Fast offline/local check for guaranteed Admin access
-  if (username.toLowerCase() === "admin" && password === "admin123") {
-    const adminUser: AuthUser = {
-      id: "USR-ADMIN-01",
-      username: "admin",
-      role: "admin",
-      displayName: "Municipal Administrator",
-    };
-    setStoredUser(adminUser);
-    // Also notify server in background
-    fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: "admin", password: "admin123" }),
-    }).catch(() => {});
-    return { success: true, user: adminUser };
-  }
-
   // Check client-side backup user
   const backupUsers = getStoredBackupUsers();
   const localMatch = backupUsers.find((u) => u.username.toLowerCase() === username.toLowerCase());
