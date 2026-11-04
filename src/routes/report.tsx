@@ -1579,56 +1579,7 @@ function ReportPage() {
                   </p>
                 </div>
               )}
-
-              <div className="rounded-xl bg-navy-foreground/10 p-3">
-                <span className="font-bold text-teal block uppercase tracking-wider text-[10px]">
-                  AI Issue Summary
-                </span>
-                <p className="mt-1 text-white font-medium">{activeAi.summary}</p>
-              </div>
-
-              <div className="rounded-xl bg-navy-foreground/10 p-3">
-                <span className="font-bold text-teal block uppercase tracking-wider text-[10px]">
-                  Priority Recommendation
-                </span>
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded font-bold uppercase bg-warm text-warm-foreground text-[10px]">
-                    {activeAi.priority_recommendation}
-                  </span>
-                  <span className="text-white/80">{activeAi.priority_reason}</span>
-                </div>
-              </div>
-
-              {activeAi.severity_signals && activeAi.severity_signals.length > 0 && (
-                <div className="rounded-xl bg-navy-foreground/10 p-3">
-                  <span className="font-bold text-teal block uppercase tracking-wider text-[10px]">
-                    Detected Severity Signals
-                  </span>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {activeAi.severity_signals.map((sig) => (
-                      <span
-                        key={sig}
-                        className="px-2 py-0.5 rounded-full bg-navy-foreground/15 text-white text-[10px]"
-                      >
-                        ⚠️ {sig}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="rounded-xl bg-navy-foreground/10 p-3">
-                <span className="font-bold text-teal block uppercase tracking-wider text-[10px]">
-                  Extracted Keywords
-                </span>
-                <p className="mt-1 text-white/80">{activeAi.keywords.join(", ")}</p>
-              </div>
             </div>
-
-            <p className="mt-4 text-[11px] opacity-75 border-t border-navy-foreground/15 pt-3">
-              <strong>Architecture Note:</strong> AI predictions are advisory suggestions. The
-              municipal department, priority, and workflow decisions are finalized by staff.
-            </p>
           </aside>
         </div>
 
