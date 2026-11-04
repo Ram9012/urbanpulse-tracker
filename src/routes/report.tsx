@@ -163,9 +163,7 @@ function ReportPage() {
     city: "Hassan",
   });
 
-  const [description, setDescription] = useState(
-    "Six streetlights between the school gate and the water tank have been off for four nights. The stretch is dark and hazardous.",
-  );
+  const [description, setDescription] = useState("");
   const [listening, setListening] = useState(false);
   const [category, setCategory] = useState<string>(() => {
     if (typeof window !== "undefined") {
@@ -676,11 +674,11 @@ function ReportPage() {
     const isLightCat =
       newCat.toLowerCase().includes("light") || newCat.toLowerCase().includes("electr");
     if (!description || (isLightCat && isPotholeText)) {
-      const defaultTpl =
-        CATEGORY_TEMPLATES[newCat]?.[0]?.text ||
-        "Six streetlights between the school gate and the water tank have been unlit for four nights. The entire stretch is dark.";
-      setDescription(defaultTpl);
-      runAiAnalysis(defaultTpl, newCat);
+      const defaultTpl = CATEGORY_TEMPLATES[newCat]?.[0]?.text;
+      if (defaultTpl) {
+        setDescription(defaultTpl);
+        runAiAnalysis(defaultTpl, newCat);
+      }
     } else {
       runAiAnalysis(description, newCat);
     }
@@ -694,30 +692,22 @@ function ReportPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  const defaultText =
-    category.toLowerCase().includes("light") || category.toLowerCase().includes("electric")
-      ? "Six streetlights unlit for four nights causing dark stretch and safety hazard"
-      : `${category} issue requiring municipal inspection`;
-  const fallbackAi = mockClassify(description || defaultText);
+  const fallbackAi = mockClassify(
+    description || `${category} issue requiring municipal inspection`,
+  );
+  // Only used to populate the submitted record when the live analysis is
+  // unavailable. Never displayed as an AI result.
   const activeAi: AiAnalysisResult = {
-    summary:
-      aiAnalysis?.summary ||
-      (category.toLowerCase().includes("light") || category.toLowerCase().includes("electric")
-        ? "Streetlight outage causing total darkness and safety hazard along the roadway."
-        : fallbackAi.summary),
+    summary: aiAnalysis?.summary || fallbackAi.summary,
     keywords: aiAnalysis?.keywords?.length ? aiAnalysis.keywords : fallbackAi.keywords,
-    severity_signals: aiAnalysis?.severity_signals?.length
-      ? aiAnalysis.severity_signals
-      : category.toLowerCase().includes("light") || category.toLowerCase().includes("electric")
-        ? ["poor night visibility", "pedestrian safety hazard", "dark street"]
-        : ["safety hazard", "infrastructure concern"],
+    severity_signals: aiAnalysis?.severity_signals?.length ? aiAnalysis.severity_signals : [],
     priority_recommendation: aiAnalysis?.priority_recommendation || fallbackAi.priority,
     priority_reason: aiAnalysis?.priority_reason || fallbackAi.reason,
     confidence: aiAnalysis?.confidence || fallbackAi.confidence,
     category_mismatch: aiAnalysis?.category_mismatch,
     detected_category: aiAnalysis?.detected_category,
     suggested_description: aiAnalysis?.suggested_description,
-    source: aiAnalysis?.source || "PulseBot AI Engine",
+    source: aiAnalysis?.source || "AI Engine",
   };
 
   function next() {
@@ -1208,7 +1198,8 @@ function ReportPage() {
                               const repl =
                                 activeAi.suggested_description ||
                                 CATEGORY_TEMPLATES[category]?.[0]?.text ||
-                                "Six streetlights between the school gate and water tank have been unlit for four nights. The stretch is dark and hazardous.";
+                                "";
+                              if (!repl) return;
                               setDescription(repl);
                               runAiAnalysis(repl, category);
                             }}
@@ -1525,8 +1516,17 @@ function ReportPage() {
             </div>
 
             <h3 className="mt-3 text-base font-bold">
-              {category} · {Math.round(activeAi.confidence * 100)}% Confidence
+              {category}
+              {aiAnalysis && typeof aiAnalysis.confidence === "number"
+                ? ` · ${Math.round(aiAnalysis.confidence * 100)}% Confidence`
+                : ""}
             </h3>
+            {!aiAnalysis && !aiLoading && !visionAnalysis && !visionLoading && (
+              <p className="mt-2 text-xs text-white/70">
+                Describe the issue or add a photo and the AI analysis will appear here.
+              </p>
+            )}
+            {aiLoading && <p className="mt-2 text-xs text-white/70">Analyzing description…</p>}
 
             <div className="mt-4 space-y-3 text-xs">
               {(visionLoading || visionAnalysis || visionError) && (
