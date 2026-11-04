@@ -407,25 +407,47 @@ function ReportDetails() {
         if (data.history) setHistory(data.history);
 
         if (serverReport && localReport) {
+          // Media URL arrays must never regress to empty/stale just because the
+          // side that otherwise "wins" this merge happens to be missing them —
+          // whichever side actually has entries keeps the field. Without this,
+          // the merge result flips every ~3s poll depending on tiny timestamp
+          // differences, mounting/unmounting VerificationPanel and flickering
+          // it back to "Awaiting Verification".
+          const mergedResolutionMediaUrls = serverReport.resolutionMediaUrls?.length
+            ? serverReport.resolutionMediaUrls
+            : localReport.resolutionMediaUrls;
+          const mergedWorkerMediaUrls = serverReport.workerMediaUrls?.length
+            ? serverReport.workerMediaUrls
+            : localReport.workerMediaUrls;
+
           // Terminal state protection: if local state is resolved and server is not, protect resolved status
           if (localReport.status === "resolved" && serverReport.status !== "resolved") {
-            setReport((prev) => ({ ...prev, ...serverReport, ...localReport, status: "resolved" }));
+            setReport((prev) => ({
+              ...prev,
+              ...serverReport,
+              ...localReport,
+              status: "resolved",
+              resolutionMediaUrls: mergedResolutionMediaUrls,
+              workerMediaUrls: mergedWorkerMediaUrls,
+            }));
           } else {
             const localTime = new Date(localReport.updatedAt || 0).getTime();
             const serverTime = new Date(serverReport.updatedAt || 0).getTime();
             if (localTime >= serverTime) {
-              setReport((prev) => ({ ...prev, ...serverReport, ...localReport }));
+              setReport((prev) => ({
+                ...prev,
+                ...serverReport,
+                ...localReport,
+                resolutionMediaUrls: mergedResolutionMediaUrls,
+                workerMediaUrls: mergedWorkerMediaUrls,
+              }));
             } else {
               setReport((prev) => ({
                 ...prev,
                 ...localReport,
                 ...serverReport,
-                resolutionMediaUrls: serverReport.resolutionMediaUrls?.length
-                  ? serverReport.resolutionMediaUrls
-                  : localReport.resolutionMediaUrls,
-                workerMediaUrls: serverReport.workerMediaUrls?.length
-                  ? serverReport.workerMediaUrls
-                  : localReport.workerMediaUrls,
+                resolutionMediaUrls: mergedResolutionMediaUrls,
+                workerMediaUrls: mergedWorkerMediaUrls,
               }));
             }
           }
