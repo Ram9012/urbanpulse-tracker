@@ -239,7 +239,12 @@ export function CivicChatbot({
   };
 
   function parseBoldText(text: string): string {
+    // Escape first: the text is model output and is injected as HTML below.
     return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
       .replace(/\*\*(.*?)\*\*/g, "<strong class='font-bold text-foreground'>$1</strong>")
       .replace(
         /`([^`]+)`/g,
