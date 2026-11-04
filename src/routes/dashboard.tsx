@@ -622,7 +622,7 @@ function Dashboard() {
           </div>
 
           <aside className="space-y-4">
-            {/* Groq AI Civic Chatbot (PulseBot) */}
+            {/* PulseBot AI Civic Chatbot */}
             <CivicChatbot user={user} reports={reports} variant="inline" />
 
             {/* Live Notifications (Triggered by Status Machine) */}
@@ -687,9 +687,6 @@ function Dashboard() {
             </div>
           </aside>
         </div>
-
-        {/* Floating Groq AI Chatbot Assistant */}
-        <CivicChatbot user={user} reports={reports} variant="floating" />
       </Section>
     </SiteLayout>
   );

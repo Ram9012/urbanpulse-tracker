@@ -43,9 +43,9 @@ export function CivicChatbot({
       {
         id: "msg-welcome",
         role: "assistant",
-        content: `Hi ${citizenName}! 👋 I am **PulseBot**, your 24/7 Civic Assistant powered by **Groq AI**. \n\nI can track your active complaints, explain municipal repair timelines (SLAs), share emergency helplines, or guide you through filing a new report. How can I assist you right now?`,
+        content: `Hi ${citizenName}! 👋 I am **PulseBot**, your 24/7 Civic Assistant. \n\nI can track your active complaints, explain municipal repair timelines (SLAs), share emergency helplines, or guide you through filing a new report. How can I assist you right now?`,
         time: "Just now",
-        source: "Groq AI Engine",
+        source: "PulseBot AI Engine",
         model: "openai/gpt-oss-120b",
       },
     ];
@@ -114,13 +114,13 @@ export function CivicChatbot({
             data.reply ||
             "I received your query. How else may I assist you with municipal services?",
           time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          source: data.source || "Groq AI Engine",
+          source: data.source || "PulseBot AI Engine",
           model: data.model || activeModel,
         };
         if (data.model) setActiveModel(data.model);
         setMessages((prev) => [...prev, botReply]);
       } else {
-        throw new Error("Unable to reach Groq AI");
+        throw new Error("Unable to reach PulseBot AI");
       }
     } catch {
       // Deterministic client fallback if network interrupts
@@ -152,7 +152,7 @@ export function CivicChatbot({
         role: "assistant",
         content: `Chat history refreshed! How can I help you today, ${citizenName}?`,
         time: "Just now",
-        source: "Groq AI Engine",
+        source: "PulseBot AI Engine",
         model: activeModel,
       },
     ]);
@@ -250,11 +250,11 @@ export function CivicChatbot({
   // Floating button launcher when closed in floating mode
   if (variant === "floating" && !isOpen) {
     return (
-      <div className={`fixed bottom-6 right-6 z-[70] ${className}`}>
+      <div className={`fixed bottom-24 right-6 z-[70] sm:bottom-6 ${className}`}>
         <button
           onClick={() => setIsOpen(true)}
           className="group relative flex items-center gap-3 rounded-full bg-primary px-5 py-3.5 text-primary-foreground shadow-2xl transition-all duration-300 hover:scale-105 hover:bg-primary/95 hover:shadow-primary/25 border-2 border-white/20 active:scale-95"
-          aria-label="Open Groq AI Civic Chatbot"
+          aria-label="Open PulseBot Civic Chatbot"
         >
           <div className="relative flex size-6 items-center justify-center">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-40"></span>
@@ -263,9 +263,6 @@ export function CivicChatbot({
           <div className="text-left">
             <div className="flex items-center gap-1.5 text-xs font-black tracking-wide uppercase">
               <span>Ask PulseBot</span>
-              <span className="rounded bg-white/20 px-1 py-0.2 text-[9px] font-bold text-white">
-                Groq AI
-              </span>
             </div>
             <div className="text-[10px] text-white/80 font-medium">Live Citizen Assistant</div>
           </div>
@@ -278,7 +275,7 @@ export function CivicChatbot({
     <div
       className={
         variant === "floating"
-          ? `fixed bottom-6 right-6 z-[70] w-[92vw] sm:w-[420px] max-h-[85vh] h-[600px] flex flex-col rounded-3xl bg-surface/95 backdrop-blur-xl border border-border shadow-2xl overflow-hidden transition-all duration-300 ${className}`
+          ? `fixed bottom-24 right-6 z-[70] sm:bottom-6 w-[92vw] sm:w-[420px] max-h-[75vh] sm:max-h-[85vh] h-[500px] sm:h-[600px] flex flex-col rounded-3xl bg-surface/95 backdrop-blur-xl border border-border shadow-2xl overflow-hidden transition-all duration-300 ${className}`
           : `surface-card rounded-2xl border border-border/80 shadow-md flex flex-col h-[560px] overflow-hidden ${className}`
       }
     >
@@ -292,12 +289,9 @@ export function CivicChatbot({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-display text-sm font-bold text-foreground">PulseBot AI</h3>
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
-                ⚡ Groq AI
-              </span>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Live Hassan Municipal Assistant · {citizenName}
+              Live Citizen Assistant · {citizenName}
             </p>
           </div>
         </div>
@@ -390,7 +384,7 @@ export function CivicChatbot({
                 <span className="flex size-2">
                   <span className="size-2 rounded-full bg-primary animate-ping" />
                 </span>
-                <span className="text-xs font-semibold text-primary">Groq AI is thinking…</span>
+                <span className="text-xs font-semibold text-primary">PulseBot is thinking…</span>
                 <div className="flex gap-1 items-center ml-1">
                   <span className="size-1.5 rounded-full bg-primary/60 animate-bounce [animation-delay:-0.3s]" />
                   <span className="size-1.5 rounded-full bg-primary/60 animate-bounce [animation-delay:-0.15s]" />

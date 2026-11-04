@@ -4,12 +4,12 @@ import { cn } from "@/lib/utils";
 import { BRAND, LANGUAGES } from "@/lib/civic-data";
 import { BrandMark } from "./primitives";
 import { useAuth } from "@/lib/auth-client";
+import { CivicChatbot } from "./civic-chatbot";
 
 const NAV = [
   { to: "/", label: "Home" },
   { to: "/how-it-works", label: "How It Works" },
   { to: "/explore", label: "Explore Reports" },
-  { to: "/impact", label: "Impact" },
   { to: "/help", label: "Help Center" },
 ] as const;
 
@@ -197,7 +197,6 @@ function Footer() {
       links: [
         { to: "/how-it-works", label: "How it works" },
         { to: "/explore", label: "Explore reports" },
-        { to: "/impact", label: "Community impact" },
       ],
     },
     {
@@ -301,6 +300,8 @@ function Footer() {
 }
 
 export function SiteLayout({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+
   return (
     <div className="flex min-h-dvh flex-col">
       <AnnouncementBar />
@@ -313,6 +314,9 @@ export function SiteLayout({ children }: { children: ReactNode }) {
         Report an Issue
       </Link>
       <Footer />
+      {/* Floating PulseBot assistant — available on every citizen-facing page
+          (SiteLayout is never used by admin routes). */}
+      <CivicChatbot user={user} variant="floating" />
     </div>
   );
 }
