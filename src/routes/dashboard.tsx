@@ -615,9 +615,6 @@ function Dashboard() {
           </div>
 
           <aside className="space-y-4">
-            {/* PulseBot AI Civic Chatbot */}
-            <CivicChatbot user={user} reports={reports} variant="inline" />
-
             {/* Live Notifications (Triggered by Status Machine) */}
             <div className="surface-card p-5 rounded-2xl shadow-sm">
               <div className="flex items-center justify-between mb-3">
