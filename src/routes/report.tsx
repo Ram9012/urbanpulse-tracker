@@ -77,7 +77,7 @@ const CATEGORY_TEMPLATES: Record<string, { label: string; text: string }[]> = {
       text: "An exposed electrical cable is dangling from the utility pole near the pedestrian sidewalk. Poses high risk of electrical shock.",
     },
   ],
-  "Road damage": [
+  "Road & pothole": [
     {
       label: "🚧 Large Pothole",
       text: "A deep pothole has formed on the left lane right before the bus stop. Two-wheelers are swerving into oncoming traffic to avoid it.",
@@ -87,7 +87,7 @@ const CATEGORY_TEMPLATES: Record<string, { label: string; text: string }[]> = {
       text: "Repaired footpath near the school has collapsed paving slabs, forcing pedestrians to walk on the busy vehicular road.",
     },
   ],
-  "Drainage & storm water": [
+  "Water & drainage": [
     {
       label: "🌊 Overflowing Drain",
       text: "Drain overflowing after night rain at the junction, flooding the road with foul water and blocking pedestrian access.",
@@ -182,7 +182,9 @@ function ReportPage() {
         /* best-effort: ignore storage/network failure */
       }
     }
-    return CATEGORIES[1]!.name; // "Streetlight & electricity"
+    // No default: the citizen chooses a category, and nothing category-specific is shown or
+    // sent to the AI until they do.
+    return "";
   });
   const [anonymous, setAnonymous] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -260,7 +262,7 @@ function ReportPage() {
     }
 
     // Pick closest candidate in same or similar category, or closest overall
-    const catMatch = candidates.find(
+    const catMatch = (activeCatName ? candidates : []).find(
       (c) =>
         c.report.categoryLabel.toLowerCase().includes(activeCatName.toLowerCase().slice(0, 4)) ||
         activeCatName.toLowerCase().includes(c.report.category.toLowerCase().slice(0, 4)),
@@ -438,7 +440,7 @@ function ReportPage() {
       const res = await fetch("/api/ai/analyze-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageDataUrl, categoryName: category }),
+        body: JSON.stringify({ imageDataUrl, categoryName: category || undefined }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -635,7 +637,7 @@ function ReportPage() {
 
   // Trigger Live AI Analysis via backend API
   const runAiAnalysis = async (textToAnalyze: string, explicitCategory?: string) => {
-    const activeCategory = explicitCategory || category;
+    const activeCategory = explicitCategory ?? category;
     if (!textToAnalyze || textToAnalyze.trim().length < 5) return;
     setAiLoading(true);
     setAiNotice("⚡ AI analyzing description...");
@@ -645,7 +647,7 @@ function ReportPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           description: textToAnalyze,
-          categoryName: activeCategory,
+          categoryName: activeCategory || undefined,
         }),
       });
 
@@ -669,19 +671,9 @@ function ReportPage() {
 
   const handleCategoryChange = (newCat: string) => {
     setCategory(newCat);
-    const isPotholeText =
-      description.toLowerCase().includes("pothole") || description.toLowerCase().includes("road");
-    const isLightCat =
-      newCat.toLowerCase().includes("light") || newCat.toLowerCase().includes("electr");
-    if (!description || (isLightCat && isPotholeText)) {
-      const defaultTpl = CATEGORY_TEMPLATES[newCat]?.[0]?.text;
-      if (defaultTpl) {
-        setDescription(defaultTpl);
-        runAiAnalysis(defaultTpl, newCat);
-      }
-    } else {
-      runAiAnalysis(description, newCat);
-    }
+    // Re-run the analysis with the new category only if the citizen has already written
+    // something. Never insert canned description text on their behalf.
+    if (description.trim().length >= 5) runAiAnalysis(description, newCat);
   };
 
   // Run initial AI analysis on mount
@@ -692,9 +684,7 @@ function ReportPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  const fallbackAi = mockClassify(
-    description || `${category} issue requiring municipal inspection`,
-  );
+  const fallbackAi = mockClassify(description || "civic issue requiring municipal inspection");
   // Only used to populate the submitted record when the live analysis is
   // unavailable. Never displayed as an AI result.
   const activeAi: AiAnalysisResult = {
@@ -720,6 +710,10 @@ function ReportPage() {
     }
     if (step === 1 && !locationData.address) {
       setError("Please confirm your location on the map.");
+      return;
+    }
+    if (step === 2 && !category) {
+      setError("Please choose a category for your report.");
       return;
     }
     if (step === 2 && description.trim().length < 5 && mediaItems.length === 0) {
@@ -757,7 +751,7 @@ function ReportPage() {
           c.name === category,
       ) ||
       (activeAi.category ? CATEGORIES.find((c) => c.id === activeAi.category) : null) ||
-      CATEGORIES[1]!;
+      CATEGORIES[0]!; // unreachable: a category is required before the review step
 
     const reportTitle =
       activeAi.summary && !activeAi.summary.toLowerCase().includes("pothole")
@@ -1129,6 +1123,9 @@ function ReportPage() {
                       onChange={(e) => handleCategoryChange(e.target.value)}
                       className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-medium"
                     >
+                      <option value="" disabled>
+                        Select a category…
+                      </option>
                       {CATEGORIES.map((c) => (
                         <option key={c.id} value={c.name}>
                           {c.name}
@@ -1147,32 +1144,30 @@ function ReportPage() {
                 </div>
 
                 {/* Quick Templates for Category */}
-                <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                  <span className="text-xs font-semibold text-muted-foreground mr-1">
-                    Quick templates:
-                  </span>
-                  {(
-                    CATEGORY_TEMPLATES[category] ??
-                    CATEGORY_TEMPLATES["Streetlight & electricity"] ??
-                    []
-                  ).map((tpl) => (
-                    <button
-                      key={tpl.label}
-                      type="button"
-                      onClick={() => {
-                        setDescription(tpl.text);
-                        runAiAnalysis(tpl.text, category);
-                      }}
-                      className="px-2.5 py-1 rounded-lg border border-border bg-muted/40 hover:bg-primary hover:text-primary-foreground hover:border-primary text-xs font-semibold transition shadow-sm"
-                      title="Click to insert this realistic issue description"
-                    >
-                      {tpl.label}
-                    </button>
-                  ))}
-                </div>
+                {category && (CATEGORY_TEMPLATES[category]?.length ?? 0) > 0 && (
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs font-semibold text-muted-foreground mr-1">
+                      Quick templates:
+                    </span>
+                    {(CATEGORY_TEMPLATES[category] ?? []).map((tpl) => (
+                      <button
+                        key={tpl.label}
+                        type="button"
+                        onClick={() => {
+                          setDescription(tpl.text);
+                          runAiAnalysis(tpl.text, category);
+                        }}
+                        className="px-2.5 py-1 rounded-lg border border-border bg-muted/40 hover:bg-primary hover:text-primary-foreground hover:border-primary text-xs font-semibold transition shadow-sm"
+                        title="Click to insert this realistic issue description"
+                      >
+                        {tpl.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Category Mismatch Detected Banner */}
-                {activeAi.category_mismatch && (
+                {category && activeAi.category_mismatch && (
                   <div className="mt-4 rounded-2xl border-2 border-amber-500/60 bg-amber-500/10 p-4 text-xs shadow-sm animate-fade-in">
                     <div className="flex items-start gap-3">
                       <span className="text-xl">⚠️</span>
@@ -1515,12 +1510,14 @@ function ReportPage() {
               </div>
             </div>
 
-            <h3 className="mt-3 text-base font-bold">
-              {category}
-              {aiAnalysis && typeof aiAnalysis.confidence === "number"
-                ? ` · ${Math.round(aiAnalysis.confidence * 100)}% Confidence`
-                : ""}
-            </h3>
+            {(category || (aiAnalysis && typeof aiAnalysis.confidence === "number")) && (
+              <h3 className="mt-3 text-base font-bold">
+                {category}
+                {aiAnalysis && typeof aiAnalysis.confidence === "number"
+                  ? `${category ? " · " : ""}${Math.round(aiAnalysis.confidence * 100)}% Confidence`
+                  : ""}
+              </h3>
+            )}
             {!aiAnalysis && !aiLoading && !visionAnalysis && !visionLoading && (
               <p className="mt-2 text-xs text-white/70">
                 Describe the issue or add a photo and the AI analysis will appear here.
