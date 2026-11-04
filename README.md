@@ -10,8 +10,6 @@ citizen chatbot ("PulseBot"), always as a reviewable recommendation rather than 
 
 - **Stack:** TanStack Start (React 19, SSR) · Tailwind CSS v4 · shadcn/Radix UI · Leaflet/OpenStreetMap ·
   Groq LLM · Supabase (Postgres) · Vercel (Nitro)
-- **Status:** Working product with demo data. **Not yet production-hardened** — read
-  [docs/security.md](docs/security.md) before exposing it to real users.
 
 ## Quick start
 
