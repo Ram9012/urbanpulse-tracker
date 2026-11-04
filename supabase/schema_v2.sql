@@ -23,19 +23,16 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 1. Status & Priority Enums
 DO $$ BEGIN
+  -- Must match civic-data.ts's ReportStatus exactly (uppercased) — the app
+  -- only ever sends these six values, never the more granular workflow
+  -- stages a status machine might suggest.
   CREATE TYPE report_status AS ENUM (
     'SUBMITTED',
-    'UNDER_REVIEW',
     'VERIFIED',
-    'DEPARTMENT_ASSIGNED',
-    'WORKER_ASSIGNED',
+    'ASSIGNED',
     'IN_PROGRESS',
-    'RESOLUTION_SUBMITTED',
-    'STAFF_REVIEW',
     'RESOLVED',
-    'REJECTED',
-    'DUPLICATE',
-    'REOPENED'
+    'DUPLICATE'
   );
 EXCEPTION
   WHEN duplicate_object THEN null;
@@ -49,7 +46,8 @@ END $$;
 
 -- 2. Application Users (created first — reports/notifications FK into it)
 CREATE TABLE IF NOT EXISTS public.app_users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  -- TEXT, not UUID: the app generates its own ids like "USR-<base36>-<n>"
+  id TEXT PRIMARY KEY,
   username TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL, -- bcrypt hash; salt is embedded in the hash
   role TEXT NOT NULL DEFAULT 'citizen', -- 'admin', 'citizen', 'staff'
@@ -90,7 +88,11 @@ CREATE TABLE IF NOT EXISTS public.field_workers (
 CREATE TABLE IF NOT EXISTS public.reports (
   id TEXT PRIMARY KEY DEFAULT ('CIV-' || FLOOR(10000 + RANDOM() * 90000)::TEXT),
   tracking_id TEXT UNIQUE,
-  citizen_username TEXT REFERENCES public.app_users(username) ON DELETE SET NULL,
+  -- No hard FK to app_users: reports sync best-effort and independently of
+  -- user sync (same eventual-consistency model as the rest of this schema),
+  -- so a strict FK here would make a report insert fail whenever its
+  -- author hasn't been synced to this table yet.
+  citizen_username TEXT,
   anonymous BOOLEAN DEFAULT FALSE,
   category_id TEXT NOT NULL,
   category_label TEXT NOT NULL,
@@ -171,7 +173,8 @@ FOR EACH ROW EXECUTE FUNCTION set_report_tracking_id();
 
 -- 6. Report Status History (Audit Trail)
 CREATE TABLE IF NOT EXISTS public.report_status_history (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  -- TEXT, not UUID: the app generates its own ids like "hist-CIV-12345-<ts>"
+  id TEXT PRIMARY KEY,
   report_id TEXT NOT NULL REFERENCES public.reports(id) ON DELETE CASCADE,
   old_status report_status,
   new_status report_status NOT NULL,
@@ -187,8 +190,10 @@ CREATE INDEX IF NOT EXISTS idx_status_history_report
 
 -- 7. Notifications (Triggered by Status Machine)
 CREATE TABLE IF NOT EXISTS public.notifications (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  username TEXT REFERENCES public.app_users(username) ON DELETE CASCADE,
+  -- TEXT, not UUID: the app generates its own ids like "notif-<timestamp>"
+  id TEXT PRIMARY KEY,
+  -- Same reasoning as reports.citizen_username: no hard FK.
+  username TEXT,
   report_id TEXT REFERENCES public.reports(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   message TEXT NOT NULL,
