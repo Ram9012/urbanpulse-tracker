@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { MapCanvas, MapLegend, ReportMarker } from "@/components/site/civic-map";
-import { DemoDataNote, PriorityBadge, StatusBadge } from "@/components/site/primitives";
+import { PriorityBadge, StatusBadge } from "@/components/site/primitives";
 import { REPORTS, formatDateTime, getDeletedReportIds } from "@/lib/civic-data";
 
 export const Route = createFileRoute("/admin/map")({
@@ -41,7 +41,6 @@ function AdminMap() {
             Select a marker to review the report, its AI classification and assignment options.
           </p>
         </div>
-        <DemoDataNote className="ml-auto" />
       </header>
 
       <div className="mt-5 flex flex-wrap gap-2">

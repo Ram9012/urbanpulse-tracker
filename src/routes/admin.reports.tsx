@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
-import { DemoDataNote, PriorityBadge, StatusBadge } from "@/components/site/primitives";
+import { PriorityBadge, StatusBadge } from "@/components/site/primitives";
 import {
   CATEGORIES,
   DEPARTMENTS,
@@ -757,7 +757,6 @@ function ReportsTable() {
           >
             <span>🤖</span> AI Operations Advisor
           </button>
-          <DemoDataNote />
         </div>
       </header>
 

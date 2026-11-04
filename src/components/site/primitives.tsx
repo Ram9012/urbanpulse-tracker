@@ -221,19 +221,6 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
   );
 }
 
-export function DemoDataNote({ className }: { className?: string }) {
-  return (
-    <p
-      className={cn(
-        "inline-flex items-center gap-2 rounded-full bg-mint px-3 py-1.5 text-xs font-semibold text-mint-foreground",
-        className,
-      )}
-    >
-      <span aria-hidden="true">◆</span> Demonstration data — not live municipal records
-    </p>
-  );
-}
-
 export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
     <div className="surface-card p-5">

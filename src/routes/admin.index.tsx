@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Counter, DemoDataNote, Stat, StatusBadge } from "@/components/site/primitives";
+import { Counter, Stat, StatusBadge } from "@/components/site/primitives";
 import {
   DEPARTMENTS,
   FIELD_WORKERS,
@@ -40,7 +40,6 @@ function Overview() {
             Review incoming reports, assign responsibility, and keep citizens informed.
           </p>
         </div>
-        <DemoDataNote className="ml-auto" />
       </header>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
