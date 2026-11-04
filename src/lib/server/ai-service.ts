@@ -27,6 +27,11 @@ const GROQ_MODEL = process.env["GROQ_MODEL"] || "qwen/qwen3.8-27b";
 const GEMINI_API_KEY = process.env["GEMINI_API_KEY"] || "";
 const GEMINI_VISION_MODEL = process.env["GEMINI_VISION_MODEL"] || "gemini-3-flash-preview";
 
+/** Whether the image-analysis model is configured (without exposing the key). */
+export function visionConfig() {
+  return { configured: Boolean(GEMINI_API_KEY), model: GEMINI_VISION_MODEL };
+}
+
 // Base64 photo payloads must stay well under the request size limit.
 const MAX_VISION_IMAGE_BYTES = 4 * 1024 * 1024;
 
@@ -590,8 +595,11 @@ export async function assessResolutionWithVision(params: {
 }): Promise<ResolutionVlmAssessment> {
   for (const url of [params.originalDataUrl, params.resolutionDataUrl]) {
     if (!url.startsWith("data:image/")) throw new Error("Expected base64 data URL images");
-    if (Math.floor(((url.split(",")[1] || "").length * 3) / 4) > MAX_VISION_IMAGE_BYTES) {
-      throw new Error("Image too large for vision analysis (max 4MB)");
+    const approxBytes = Math.floor(((url.split(",")[1] || "").length * 3) / 4);
+    if (approxBytes > MAX_VISION_IMAGE_BYTES) {
+      throw new Error(
+        `Image too large for vision analysis (${(approxBytes / 1048576).toFixed(1)}MB, max 4MB)`,
+      );
     }
   }
 

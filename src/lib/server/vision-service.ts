@@ -18,8 +18,8 @@ import path from "path";
 import crypto from "crypto";
 import {
   verifyResolutionEvidence,
-  verifyWithGroqMultiModel,
   assessResolutionWithVision,
+  visionConfig,
   type ResolutionVlmAssessment,
 } from "./ai-service";
 
@@ -63,6 +63,8 @@ export type VerificationRecord = {
   locationMatchScore?: number | undefined;
   vlmVerdict?: ResolutionVlmAssessment["verdict"] | undefined;
   vlmModel?: string | undefined;
+  /** Why the image-analysis model could not run, in plain language. Absent when it ran. */
+  visionError?: string | undefined;
   /** Vision assessment kept on the record until the Python pipeline finishes, then merged. */
   pendingVlm?: ResolutionVlmAssessment | undefined;
   adminDecision?: "approved" | "rejected" | "manual_review" | undefined;
@@ -289,23 +291,76 @@ const MIME_BY_EXT: Record<string, string> = {
   ".webp": "image/webp",
 };
 
+const FETCH_TIMEOUT_MS = 15000;
+
 /** Resolve a data: URL, local /media path or http(s) URL into a base64 data URL. */
 async function loadImageAsDataUrl(src: string): Promise<string> {
+  if (!src || typeof src !== "string") throw new Error("Image URL is missing");
   if (src.startsWith("data:image/")) return src;
+  if (src.startsWith("data:")) throw new Error("Embedded file is not an image");
+  if (src.startsWith("blob:")) {
+    throw new Error(
+      "Photo is a browser-only blob: URL that the server cannot read (upload did not complete)",
+    );
+  }
   if (/^https?:\/\//i.test(src)) {
-    const res = await fetch(src);
-    if (!res.ok) throw new Error(`Image fetch failed (${res.status}): ${src}`);
-    const mime = res.headers.get("content-type")?.split(";")[0] || "image/jpeg";
-    return `data:${mime};base64,${Buffer.from(await res.arrayBuffer()).toString("base64")}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(src, { signal: controller.signal });
+      if (!res.ok) throw new Error(`Image fetch failed (${res.status}): ${src.slice(0, 120)}`);
+      let mime = res.headers.get("content-type")?.split(";")[0]?.trim() || "";
+      if (!mime.startsWith("image/")) {
+        mime = MIME_BY_EXT[path.extname(new URL(src).pathname).toLowerCase()] || "";
+      }
+      if (!mime) throw new Error(`URL did not return an image: ${src.slice(0, 120)}`);
+      return `data:${mime};base64,${Buffer.from(await res.arrayBuffer()).toString("base64")}`;
+    } finally {
+      clearTimeout(timer);
+    }
   }
   const rel = src.replace(/^\/+/, "");
-  const abs = path.resolve(process.cwd(), "public", rel);
-  if (!abs.startsWith(path.resolve(process.cwd(), "public"))) {
-    throw new Error("Image path outside public directory");
-  }
+  const publicDir = path.resolve(process.cwd(), "public");
+  const abs = path.resolve(publicDir, rel);
+  if (!abs.startsWith(publicDir)) throw new Error("Image path outside public directory");
+  if (!fs.existsSync(abs)) throw new Error(`Photo not found on the server: ${src.slice(0, 120)}`);
   const mime = MIME_BY_EXT[path.extname(abs).toLowerCase()] || "image/jpeg";
   return `data:${mime};base64,${fs.readFileSync(abs).toString("base64")}`;
 }
+
+/** Plain-language reason for a failed image analysis, shown to staff. */
+function describeVisionError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (/GEMINI_API_KEY is not configured/i.test(raw)) {
+    return "the image-analysis key (GEMINI_API_KEY) is not configured on the server";
+  }
+  if (/\((401|403)\)|API key not valid|PERMISSION_DENIED/i.test(raw)) {
+    return "the image-analysis API key was rejected";
+  }
+  if (/\(429\)|RESOURCE_EXHAUSTED|quota/i.test(raw)) {
+    return "the image-analysis service is rate-limited or out of quota";
+  }
+  if (/\(5\d\d\)|UNAVAILABLE|overloaded/i.test(raw)) {
+    return "the image-analysis service is temporarily unavailable";
+  }
+  if (/too large/i.test(raw)) return raw;
+  if (
+    /not found on the server|blob:|Image fetch failed|did not return an image|not an image|missing/i.test(
+      raw,
+    )
+  ) {
+    return `one of the photos could not be read (${raw.slice(0, 140)})`;
+  }
+  if (/abort|timeout|fetch failed|ECONN|ENOTFOUND/i.test(raw)) {
+    return "the image-analysis service could not be reached";
+  }
+  return raw.slice(0, 180);
+}
+
+const isTransient = (err: unknown) =>
+  /\(429\)|\(5\d\d\)|RESOURCE_EXHAUSTED|UNAVAILABLE|abort|timeout|fetch failed|ECONN/i.test(
+    err instanceof Error ? err.message : String(err),
+  );
 
 async function runVisionAssessment(params: {
   originalImageUrl: string;
@@ -317,12 +372,20 @@ async function runVisionAssessment(params: {
     loadImageAsDataUrl(params.originalImageUrl),
     loadImageAsDataUrl(params.resolutionImageUrl),
   ]);
-  return assessResolutionWithVision({
+  const request = {
     originalDataUrl,
     resolutionDataUrl,
     ...(params.reportCategory ? { category: params.reportCategory } : {}),
     ...(params.reportDescription ? { description: params.reportDescription } : {}),
-  });
+  };
+  try {
+    return await assessResolutionWithVision(request);
+  } catch (err) {
+    if (!isTransient(err)) throw err;
+    // One retry for rate limits, 5xx and network blips.
+    await new Promise((r) => setTimeout(r, 1500));
+    return assessResolutionWithVision(request);
+  }
 }
 
 const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
@@ -337,7 +400,11 @@ function applyHybridVerdict(
   base: VerificationRecord,
   vlm: ResolutionVlmAssessment | undefined,
 ): VerificationRecord {
-  if (!vlm) return base;
+  if (!vlm) {
+    return base.visionError
+      ? { ...base, flags: [...(base.flags ?? []), "image_analysis_unavailable"] }
+      : base;
+  }
 
   const geometric = [
     base.sceneConsistencyScore,
@@ -376,6 +443,7 @@ function applyHybridVerdict(
     ...base,
     // Explicit undefined so the upsert merge clears the stored copy.
     pendingVlm: undefined,
+    visionError: undefined,
     jobStatus: "completed",
     verificationStatus: status,
     qualityScore: round3(quality),
@@ -444,8 +512,10 @@ export async function submitVerificationJob(params: {
     ]);
 
     const vlm = vlmRes.status === "fulfilled" ? vlmRes.value : undefined;
+    const visionError =
+      vlmRes.status === "rejected" ? describeVisionError(vlmRes.reason) : undefined;
     if (vlmRes.status === "rejected") {
-      console.warn(`[Vision Service] Vision model unavailable: ${String(vlmRes.reason)}`);
+      console.warn(`[Vision Service] Image analysis failed for ${params.reportId}:`, vlmRes.reason);
     }
 
     // Python service accepted the job: keep the VLM result on the record and
@@ -457,6 +527,7 @@ export async function submitVerificationJob(params: {
         id: typeof jobId === "string" ? jobId : localId,
         jobStatus: "processing",
         pendingVlm: vlm,
+        visionError,
         updatedAt: new Date().toISOString(),
       });
       console.info(`[Vision Service] Verification job submitted for report ${params.reportId}`);
@@ -475,43 +546,18 @@ export async function submitVerificationJob(params: {
       return;
     }
 
-    // Both unavailable: last-resort text-only engine (no pixels are inspected).
-    try {
-      const groqCheck = await verifyWithGroqMultiModel({
-        category: params.reportCategory || "General",
-        title: params.reportCategory || "Civic Complaint",
-        description: params.reportDescription || "Field resolution photo submitted by worker.",
-        resolutionNotes: params.reportDescription || "Remediation work completed on site.",
-        originalImageLabel: "Original citizen complaint photo on site",
-        resolutionImageLabel: "Field worker resolution photo proof",
-      });
-      await upsertVerification({
-        ...pendingRecord,
-        jobStatus: "completed",
-        verificationStatus: groqCheck.status as VerificationOutcome,
-        sceneConsistencyScore: groqCheck.sceneConsistencyScore,
-        siameseSimilarityScore: groqCheck.siameseSimilarityScore,
-        bidirectionalScore: groqCheck.bidirectionalScore,
-        segmentationScore: groqCheck.segmentationScore,
-        qualityScore: groqCheck.qualityScore,
-        finalVerificationScore: groqCheck.finalVerificationScore,
-        evidenceExplanation: groqCheck.evidenceExplanation,
-        flags: [...groqCheck.flags, "text_only_fallback_no_image_analysis"],
-        modelVersion: "Text-only fallback (images not inspected)",
-        updatedAt: new Date().toISOString(),
-      });
-    } catch (fallbackErr: unknown) {
-      console.error("[Vision Service] Fallback error:", fallbackErr);
-      await upsertVerification({
-        ...pendingRecord,
-        jobStatus: "completed",
-        verificationStatus: "NEEDS_REVIEW",
-        evidenceExplanation:
-          "Automated verification unavailable. Manual supervisor audit required.",
-        flags: ["manual_supervisor_review_required"],
-        updatedAt: new Date().toISOString(),
-      });
-    }
+    // Neither image analysis nor the Siamese/ORB service could run. Never guess from text:
+    // hand it to a person and say exactly why.
+    await upsertVerification({
+      ...pendingRecord,
+      jobStatus: "completed",
+      verificationStatus: "NEEDS_REVIEW",
+      evidenceExplanation: `Automatic image analysis could not run: ${visionError ?? "the verification service is unavailable"}. A supervisor needs to review the before and after photos manually.`,
+      flags: ["image_analysis_unavailable", "manual_review_required"],
+      modelVersion: "Unavailable",
+      visionError: visionError ?? "the verification service is unavailable",
+      updatedAt: new Date().toISOString(),
+    });
   });
 
   return pendingRecord;
@@ -622,4 +668,36 @@ export async function recordAdminDecision(
   };
   await upsertVerification(updated);
   return updated;
+}
+
+/**
+ * Self-test for the image-analysis setup. Sends the two bundled sample photos through the
+ * exact same path real verifications use and reports success or the precise reason it failed.
+ */
+export async function diagnoseVision() {
+  const config = visionConfig();
+  const started = Date.now();
+  try {
+    const result = await runVisionAssessment({
+      originalImageUrl: "/media/evidence/pothole_before.jpg",
+      resolutionImageUrl: "/media/evidence/pothole_resolved.jpg",
+      reportCategory: "Road & pothole",
+    });
+    return {
+      ok: true,
+      config,
+      ms: Date.now() - started,
+      verdict: result.verdict,
+      sameLocationScore: result.sameLocationScore,
+      resolvedScore: result.resolvedScore,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      config,
+      ms: Date.now() - started,
+      error: describeVisionError(err),
+      detail: err instanceof Error ? err.message.slice(0, 400) : String(err).slice(0, 400),
+    };
+  }
 }

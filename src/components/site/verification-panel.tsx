@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { CircleAlert } from "lucide-react";
 import { VerificationBadge } from "./verification-badge";
 
 export type VerificationRecordUI = {
@@ -18,6 +19,7 @@ export type VerificationRecordUI = {
   locationMatchScore?: number;
   vlmVerdict?: string;
   vlmModel?: string;
+  visionError?: string;
   evidenceExplanation?: string;
   flags?: string[];
   modelVersion?: string;
@@ -169,6 +171,22 @@ export function VerificationPanel({
           )}
         </div>
       </div>
+
+      {latest?.visionError && (
+        <div
+          role="alert"
+          className="mt-5 flex items-start gap-3 rounded-2xl bg-warning/12 p-4 text-sm ring-1 ring-warning/30 ring-inset"
+        >
+          <CircleAlert className="mt-0.5 size-4 shrink-0 text-warning-foreground" />
+          <div>
+            <p className="font-bold text-warning-foreground">Image analysis could not run</p>
+            <p className="mt-0.5 text-foreground/80">
+              Your photos were not the problem: {latest.visionError}. Any scores shown come from the
+              other checks only, and a supervisor should review the photos manually.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-border/50 py-2.5 text-xs font-bold">

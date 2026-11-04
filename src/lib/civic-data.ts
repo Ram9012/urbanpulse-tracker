@@ -326,7 +326,7 @@ export const REPORTS: CivicReport[] = [
     address: "Shankaripuram 1st Main, Hassan",
     mediaUrls: ["/media/evidence/pothole_before.jpg"],
     workerMediaUrls: ["/media/evidence/pothole_before.jpg"],
-    resolutionMediaUrls: ["/media/evidence/pothole_after.jpg"],
+    resolutionMediaUrls: ["/media/evidence/pothole_resolved.jpg"],
     resolutionNotes:
       "Replaced broken RCC precast drain slab with reinforced heavy-duty cover. Graded and sealed edges.",
   },

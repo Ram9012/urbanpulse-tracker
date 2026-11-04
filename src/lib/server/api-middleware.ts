@@ -14,6 +14,7 @@ import {
   checkAiServiceHealth,
   submitVerificationJob,
   pollVerificationResult,
+  diagnoseVision,
 } from "./vision-service";
 import {
   initializeStatusEngine,
@@ -219,6 +220,10 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
         submittedBy: body.requestedBy,
       });
       return Response.json({ success: true, verification }, { status: 200 });
+    }
+
+    if (pathname === "/api/vision/diagnose" && request.method === "GET") {
+      return Response.json(await diagnoseVision(), { status: 200 });
     }
 
     if (pathname === "/api/vision/health" && request.method === "GET") {
@@ -517,6 +522,10 @@ export function civicPulseApiPlugin(): Plugin {
               submittedBy: body.requestedBy,
             });
             return sendJson(res, 200, { success: true, verification });
+          }
+
+          if (url === "/api/vision/diagnose" && req.method === "GET") {
+            return sendJson(res, 200, await diagnoseVision());
           }
 
           if (url === "/api/vision/health" && req.method === "GET") {
