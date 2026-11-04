@@ -4,6 +4,15 @@
 //     nitro (build-only using cloudflare as a default target), VITE_* env injection, @ path alias,
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
+//
+// This config's own loadEnv() call only exposes VITE_-prefixed vars (to the
+// client bundle). Server-only vars (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+// ADMIN_SEED_PASSWORD, SESSION_SECRET, ...) are read from plain
+// `process.env` by src/lib/server/*.ts at module-load time. This import
+// MUST stay first: ES modules evaluate sibling imports in textual order,
+// and ./scripts/load-env populates process.env as a side effect before the
+// civicPulseApiPlugin import below pulls in supabase-client.ts.
+import "./scripts/load-env";
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { civicPulseApiPlugin } from "./src/lib/server/api-middleware";
 
