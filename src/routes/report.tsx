@@ -430,7 +430,7 @@ function ReportPage() {
     });
   };
 
-  // Gemini Vision Analysis of the first attached photo: classifies the defect
+  // AI vision analysis of the first attached photo: classifies the defect
   // and gives a qualitative severity + size estimate (not a calibrated measurement).
   const runVisionAnalysis = async (imageDataUrl: string) => {
     if (!imageDataUrl.startsWith("data:image/")) return; // skip blob: URLs (plain file uploads without compression)
@@ -1532,7 +1532,7 @@ function ReportPage() {
               {(visionLoading || visionAnalysis || visionError) && (
                 <div className="rounded-xl bg-navy-foreground/10 p-3">
                   <span className="font-bold text-teal block uppercase tracking-wider text-[10px]">
-                    Photo Analysis (Gemini Vision)
+                    Photo Analysis (AI Vision)
                   </span>
                   {visionLoading && <p className="mt-1 text-white/80">Analyzing uploaded photo…</p>}
                   {visionError && !visionLoading && (

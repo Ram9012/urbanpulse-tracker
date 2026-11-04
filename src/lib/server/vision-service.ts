@@ -386,9 +386,7 @@ function applyHybridVerdict(
     vlmModel: vlm.model,
     evidenceExplanation: vlm.explanation,
     flags: [...flags],
-    modelVersion: base.modelVersion
-      ? `${base.modelVersion} + ${vlm.model}`
-      : `Siamese-ORB (unavailable) + ${vlm.model}`,
+    modelVersion: base.modelVersion ? `${base.modelVersion} + Vision AI` : "Vision AI",
     updatedAt: new Date().toISOString(),
   };
 }
@@ -499,7 +497,7 @@ export async function submitVerificationJob(params: {
         finalVerificationScore: groqCheck.finalVerificationScore,
         evidenceExplanation: groqCheck.evidenceExplanation,
         flags: [...groqCheck.flags, "text_only_fallback_no_image_analysis"],
-        modelVersion: "Groq text-only fallback (images not inspected)",
+        modelVersion: "Text-only fallback (images not inspected)",
         updatedAt: new Date().toISOString(),
       });
     } catch (fallbackErr: unknown) {

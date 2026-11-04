@@ -160,7 +160,7 @@ Return a strictly valid JSON object with EXACTLY this structure:
       ),
       visual_description: String(raw.visual_description || "Civic defect visible in photo."),
       category_match: Boolean(raw.category_match ?? true),
-      source: "Gemini Vision AI Engine",
+      source: "CivicPulse Vision AI",
     };
   } catch (err: any) {
     console.warn("[Gemini Vision Analysis Fallback]:", err.message);
