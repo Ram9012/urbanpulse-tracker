@@ -105,21 +105,6 @@ function AdminLayout() {
                   </Link>
                 </li>
               ))}
-              {[
-                "Departments",
-                "Field Workers",
-                "Assignments",
-                "Analytics",
-                "Notifications",
-                "Settings",
-                "Audit Logs",
-              ].map((label) => (
-                <li key={label}>
-                  <span className="block rounded-xl px-3 py-2.5 text-sm font-semibold whitespace-nowrap text-sidebar-foreground/45">
-                    {label}
-                  </span>
-                </li>
-              ))}
             </ul>
           </nav>
         </div>
