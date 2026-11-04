@@ -25,8 +25,16 @@ import {
   getAllUsers,
   initializeAuthStore,
   syncUsersFromCookie,
+  createSessionToken,
+  getSessionFromCookieHeader,
+  SESSION_COOKIE_NAME,
 } from "./auth-store";
+import { checkSupabaseStatus, uploadMediaToSupabase } from "./supabase-client";
 import { REPORTS } from "../civic-data";
+
+function sessionCookie(token: string): string {
+  return `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; Max-Age=86400; SameSite=Lax; HttpOnly`;
+}
 
 // Initialize reports & auth store
 initializeStatusEngine(REPORTS);
@@ -53,6 +61,41 @@ function sendJson(res: any, status: number, data: any) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json");
   res.end(JSON.stringify(data));
+}
+
+// Base64 adds ~33% overhead and Vercel's default serverless function body
+// limit is 4.5MB, so cap the decoded (raw) file size well under that.
+const MAX_UPLOAD_BYTES = 3 * 1024 * 1024; // 3MB raw (~4MB as base64)
+
+/** Upload a base64-encoded file to Supabase Storage via supabase-client. */
+async function handleMediaUploadBody(body: {
+  reportId?: string;
+  kind?: "evidence" | "resolution";
+  fileName?: string;
+  contentType?: string;
+  dataBase64?: string;
+}): Promise<{ status: number; data: any }> {
+  const { reportId, kind, fileName, contentType, dataBase64 } = body;
+  if (!reportId || !dataBase64) {
+    return { status: 400, data: { error: "Missing reportId or dataBase64" } };
+  }
+  const buffer = Buffer.from(dataBase64, "base64");
+  if (buffer.length === 0) {
+    return { status: 400, data: { error: "Empty file" } };
+  }
+  if (buffer.length > MAX_UPLOAD_BYTES) {
+    return { status: 413, data: { error: "File too large (max 3MB)" } };
+  }
+  const extension = (fileName || "").split(".").pop()?.toLowerCase() || "bin";
+  const result = await uploadMediaToSupabase(
+    reportId,
+    { buffer, contentType: contentType || "application/octet-stream", extension },
+    kind === "resolution" ? "resolution" : "evidence",
+  );
+  if (!result) {
+    return { status: 502, data: { error: "Upload failed — check Supabase Storage configuration" } };
+  }
+  return { status: 201, data: { success: true, path: result.path, url: result.url } };
 }
 
 export async function handleApiRequest(request: Request): Promise<Response | null> {
@@ -156,6 +199,13 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       return Response.json({ success: true, report: newReport }, { status: 201 });
     }
 
+    // Media upload (evidence or resolution proof) to Supabase Storage
+    if (pathname === "/api/media/upload" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      const { status, data } = await handleMediaUploadBody(body);
+      return Response.json(data, { status });
+    }
+
     if (pathname === "/api/reports/upvote" && request.method === "POST") {
       const body = await request.json().catch(() => ({}));
       const { reportId, userIdentifier } = body;
@@ -188,20 +238,28 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       return Response.json(status, { status: 200 });
     }
 
-    // 8. Clean database (Purge old complaints and reset to single latest complaint)
+    // 8. Clean database (admin only — Purge old complaints and reset to single latest complaint)
     if (
       pathname === "/api/admin/clean-database" &&
       (request.method === "POST" || request.method === "GET")
     ) {
+      const session = getSessionFromCookieHeader(request.headers.get("cookie"));
+      if (!session || session.role !== "admin") {
+        return Response.json({ error: "Admin session required" }, { status: 403 });
+      }
       const cleanResult = await resetToCleanState();
       return Response.json(cleanResult, { status: 200 });
     }
 
-    // 9. Delete specific report from database & Supabase
+    // 9. Delete specific report from database & Supabase (admin only)
     if (
       (pathname === "/api/reports/delete" || pathname === "/api/status/delete") &&
       (request.method === "POST" || request.method === "DELETE")
     ) {
+      const session = getSessionFromCookieHeader(request.headers.get("cookie"));
+      if (!session || session.role !== "admin") {
+        return Response.json({ error: "Admin session required" }, { status: 403 });
+      }
       const body = await request.json().catch(() => ({}));
       const id = body.reportId || body.id || url.searchParams.get("id");
       if (!id) {
@@ -219,10 +277,11 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       const headers = new Headers({ "Content-Type": "application/json" });
       if (authResult.success && authResult.user) {
         const allUsers = getAllUsers();
-        headers.set(
+        headers.append(
           "Set-Cookie",
           `civicpulse_client_users=${encodeURIComponent(JSON.stringify(allUsers))}; Path=/; Max-Age=31536000; SameSite=Lax`,
         );
+        headers.append("Set-Cookie", sessionCookie(createSessionToken(authResult.user)));
       }
       return new Response(JSON.stringify(authResult), {
         status: authResult.success ? 200 : 401,
@@ -237,10 +296,11 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       const headers = new Headers({ "Content-Type": "application/json" });
       if (regResult.success && regResult.user) {
         const allUsers = getAllUsers();
-        headers.set(
+        headers.append(
           "Set-Cookie",
           `civicpulse_client_users=${encodeURIComponent(JSON.stringify(allUsers))}; Path=/; Max-Age=31536000; SameSite=Lax`,
         );
+        headers.append("Set-Cookie", sessionCookie(createSessionToken(regResult.user)));
       }
       return new Response(JSON.stringify(regResult), {
         status: regResult.success ? 201 : 400,
@@ -249,6 +309,10 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
     }
 
     if (pathname === "/api/auth/users" && request.method === "GET") {
+      const session = getSessionFromCookieHeader(request.headers.get("cookie"));
+      if (!session || session.role !== "admin") {
+        return Response.json({ error: "Admin session required" }, { status: 403 });
+      }
       return Response.json({ users: getAllUsers() }, { status: 200 });
     }
 
@@ -368,6 +432,13 @@ export function civicPulseApiPlugin(): Plugin {
             return sendJson(res, 201, { success: true, report: newReport });
           }
 
+          // Media upload (evidence or resolution proof) to Supabase Storage
+          if (url === "/api/media/upload" && req.method === "POST") {
+            const body = await parseJsonBody(req).catch(() => ({}));
+            const { status, data } = await handleMediaUploadBody(body);
+            return sendJson(res, status, data);
+          }
+
           if (url === "/api/reports/upvote" && req.method === "POST") {
             const body = await parseJsonBody(req).catch(() => ({}));
             const { reportId, userIdentifier } = body;
@@ -395,13 +466,17 @@ export function civicPulseApiPlugin(): Plugin {
             return sendJson(res, 200, status);
           }
 
-          // 8. Clean database
+          // 8. Clean database (admin only)
           if (url.startsWith("/api/admin/clean-database")) {
+            const session = getSessionFromCookieHeader(req.headers.cookie);
+            if (!session || session.role !== "admin") {
+              return sendJson(res, 403, { error: "Admin session required" });
+            }
             const cleanResult = await resetToCleanState();
             return sendJson(res, 200, cleanResult);
           }
 
-          // 9. Delete specific report from database & Supabase
+          // 9. Delete specific report from database & Supabase (admin only)
           if (
             (url === "/api/reports/delete" ||
               url.startsWith("/api/reports/delete") ||
@@ -409,6 +484,10 @@ export function civicPulseApiPlugin(): Plugin {
               url.startsWith("/api/status/delete")) &&
             (req.method === "POST" || req.method === "DELETE")
           ) {
+            const session = getSessionFromCookieHeader(req.headers.cookie);
+            if (!session || session.role !== "admin") {
+              return sendJson(res, 403, { error: "Admin session required" });
+            }
             const body = await parseJsonBody(req).catch(() => ({}));
             const idMatch = url.match(/[?&]id=([^&]+)/);
             const id =
@@ -429,10 +508,10 @@ export function civicPulseApiPlugin(): Plugin {
             const authResult = await authenticateUser(username, password, clientBackupUser);
             if (authResult.success && authResult.user) {
               const allUsers = getAllUsers();
-              res.setHeader(
-                "Set-Cookie",
+              res.setHeader("Set-Cookie", [
                 `civicpulse_client_users=${encodeURIComponent(JSON.stringify(allUsers))}; Path=/; Max-Age=31536000; SameSite=Lax`,
-              );
+                sessionCookie(createSessionToken(authResult.user)),
+              ]);
             }
             return sendJson(res, authResult.success ? 200 : 401, authResult);
           }
@@ -443,15 +522,19 @@ export function civicPulseApiPlugin(): Plugin {
             const regResult = await registerUser(username, password, confirmPassword, displayName);
             if (regResult.success && regResult.user) {
               const allUsers = getAllUsers();
-              res.setHeader(
-                "Set-Cookie",
+              res.setHeader("Set-Cookie", [
                 `civicpulse_client_users=${encodeURIComponent(JSON.stringify(allUsers))}; Path=/; Max-Age=31536000; SameSite=Lax`,
-              );
+                sessionCookie(createSessionToken(regResult.user)),
+              ]);
             }
             return sendJson(res, regResult.success ? 201 : 400, regResult);
           }
 
           if (url === "/api/auth/users" && req.method === "GET") {
+            const session = getSessionFromCookieHeader(req.headers.cookie);
+            if (!session || session.role !== "admin") {
+              return sendJson(res, 403, { error: "Admin session required" });
+            }
             return sendJson(res, 200, { users: getAllUsers() });
           }
 

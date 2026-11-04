@@ -1,20 +1,27 @@
 /**
  * CivicPulse — Supabase Client & Persistence Bridge
- * Project: videoediting | Org: Zenith Stack
  *
- * Provides connection check, data sync, and fallback handling.
+ * Uses the official @supabase/supabase-js client with the service-role key.
+ * No hardcoded project URL/key fallback: if env vars are missing, every
+ * function here is a safe no-op and checkSupabaseStatus() reports exactly
+ * why, instead of silently talking to an unrelated/guessed project.
  */
 
+import crypto from "crypto";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { CivicReport } from "../civic-data";
 import { StatusHistoryEntry } from "./status-engine";
 
-const SUPABASE_URL =
-  process.env["VITE_SUPABASE_URL"] ||
-  process.env["SUPABASE_URL"] ||
-  "https://wqwlqbozwcbcxjbxlqmh.supabase.co";
+const SUPABASE_URL = process.env["SUPABASE_URL"] || "";
 const SUPABASE_KEY =
   process.env["SUPABASE_SERVICE_ROLE_KEY"] || process.env["VITE_SUPABASE_ANON_KEY"] || "";
-const SUPABASE_PROJECT_NAME = process.env["SUPABASE_PROJECT_NAME"] || "videoediting";
+const SUPABASE_PROJECT_NAME = process.env["SUPABASE_PROJECT_NAME"] || "(unnamed)";
+const STORAGE_BUCKET = process.env["SUPABASE_STORAGE_BUCKET"] || "report-media";
+
+const supabase: SupabaseClient | null =
+  SUPABASE_URL && SUPABASE_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } })
+    : null;
 
 export type SupabaseStatus = {
   configured: boolean;
@@ -26,29 +33,31 @@ export type SupabaseStatus = {
 };
 
 export async function checkSupabaseStatus(): Promise<SupabaseStatus> {
-  const hasKey = Boolean(SUPABASE_KEY && SUPABASE_KEY.length > 10);
-  if (!hasKey) {
+  if (!SUPABASE_URL) {
+    return {
+      configured: false,
+      connected: false,
+      projectName: SUPABASE_PROJECT_NAME,
+      url: "",
+      hasKey: false,
+      message:
+        "SUPABASE_URL is not set. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to your environment to enable cloud sync.",
+    };
+  }
+  if (!supabase) {
     return {
       configured: true,
       connected: false,
       projectName: SUPABASE_PROJECT_NAME,
       url: SUPABASE_URL,
       hasKey: false,
-      message:
-        "Supabase project configured. Add VITE_SUPABASE_ANON_KEY to .env to enable direct live cloud sync.",
+      message: "SUPABASE_URL is set but no key (SUPABASE_SERVICE_ROLE_KEY) was found.",
     };
   }
 
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/reports?limit=1`, {
-      method: "GET",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-      },
-    });
-
-    if (res.ok) {
+    const { error } = await supabase.from("reports").select("id", { count: "exact", head: true });
+    if (!error) {
       return {
         configured: true,
         connected: true,
@@ -58,14 +67,13 @@ export async function checkSupabaseStatus(): Promise<SupabaseStatus> {
         message: "Successfully connected to Supabase PostgreSQL & Storage.",
       };
     }
-
     return {
       configured: true,
       connected: false,
       projectName: SUPABASE_PROJECT_NAME,
       url: SUPABASE_URL,
       hasKey: true,
-      message: `Supabase reachable, HTTP ${res.status}: Tables pending migration or schema setup. Run supabase/schema.sql.`,
+      message: `Supabase reachable but query failed: ${error.message}. Run the schema SQL for this project.`,
     };
   } catch (err: any) {
     return {
@@ -83,41 +91,38 @@ export async function checkSupabaseStatus(): Promise<SupabaseStatus> {
  * Save / Upsert report to Supabase PostgreSQL
  */
 export async function saveReportToSupabase(report: CivicReport): Promise<boolean> {
-  if (!SUPABASE_KEY) return false;
+  if (!supabase) return false;
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/reports`, {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        "Content-Type": "application/json",
-        Prefer: "resolution=merge-duplicates",
-      },
-      body: JSON.stringify({
-        id: report.id,
-        tracking_id: report.id,
-        title: report.title,
-        description: report.description,
-        category_id: report.category,
-        category_label: report.categoryLabel,
-        ward: report.ward,
-        area: report.area,
-        status: report.status.toUpperCase(),
-        priority: report.priority,
-        department_name: report.department,
-        worker_name: report.worker,
-        media_urls: report.mediaUrls || [],
-        resolution_notes: report.resolutionNotes,
-        resolution_media_urls: report.resolutionMediaUrls || [],
-        latitude: report.latitude,
-        longitude: report.longitude,
-        upvotes: report.upvotes || 0,
-        upvoted_by: report.upvotedBy || [],
-        created_at: report.createdAt,
-        updated_at: report.updatedAt,
-      }),
+    const { error } = await supabase.from("reports").upsert({
+      id: report.id,
+      tracking_id: report.id,
+      title: report.title,
+      description: report.description,
+      category_id: report.category,
+      category_label: report.categoryLabel,
+      ward: report.ward,
+      area: report.area,
+      status: report.status.toUpperCase(),
+      priority: report.priority,
+      department_name: report.department,
+      worker_name: report.worker,
+      media_paths: report.mediaUrls || [],
+      resolution_notes: report.resolutionNotes,
+      resolution_media_paths: report.resolutionMediaUrls || [],
+      latitude: report.latitude,
+      longitude: report.longitude,
+      upvotes: report.upvotes || 0,
+      upvoted_by: report.upvotedBy || [],
+      anonymous: report.anonymous,
+      citizen_username: report.anonymous ? null : report.reportedBy || null,
+      created_at: report.createdAt,
+      updated_at: report.updatedAt,
     });
-    return res.ok;
+    if (error) {
+      console.warn("[Supabase Sync Report Warning]:", error.message);
+      return false;
+    }
+    return true;
   } catch (err: any) {
     console.warn("[Supabase Sync Report Warning]:", err.message);
     return false;
@@ -128,28 +133,24 @@ export async function saveReportToSupabase(report: CivicReport): Promise<boolean
  * Save status history audit log to Supabase PostgreSQL
  */
 export async function saveStatusHistoryToSupabase(entry: StatusHistoryEntry): Promise<boolean> {
-  if (!SUPABASE_KEY) return false;
+  if (!supabase) return false;
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/report_status_history`, {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        id: entry.id,
-        report_id: entry.reportId,
-        old_status: entry.oldStatus ? entry.oldStatus.toUpperCase() : null,
-        new_status: entry.newStatus.toUpperCase(),
-        changed_by: entry.changedBy,
-        role: entry.role,
-        changed_at: entry.changedAt,
-        comment: entry.comment,
-        metadata: entry.metadata || {},
-      }),
+    const { error } = await supabase.from("report_status_history").insert({
+      id: entry.id,
+      report_id: entry.reportId,
+      old_status: entry.oldStatus ? entry.oldStatus.toUpperCase() : null,
+      new_status: entry.newStatus.toUpperCase(),
+      changed_by: entry.changedBy,
+      role: entry.role,
+      changed_at: entry.changedAt,
+      comment: entry.comment,
+      metadata: entry.metadata || {},
     });
-    return res.ok;
+    if (error) {
+      console.warn("[Supabase Sync History Warning]:", error.message);
+      return false;
+    }
+    return true;
   } catch (err: any) {
     console.warn("[Supabase Sync History Warning]:", err.message);
     return false;
@@ -163,33 +164,16 @@ export async function clearSupabaseAndSeedLatest(
   latestReport: CivicReport,
   historyEntry: StatusHistoryEntry,
 ): Promise<{ success: boolean; message: string }> {
-  if (!SUPABASE_KEY) {
+  if (!supabase) {
     return {
       success: true,
-      message: "Supabase key not configured in local environment; local storage cleaned.",
+      message: "Supabase not configured in this environment; local storage cleaned.",
     };
   }
 
   try {
-    // 1. Delete all status history from Supabase
-    await fetch(`${SUPABASE_URL}/rest/v1/report_status_history?id=neq.none`, {
-      method: "DELETE",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-      },
-    });
-
-    // 2. Delete all previous reports from Supabase
-    await fetch(`${SUPABASE_URL}/rest/v1/reports?id=neq.none`, {
-      method: "DELETE",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-      },
-    });
-
-    // 3. Insert the latest report and its initial history entry
+    await supabase.from("report_status_history").delete().neq("id", "");
+    await supabase.from("reports").delete().neq("id", "");
     await saveReportToSupabase(latestReport);
     await saveStatusHistoryToSupabase(historyEntry);
 
@@ -210,60 +194,28 @@ export async function clearSupabaseAndSeedLatest(
  * Delete a specific report and its status history from Supabase PostgreSQL
  */
 export async function deleteReportFromSupabase(reportId: string): Promise<boolean> {
-  if (!SUPABASE_KEY) {
+  if (!supabase) {
     console.info(
-      `[Supabase Delete]: No API key in local environment, skipped remote delete for ${reportId}.`,
+      `[Supabase Delete]: Not configured in this environment, skipped remote delete for ${reportId}.`,
     );
     return true;
   }
 
   try {
     const cleanId = reportId.trim();
-    // 1. Delete associated status history records
-    await fetch(
-      `${SUPABASE_URL}/rest/v1/report_status_history?report_id=eq.${encodeURIComponent(cleanId)}`,
-      {
-        method: "DELETE",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-        },
-      },
-    );
+    await supabase.from("report_status_history").delete().eq("report_id", cleanId);
+    await supabase.from("reports").update({ duplicate_of_id: null }).eq("duplicate_of_id", cleanId);
+    const { error } = await supabase
+      .from("reports")
+      .delete()
+      .or(`id.eq.${cleanId},tracking_id.eq.${cleanId}`);
 
-    // 2. Clear any duplicate_of_id referencing this report
-    await fetch(
-      `${SUPABASE_URL}/rest/v1/reports?duplicate_of_id=eq.${encodeURIComponent(cleanId)}`,
-      {
-        method: "PATCH",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ duplicate_of_id: null }),
-      },
-    );
-
-    // 3. Delete the report from reports table (by id or tracking_id)
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/reports?or=(id.eq.${encodeURIComponent(cleanId)},tracking_id.eq.${encodeURIComponent(cleanId)})`,
-      {
-        method: "DELETE",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-        },
-      },
-    );
-
-    if (res.ok) {
+    if (!error) {
       console.info(`[Supabase Delete]: Successfully deleted report ${reportId} from Supabase.`);
       return true;
-    } else {
-      console.warn(`[Supabase Delete Warning]: HTTP ${res.status} when deleting ${reportId}`);
-      return false;
     }
+    console.warn(`[Supabase Delete Warning]: ${error.message}`);
+    return false;
   } catch (err: any) {
     console.warn(`[Supabase Delete Error for ${reportId}]:`, err.message);
     return false;
@@ -282,27 +234,22 @@ export async function saveUserToSupabase(user: {
   createdAt?: string;
   updatedAt?: string;
 }): Promise<boolean> {
-  if (!SUPABASE_KEY) return false;
+  if (!supabase) return false;
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/app_users`, {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        "Content-Type": "application/json",
-        Prefer: "resolution=merge-duplicates",
-      },
-      body: JSON.stringify({
-        id: user.id,
-        username: user.username,
-        password_hash: user.passwordHash,
-        role: user.role,
-        display_name: user.displayName || user.username,
-        created_at: user.createdAt || new Date().toISOString(),
-        updated_at: user.updatedAt || new Date().toISOString(),
-      }),
+    const { error } = await supabase.from("app_users").upsert({
+      id: user.id,
+      username: user.username,
+      password_hash: user.passwordHash,
+      role: user.role,
+      display_name: user.displayName || user.username,
+      created_at: user.createdAt || new Date().toISOString(),
+      updated_at: user.updatedAt || new Date().toISOString(),
     });
-    return res.ok;
+    if (error) {
+      console.warn("[Supabase Sync User Warning]:", error.message);
+      return false;
+    }
+    return true;
   } catch (err: any) {
     console.warn("[Supabase Sync User Warning]:", err.message);
     return false;
@@ -313,35 +260,59 @@ export async function saveUserToSupabase(user: {
  * Fetch user by username from Supabase app_users table
  */
 export async function fetchUserFromSupabase(username: string): Promise<any | null> {
-  if (!SUPABASE_KEY) return null;
+  if (!supabase) return null;
   try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/app_users?username=eq.${encodeURIComponent(username)}&limit=1`,
-      {
-        method: "GET",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-        },
-      },
-    );
-    if (!res.ok) return null;
-    const rows = await res.json();
-    if (Array.isArray(rows) && rows.length > 0) {
-      const u = rows[0];
-      return {
-        id: u.id,
-        username: u.username,
-        passwordHash: u.password_hash,
-        role: u.role,
-        displayName: u.display_name || u.username,
-        createdAt: u.created_at,
-        updatedAt: u.updated_at,
-      };
-    }
-    return null;
+    const { data, error } = await supabase
+      .from("app_users")
+      .select("*")
+      .eq("username", username)
+      .limit(1);
+    if (error || !data || data.length === 0) return null;
+    const u = data[0];
+    return {
+      id: u.id,
+      username: u.username,
+      passwordHash: u.password_hash,
+      role: u.role,
+      displayName: u.display_name || u.username,
+      createdAt: u.created_at,
+      updatedAt: u.updated_at,
+    };
   } catch (err: any) {
     console.warn("[Supabase Fetch User Warning]:", err.message);
+    return null;
+  }
+}
+
+/**
+ * Upload a media file (evidence or resolution proof) to the report-media
+ * Storage bucket and return its object path and a public URL.
+ */
+export async function uploadMediaToSupabase(
+  reportId: string,
+  file: { buffer: Buffer; contentType: string; extension: string },
+  kind: "evidence" | "resolution",
+): Promise<{ path: string; url: string } | null> {
+  if (!supabase) return null;
+  try {
+    const objectPath =
+      kind === "resolution"
+        ? `reports/${reportId}/resolution/${crypto.randomUUID()}.${file.extension}`
+        : `reports/${reportId}/${crypto.randomUUID()}.${file.extension}`;
+
+    const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(objectPath, file.buffer, {
+      contentType: file.contentType,
+      upsert: false,
+    });
+    if (error) {
+      console.warn("[Supabase Upload Warning]:", error.message);
+      return null;
+    }
+
+    const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(objectPath);
+    return { path: objectPath, url: data.publicUrl };
+  } catch (err: any) {
+    console.warn("[Supabase Upload Error]:", err.message);
     return null;
   }
 }
