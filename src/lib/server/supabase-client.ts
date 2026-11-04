@@ -9,8 +9,55 @@
 
 import crypto from "crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { CivicReport } from "../civic-data";
+import { CivicReport, Priority, ReportStatus } from "../civic-data";
 import { StatusHistoryEntry } from "./status-engine";
+
+/** Reverse of saveReportToSupabase's mapping — Supabase row -> CivicReport. */
+function rowToCivicReport(row: any): CivicReport {
+  return {
+    id: row.id,
+    title: row.title,
+    category: row.category_id,
+    categoryLabel: row.category_label,
+    description: row.description,
+    ward: row.ward,
+    area: row.area,
+    status: (row.status || "SUBMITTED").toLowerCase() as ReportStatus,
+    priority: (row.priority || "medium") as Priority,
+    department: row.department_name,
+    worker: row.worker_name || undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    aiConfidence: row.ai_confidence ?? 0.9,
+    duplicateProbability: row.duplicate_probability ?? 0,
+    upvotes: row.upvotes ?? 0,
+    upvotedBy: row.upvoted_by || [],
+    anonymous: Boolean(row.anonymous),
+    x: row.x ?? 50,
+    y: row.y ?? 50,
+    mediaUrls: row.media_paths || [],
+    resolutionMediaUrls: row.resolution_media_paths || [],
+    latitude: row.latitude ?? undefined,
+    longitude: row.longitude ?? undefined,
+    resolutionNotes: row.resolution_notes || undefined,
+    reportedBy: row.citizen_username || undefined,
+  };
+}
+
+/** Reverse of saveStatusHistoryToSupabase's mapping. */
+function rowToStatusHistoryEntry(row: any): StatusHistoryEntry {
+  return {
+    id: row.id,
+    reportId: row.report_id,
+    oldStatus: row.old_status ? (row.old_status.toLowerCase() as ReportStatus) : null,
+    newStatus: (row.new_status || "submitted").toLowerCase() as ReportStatus,
+    changedBy: row.changed_by,
+    role: row.role || "Staff",
+    changedAt: row.changed_at,
+    comment: row.comment || "",
+    metadata: row.metadata || undefined,
+  };
+}
 
 const SUPABASE_URL = process.env["SUPABASE_URL"] || "";
 const SUPABASE_KEY =
@@ -313,6 +360,63 @@ export async function uploadMediaToSupabase(
     return { path: objectPath, url: data.publicUrl };
   } catch (err: any) {
     console.warn("[Supabase Upload Error]:", err.message);
+    return null;
+  }
+}
+
+/**
+ * Fetch a single report by id from Supabase. This is the read-through path
+ * that makes Supabase the actual shared source of truth across serverless
+ * containers — local/in-memory state alone can't reflect a change made by
+ * a different container (e.g. admin on one, citizen polling on another).
+ */
+export async function fetchReportFromSupabase(id: string): Promise<CivicReport | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from("reports")
+      .select("*")
+      .or(`id.eq.${id},tracking_id.eq.${id}`)
+      .limit(1);
+    if (error || !data || data.length === 0) return null;
+    return rowToCivicReport(data[0]);
+  } catch (err: any) {
+    console.warn("[Supabase Fetch Report Warning]:", err.message);
+    return null;
+  }
+}
+
+/** Fetch all non-deleted reports from Supabase. */
+export async function fetchAllReportsFromSupabase(): Promise<CivicReport[] | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from("reports")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error || !data) return null;
+    return data.map(rowToCivicReport);
+  } catch (err: any) {
+    console.warn("[Supabase Fetch Reports Warning]:", err.message);
+    return null;
+  }
+}
+
+/** Fetch status history for a report from Supabase. */
+export async function fetchStatusHistoryFromSupabase(
+  reportId: string,
+): Promise<StatusHistoryEntry[] | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from("report_status_history")
+      .select("*")
+      .eq("report_id", reportId)
+      .order("changed_at", { ascending: true });
+    if (error || !data) return null;
+    return data.map(rowToStatusHistoryEntry);
+  } catch (err: any) {
+    console.warn("[Supabase Fetch History Warning]:", err.message);
     return null;
   }
 }

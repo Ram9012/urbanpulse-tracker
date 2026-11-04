@@ -172,7 +172,7 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
     if (pathname === "/api/status/reports" && request.method === "GET") {
       return Response.json(
         {
-          reports: getAllReports(),
+          reports: await getAllReports(),
           deletedIds: getDeletedReportIdsServer(),
         },
         { status: 200 },
@@ -185,11 +185,11 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
 
     if (pathname.startsWith("/api/status/report") && request.method === "GET") {
       const id = url.searchParams.get("id") || "";
-      const report = getReportById(id);
+      const report = await getReportById(id);
       if (!report) {
         return Response.json({ error: `Report ${id} not found` }, { status: 404 });
       }
-      const history = getHistoryForReport(id);
+      const history = await getHistoryForReport(id);
       return Response.json({ report, history }, { status: 200 });
     }
 
@@ -406,7 +406,7 @@ export function civicPulseApiPlugin(): Plugin {
           // 6. Reports & Status Engine APIs
           if (url === "/api/status/reports" && req.method === "GET") {
             return sendJson(res, 200, {
-              reports: getAllReports(),
+              reports: await getAllReports(),
               deletedIds: getDeletedReportIdsServer(),
             });
           }
@@ -418,11 +418,11 @@ export function civicPulseApiPlugin(): Plugin {
           if (url.startsWith("/api/status/report") && req.method === "GET") {
             const idMatch = url.match(/[?&]id=([^&]+)/);
             const id = idMatch && idMatch[1] ? decodeURIComponent(idMatch[1]) : "";
-            const report = getReportById(id);
+            const report = await getReportById(id);
             if (!report) {
               return sendJson(res, 404, { error: `Report ${id} not found` });
             }
-            const history = getHistoryForReport(id);
+            const history = await getHistoryForReport(id);
             return sendJson(res, 200, { report, history });
           }
 
