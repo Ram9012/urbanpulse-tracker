@@ -578,6 +578,14 @@ Return a strictly valid JSON object matching this schema:
  */
 export type ResolutionVlmAssessment = {
   sameLocationScore: number;
+  /** Background, buildings and landmarks match, independent of the defect itself. */
+  surroundingsMatchScore: number;
+  /** Both photos taken from a comparable position, angle and distance. */
+  viewpointMatchScore: number;
+  /** How clearly the BEFORE photo shows the reported defect. */
+  defectVisibleBeforeScore: number;
+  /** How complete and neat the repair is (0 if nothing was repaired). */
+  repairQualityScore: number;
   resolvedScore: number;
   evidenceClarityScore: number;
   looksStagedOrReused: boolean;
@@ -612,15 +620,22 @@ Complaint description: "${params.description || "Not provided"}"
 
 Judge only from what is visible. Answer:
 1. Do both photos show the same physical location (same road, pole, drain, surroundings)? Camera angle and lighting may differ.
-2. Is the specific defect from IMAGE 1 clearly repaired/removed in IMAGE 2?
-3. Is IMAGE 2 clear enough to decide?
-4. Does IMAGE 2 look staged, reused, a screenshot, or a photo of a different place?
+2. Setting the defect aside, do the surroundings (background, buildings, signage, road layout) match between the photos?
+3. Were both photos taken from a comparable viewpoint (position, angle, distance) so they can be compared fairly?
+4. How clearly does IMAGE 1 show the reported defect?
+5. Is the specific defect from IMAGE 1 clearly repaired/removed in IMAGE 2, and how complete and neat is the repair?
+6. Is IMAGE 2 clear enough to decide?
+7. Does IMAGE 2 look staged, reused, a screenshot, or a photo of a different place?
 
 Be strict. If IMAGE 2 shows a different scene, or the defect is still present, resolved_score MUST be below 0.3 and verdict must not be RESOLVED.
 
 Return strictly valid JSON with EXACTLY this structure:
 {
   "same_location_score": number 0-1,
+  "surroundings_match_score": number 0-1,
+  "viewpoint_match_score": number 0-1,
+  "defect_visible_before_score": number 0-1,
+  "repair_quality_score": number 0-1 (0 if nothing was repaired),
   "resolved_score": number 0-1 (1 = defect fully and properly fixed),
   "evidence_clarity_score": number 0-1,
   "looks_staged_or_reused": true or false,
@@ -632,12 +647,16 @@ Return strictly valid JSON with EXACTLY this structure:
   const raw: any = await callGeminiVision(
     [params.originalDataUrl, params.resolutionDataUrl],
     prompt,
-    700,
+    900,
   );
   const clamp = (v: unknown, d: number) => Math.min(Math.max(Number(v) || d, 0), 1);
   const verdicts = ["RESOLVED", "PARTIALLY_RESOLVED", "NOT_RESOLVED", "DIFFERENT_LOCATION"];
   return {
     sameLocationScore: clamp(raw.same_location_score, 0),
+    surroundingsMatchScore: clamp(raw.surroundings_match_score, 0),
+    viewpointMatchScore: clamp(raw.viewpoint_match_score, 0),
+    defectVisibleBeforeScore: clamp(raw.defect_visible_before_score, 0),
+    repairQualityScore: clamp(raw.repair_quality_score, 0),
     resolvedScore: clamp(raw.resolved_score, 0),
     evidenceClarityScore: clamp(raw.evidence_clarity_score, 0.5),
     looksStagedOrReused: Boolean(raw.looks_staged_or_reused),

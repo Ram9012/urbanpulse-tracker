@@ -61,6 +61,13 @@ export type VerificationRecord = {
   resolutionScore?: number | undefined;
   /** Vision-language model: do both photos show the same place? (0-1) */
   locationMatchScore?: number | undefined;
+  /** Vision-language model sub-scores (0-1). */
+  surroundingsScore?: number | undefined;
+  viewpointScore?: number | undefined;
+  defectVisibleScore?: number | undefined;
+  repairQualityScore?: number | undefined;
+  /** Why the optional Siamese/ORB/segmentation checks did not run (Python service). */
+  geometricError?: string | undefined;
   vlmVerdict?: ResolutionVlmAssessment["verdict"] | undefined;
   vlmModel?: string | undefined;
   /** Why the image-analysis model could not run, in plain language. Absent when it ran. */
@@ -328,6 +335,16 @@ async function loadImageAsDataUrl(src: string): Promise<string> {
   return `data:${mime};base64,${fs.readFileSync(abs).toString("base64")}`;
 }
 
+/** Plain-language reason the optional Python checks did not run. */
+function describeServiceError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (/HTTP 401/i.test(raw)) {
+    return "the service token does not match (AI_SERVICE_SECRET_KEY must equal AI_API_SECRET_KEY)";
+  }
+  if (/HTTP \d+/i.test(raw)) return `the service returned an error (${raw.slice(0, 80)})`;
+  return `the Python AI service is not running at ${AI_SERVICE_URL}`;
+}
+
 /** Plain-language reason for a failed image analysis, shown to staff. */
 function describeVisionError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
@@ -449,6 +466,10 @@ function applyHybridVerdict(
     qualityScore: round3(quality),
     resolutionScore: round3(vlm.resolvedScore),
     locationMatchScore: round3(locationMatch),
+    surroundingsScore: round3(vlm.surroundingsMatchScore),
+    viewpointScore: round3(vlm.viewpointMatchScore),
+    defectVisibleScore: round3(vlm.defectVisibleBeforeScore),
+    repairQualityScore: round3(vlm.repairQualityScore),
     finalVerificationScore: finalScore,
     vlmVerdict: vlm.verdict,
     vlmModel: vlm.model,
@@ -537,11 +558,12 @@ export async function submitVerificationJob(params: {
     console.warn(
       `[Vision Service] Python AI microservice not reachable (${String(pythonRes.reason)}).`,
     );
+    const geometricError = describeServiceError(pythonRes.reason);
 
     // Python down, vision model worked: vision-only verdict.
     if (vlm) {
       await upsertVerification(
-        applyHybridVerdict({ ...pendingRecord, jobStatus: "completed" }, vlm),
+        applyHybridVerdict({ ...pendingRecord, jobStatus: "completed", geometricError }, vlm),
       );
       return;
     }
@@ -555,6 +577,7 @@ export async function submitVerificationJob(params: {
       evidenceExplanation: `Automatic image analysis could not run: ${visionError ?? "the verification service is unavailable"}. A supervisor needs to review the before and after photos manually.`,
       flags: ["image_analysis_unavailable", "manual_review_required"],
       modelVersion: "Unavailable",
+      geometricError,
       visionError: visionError ?? "the verification service is unavailable",
       updatedAt: new Date().toISOString(),
     });
@@ -670,12 +693,34 @@ export async function recordAdminDecision(
   return updated;
 }
 
+/** Status of the optional Python service (Siamese / ORB / segmentation). */
+async function getPythonServiceStatus() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3000);
+  try {
+    const res = await fetch(`${AI_SERVICE_URL}/health`, { signal: controller.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as { models_loaded?: Record<string, boolean> };
+    return { url: AI_SERVICE_URL, reachable: true, modelsLoaded: data.models_loaded ?? {} };
+  } catch (err) {
+    return {
+      url: AI_SERVICE_URL,
+      reachable: false,
+      reason: describeServiceError(err),
+      note: "Optional. Without it the verdict uses the vision AI alone.",
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Self-test for the image-analysis setup. Sends the two bundled sample photos through the
  * exact same path real verifications use and reports success or the precise reason it failed.
  */
 export async function diagnoseVision() {
   const config = visionConfig();
+  const pythonService = await getPythonServiceStatus();
   const started = Date.now();
   try {
     const result = await runVisionAssessment({
@@ -686,6 +731,7 @@ export async function diagnoseVision() {
     return {
       ok: true,
       config,
+      pythonService,
       ms: Date.now() - started,
       verdict: result.verdict,
       sameLocationScore: result.sameLocationScore,
@@ -695,6 +741,7 @@ export async function diagnoseVision() {
     return {
       ok: false,
       config,
+      pythonService,
       ms: Date.now() - started,
       error: describeVisionError(err),
       detail: err instanceof Error ? err.message.slice(0, 400) : String(err).slice(0, 400),

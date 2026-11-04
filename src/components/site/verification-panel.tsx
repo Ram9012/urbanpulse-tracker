@@ -17,6 +17,11 @@ export type VerificationRecordUI = {
   finalVerificationScore?: number;
   resolutionScore?: number;
   locationMatchScore?: number;
+  surroundingsScore?: number;
+  viewpointScore?: number;
+  defectVisibleScore?: number;
+  repairQualityScore?: number;
+  geometricError?: string;
   vlmVerdict?: string;
   vlmModel?: string;
   visionError?: string;
@@ -31,6 +36,38 @@ export type VerificationRecordUI = {
   adminDecisionNote?: string;
   createdAt: string;
 };
+
+function ScoreTile({
+  label,
+  hint,
+  value,
+  accent = false,
+  emptyText = "—",
+}: {
+  label: string;
+  hint: string;
+  value: number | null;
+  accent?: boolean;
+  emptyText?: string;
+}) {
+  return (
+    <div
+      className={
+        "p-3 rounded-xl border " +
+        (accent ? "border-emerald-500/30 bg-emerald-500/5" : "border-border/70 bg-background")
+      }
+    >
+      <div className="text-[11px] font-semibold text-muted-foreground">{label}</div>
+      <div className="text-xl font-extrabold mt-1 text-foreground font-mono">
+        {value === null ? emptyText : `${value}%`}
+      </div>
+      <div className="text-[10px] text-muted-foreground mt-0.5">{hint}</div>
+    </div>
+  );
+}
+
+const pct = (v?: number | null) =>
+  typeof v === "number" ? Math.round((v <= 1 ? v : v / 100) * 100) : null;
 
 export function VerificationPanel({
   reportId,
@@ -285,117 +322,115 @@ export function VerificationPanel({
 
       {/* Tab 2: Scores */}
       {activeTab === "scores" && (
-        <div className="mt-4 space-y-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {/* Scene Consistency */}
-            <div className="p-3 rounded-xl border border-border/70 bg-background">
-              <div className="text-[11px] font-semibold text-muted-foreground">
-                Scene Consistency
-              </div>
-              <div className="text-xl font-extrabold mt-1 text-foreground font-mono">
-                {latest?.sceneConsistencyScore !== undefined &&
-                latest?.sceneConsistencyScore !== null
-                  ? `${Math.round(latest.sceneConsistencyScore * 100)}%`
-                  : "—"}
-              </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                MobileNetV3 Shared Encoder
-              </div>
+        <div className="mt-4 space-y-4">
+          <div>
+            <div className="mb-2 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
+              Vision AI assessment
             </div>
-
-            {/* Siamese Perceptual Similarity */}
-            <div className="p-3 rounded-xl border border-border/70 bg-background">
-              <div className="text-[11px] font-semibold text-muted-foreground">
-                Siamese Feature Match
-              </div>
-              <div className="text-xl font-extrabold mt-1 text-foreground font-mono">
-                {latest?.siameseSimilarityScore !== undefined &&
-                latest?.siameseSimilarityScore !== null
-                  ? `${Math.round(latest.siameseSimilarityScore * 100)}%`
-                  : "—"}
-              </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                Cosine Similarity on L2 Embeddings
-              </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <ScoreTile
+                accent
+                label="Defect Resolved"
+                hint={
+                  latest?.vlmVerdict
+                    ? latest.vlmVerdict.replace(/_/g, " ").toLowerCase()
+                    : "Is the reported problem fixed?"
+                }
+                value={pct(latest?.resolutionScore)}
+              />
+              <ScoreTile
+                label="Same Location"
+                hint="Both photos show the same spot"
+                value={pct(latest?.locationMatchScore)}
+              />
+              <ScoreTile
+                label="Surroundings Match"
+                hint="Background, buildings, landmarks"
+                value={pct(latest?.surroundingsScore)}
+              />
+              <ScoreTile
+                label="Comparable Viewpoint"
+                hint="Similar angle and distance"
+                value={pct(latest?.viewpointScore)}
+              />
+              <ScoreTile
+                label="Defect Visible Before"
+                hint="Original photo shows the issue"
+                value={pct(latest?.defectVisibleScore)}
+              />
+              <ScoreTile
+                label="Repair Quality"
+                hint="How complete and neat the fix is"
+                value={pct(latest?.repairQualityScore)}
+              />
+              <ScoreTile
+                label="Photo Clarity"
+                hint="Sharp, well lit, usable evidence"
+                value={pct(latest?.qualityScore)}
+              />
             </div>
+          </div>
 
-            {/* Bidirectional Correspondence */}
-            <div className="p-3 rounded-xl border border-border/70 bg-background">
-              <div className="text-[11px] font-semibold text-muted-foreground">
-                Bidirectional Match
-              </div>
-              <div className="text-xl font-extrabold mt-1 text-foreground font-mono">
-                {latest?.bidirectionalScore !== undefined && latest?.bidirectionalScore !== null
-                  ? `${Math.round(latest.bidirectionalScore * 100)}%`
-                  : "—"}
-              </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                Forward & Backward ORB Keypoints
-              </div>
+          <div>
+            <div className="mb-2 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
+              Computer-vision checks (optional)
             </div>
+            {[
+              latest?.sceneConsistencyScore,
+              latest?.siameseSimilarityScore,
+              latest?.bidirectionalScore,
+              latest?.segmentationScore,
+            ].some((v) => typeof v === "number") ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <ScoreTile
+                  label="Scene Consistency"
+                  hint="MobileNetV3 shared encoder"
+                  value={pct(latest?.sceneConsistencyScore)}
+                />
+                <ScoreTile
+                  label="Siamese Match"
+                  hint="Cosine similarity of embeddings"
+                  value={pct(latest?.siameseSimilarityScore)}
+                />
+                <ScoreTile
+                  label="Keypoint Match"
+                  hint="Forward and backward ORB"
+                  value={pct(latest?.bidirectionalScore)}
+                />
+                <ScoreTile
+                  label="Segmentation"
+                  hint="DeepLabV3 structure change"
+                  value={pct(latest?.segmentationScore)}
+                  emptyText="Not needed"
+                />
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground leading-relaxed">
+                Siamese, keypoint and segmentation checks are optional extras that run in a separate
+                Python AI service.{" "}
+                {latest?.geometricError
+                  ? `They did not run: ${latest.geometricError}.`
+                  : "They are not available for this report."}{" "}
+                The verdict above does not depend on them.
+              </div>
+            )}
+          </div>
 
-            {/* Semantic Segmentation Change */}
-            <div className="p-3 rounded-xl border border-border/70 bg-background">
-              <div className="text-[11px] font-semibold text-muted-foreground">
-                Segmentation Structure
-              </div>
-              <div className="text-xl font-extrabold mt-1 text-foreground font-mono">
-                {latest?.segmentationScore !== undefined && latest?.segmentationScore !== null
-                  ? `${Math.round(latest.segmentationScore * 100)}%`
-                  : "N/A (Skipped)"}
-              </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                DeepLabV3 MobileNetV3 Large
-              </div>
-            </div>
-
-            {/* Quality & Resolution */}
-            <div className="p-3 rounded-xl border border-border/70 bg-background">
-              <div className="text-[11px] font-semibold text-muted-foreground">
-                Evidence Clarity
-              </div>
-              <div className="text-xl font-extrabold mt-1 text-foreground font-mono">
-                {latest?.qualityScore !== undefined && latest?.qualityScore !== null
-                  ? `${Math.round(latest.qualityScore * 100)}%`
-                  : "—"}
-              </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                Laplacian Blur & Contrast
-              </div>
-            </div>
-
-            {/* Vision-language: is the defect actually fixed? */}
-            <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
-              <div className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-                Defect Resolved (Vision AI)
-              </div>
-              <div className="text-xl font-extrabold mt-1 text-foreground font-mono">
-                {typeof latest?.resolutionScore === "number"
-                  ? `${Math.round(latest.resolutionScore * 100)}%`
-                  : "—"}
-              </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                {latest?.vlmVerdict
-                  ? latest.vlmVerdict.replace(/_/g, " ").toLowerCase()
-                  : "Before/after visual judgement"}
-              </div>
-            </div>
-
-            {/* Final Composite Verdict */}
-            <div className="p-3 rounded-xl border border-primary/30 bg-primary/5">
-              <div className="text-[11px] font-bold text-primary">Final Verification Score</div>
-              <div className="text-2xl font-black mt-1 text-primary font-mono">
-                {latest?.finalVerificationScore !== undefined &&
-                latest?.finalVerificationScore !== null
-                  ? `${(latest.finalVerificationScore <= 1
+          {/* Final Composite Verdict */}
+          <div className="p-3 rounded-xl border border-primary/30 bg-primary/5">
+            <div className="text-[11px] font-bold text-primary">Final Verification Score</div>
+            <div className="text-2xl font-black mt-1 text-primary font-mono">
+              {pct(latest?.finalVerificationScore) !== null
+                ? `${(typeof latest?.finalVerificationScore === "number"
+                    ? latest.finalVerificationScore <= 1
                       ? latest.finalVerificationScore * 100
                       : latest.finalVerificationScore
-                    ).toFixed(1)}%`
-                  : "—"}
-              </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                35% same place · 65% defect fixed
-              </div>
+                    : 0
+                  ).toFixed(1)}%`
+                : "—"}
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">
+              35% same place · 65% defect fixed
             </div>
           </div>
 
@@ -410,7 +445,7 @@ export function VerificationPanel({
                     key={flag}
                     className="px-2 py-0.5 rounded bg-background border border-amber-500/20 font-mono text-[10px] text-amber-600 dark:text-amber-300"
                   >
-                    {flag}
+                    {flag.replace(/_/g, " ")}
                   </span>
                 ))}
               </div>
