@@ -14,6 +14,7 @@ import {
 } from "@/lib/civic-data";
 import { RealMap, LocationData } from "@/components/site/real-map";
 import { useAuth } from "@/lib/auth-client";
+import { uploadMediaItems } from "@/lib/media-upload";
 
 export const Route = createFileRoute("/report")({
   head: () => ({
@@ -704,6 +705,11 @@ function ReportPage() {
           ? description.trim().slice(0, 80)
           : `${catObj.name} issue reported on ${locationData.address.split(",")[0] || "Racecourse Road"}`;
 
+    // Upload captured media to durable storage before saving the report —
+    // the blob:/data: URLs mediaItems hold locally don't survive a reload.
+    const uploadedMediaUrls =
+      mediaItems.length > 0 ? await uploadMediaItems(generatedId, mediaItems, "evidence") : [];
+
     const newReport: CivicReport = {
       id: generatedId,
       title: reportTitle,
@@ -727,8 +733,8 @@ function ReportPage() {
       x: 42,
       y: 50,
       mediaUrls:
-        mediaItems.length > 0
-          ? mediaItems.map((m) => m.url)
+        uploadedMediaUrls.length > 0
+          ? uploadedMediaUrls
           : [
               catObj.id === "electricity"
                 ? "/media/evidence/streetlight_before.jpg"

@@ -1,17 +1,8 @@
 [
   {
-    "id": "USR-ADMIN-01",
-    "username": "admin",
-    "passwordHash": "admin123",
-    "role": "admin",
-    "displayName": "Municipal Administrator",
-    "createdAt": "2026-09-25T15:31:06.017Z",
-    "updatedAt": "2026-09-25T15:31:06.018Z"
-  },
-  {
     "id": "USR-MUH4DO9R-6405",
     "username": "bipinyadav",
-    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "passwordHash": "$2b$10$HbeUa.URQeVn/Mswn6TH..rN6dJn/CQSlrJjII7ItdqUiNs15tsDK",
     "role": "citizen",
     "displayName": "Bipin Yadav",
     "createdAt": "2026-09-25T15:32:41.636Z",
@@ -20,7 +11,7 @@
   {
     "id": "USR-MUH4KAWM-8756",
     "username": "rahul_kumar",
-    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "passwordHash": "$2b$10$HbeUa.URQeVn/Mswn6TH..rN6dJn/CQSlrJjII7ItdqUiNs15tsDK",
     "role": "citizen",
     "displayName": "rahul_kumar",
     "createdAt": "2026-09-25T15:37:50.907Z",
@@ -29,7 +20,7 @@
   {
     "id": "USR-MUH5M2N5-7406",
     "username": "rahul_sharma",
-    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "passwordHash": "$2b$10$HbeUa.URQeVn/Mswn6TH..rN6dJn/CQSlrJjII7ItdqUiNs15tsDK",
     "role": "citizen",
     "displayName": "rahul_sharma",
     "createdAt": "2026-09-25T16:07:13.132Z",
@@ -38,28 +29,10 @@
   {
     "id": "USR-MUH5PTIG-8779",
     "username": "priya_patel",
-    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "passwordHash": "$2b$10$HbeUa.URQeVn/Mswn6TH..rN6dJn/CQSlrJjII7ItdqUiNs15tsDK",
     "role": "citizen",
     "displayName": "priya_patel",
     "createdAt": "2026-09-25T16:10:07.919Z",
     "updatedAt": "2026-09-25T16:10:07.920Z"
-  },
-  {
-    "id": "USR-MUH6CTH0-3775",
-    "username": "new_user_alpha",
-    "passwordHash": "6e659deaa85842cdabb5c6305fcc40033ba43772ec00d45c2a3c921741a5e377",
-    "role": "citizen",
-    "displayName": "new_user_alpha",
-    "createdAt": "2026-09-25T16:28:00.993Z",
-    "updatedAt": "2026-09-25T16:28:00.994Z"
-  },
-  {
-    "id": "USR-MUH72XBF-1207",
-    "username": "test_user_777",
-    "passwordHash": "6e0daa0a792dcaef24738984267b05c5153663f16fa31a96325ab2fc1ca713b8",
-    "role": "citizen",
-    "displayName": "test_user_777",
-    "createdAt": "2026-09-25T16:48:18.990Z",
-    "updatedAt": "2026-09-25T16:48:18.990Z"
   }
 ]

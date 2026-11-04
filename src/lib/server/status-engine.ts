@@ -16,6 +16,9 @@ import {
   saveStatusHistoryToSupabase,
   clearSupabaseAndSeedLatest,
   deleteReportFromSupabase,
+  fetchReportFromSupabase,
+  fetchAllReportsFromSupabase,
+  fetchStatusHistoryFromSupabase,
 } from "./supabase-client";
 
 export type StatusHistoryEntry = {
@@ -205,9 +208,30 @@ export function initializeStatusEngine(initialReports: CivicReport[]) {
   saveToDisk();
 }
 
-export function getAllReports(): CivicReport[] {
+/** Merge a fresher Supabase report into the local in-memory/disk cache. */
+function mergeReportIntoCache(report: CivicReport) {
+  const idx = activeReports.findIndex((r) => r.id.toLowerCase() === report.id.toLowerCase());
+  if (idx >= 0) {
+    activeReports[idx] = { ...activeReports[idx], ...report };
+  } else {
+    activeReports.unshift(report);
+  }
+}
+
+export async function getAllReports(): Promise<CivicReport[]> {
   // Ensure fresh state from disk
   loadFromDisk();
+
+  // Supabase is the shared source of truth across serverless containers —
+  // local/in-memory state alone can't see a write made by a different
+  // container. Prefer Supabase's rows when reachable, merging into the
+  // local cache so subsequent same-container reads/writes stay fast.
+  const remote = await fetchAllReportsFromSupabase();
+  if (remote) {
+    for (const r of remote) mergeReportIntoCache(r);
+    saveToDisk();
+  }
+
   return activeReports.filter((r) => !deletedReportIds.has(r.id.toLowerCase().trim()));
 }
 
@@ -216,10 +240,18 @@ export function getDeletedReportIdsServer(): string[] {
   return Array.from(deletedReportIds);
 }
 
-export function getReportById(id: string): CivicReport | null {
+export async function getReportById(id: string): Promise<CivicReport | null> {
   loadFromDisk();
   const idLower = id.toLowerCase().trim();
   if (deletedReportIds.has(idLower)) return null;
+
+  const remote = await fetchReportFromSupabase(id);
+  if (remote) {
+    mergeReportIntoCache(remote);
+    saveToDisk();
+    return remote;
+  }
+
   const r = activeReports.find((item) => item.id.toLowerCase() === idLower);
   if (r) return r;
   const fallback = REPORTS.find((item) => item.id.toLowerCase() === idLower);
@@ -227,8 +259,22 @@ export function getReportById(id: string): CivicReport | null {
   return null;
 }
 
-export function getHistoryForReport(reportId: string): StatusHistoryEntry[] {
+export async function getHistoryForReport(reportId: string): Promise<StatusHistoryEntry[]> {
   loadFromDisk();
+
+  const remote = await fetchStatusHistoryFromSupabase(reportId);
+  if (remote && remote.length > 0) {
+    // Merge in anything local-only (shouldn't normally happen, but keeps
+    // this resilient if a write's Supabase sync hasn't landed yet).
+    const remoteIds = new Set(remote.map((h) => h.id));
+    const localOnly = statusHistories.filter(
+      (h) => h.reportId.toLowerCase() === reportId.toLowerCase() && !remoteIds.has(h.id),
+    );
+    return [...remote, ...localOnly].sort(
+      (a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime(),
+    );
+  }
+
   let list = statusHistories
     .filter((h) => h.reportId.toLowerCase() === reportId.toLowerCase())
     .sort((a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime());

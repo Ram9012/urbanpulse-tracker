@@ -12,6 +12,7 @@ import {
   getDeletedReportIds,
   markReportDeleted,
 } from "@/lib/civic-data";
+import { uploadMediaItems } from "@/lib/media-upload";
 
 export const Route = createFileRoute("/admin/reports")({
   head: () => ({
@@ -246,8 +247,20 @@ function ReportsTable() {
     const isElectric =
       (targetReport.category || "").toLowerCase().includes("electric") ||
       targetReport.id.includes("95674");
-    const photo =
-      evidencePhotoUrl ||
+
+    // If a real camera/upload capture was taken, upload it to durable
+    // storage instead of carrying the data: URL into the report forever.
+    let photo = evidencePhotoUrl;
+    if (photo) {
+      const [uploaded] = await uploadMediaItems(
+        targetId,
+        [{ url: photo, name: `resolution-${Date.now()}.jpg` }],
+        "resolution",
+      );
+      photo = uploaded || photo;
+    }
+    photo =
+      photo ||
       (newStatus === "resolved"
         ? isElectric
           ? "/media/evidence/streetlight_resolved.jpg"

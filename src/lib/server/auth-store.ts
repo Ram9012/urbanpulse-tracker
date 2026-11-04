@@ -6,6 +6,7 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import { saveUserToSupabase, fetchUserFromSupabase } from "./supabase-client";
 import { INITIAL_SEEDED_USERS } from "./seed-users";
 
@@ -19,7 +20,6 @@ export type AppUser = {
   displayName: string;
   createdAt: string;
   updatedAt: string;
-  alternatePasswords?: string[];
 };
 
 export type SafeUser = {
@@ -30,6 +30,53 @@ export type SafeUser = {
   createdAt: string;
 };
 
+export const SESSION_COOKIE_NAME = "civicpulse_session";
+
+// Falls back to a random per-process secret so sessions still work without
+// configuration, but set SESSION_SECRET in the environment for sessions to
+// survive a server restart / serverless cold start.
+const SESSION_SECRET = process.env["SESSION_SECRET"] || crypto.randomBytes(32).toString("hex");
+
+/** Sign a compact, tamper-evident session token for a user. */
+export function createSessionToken(user: SafeUser): string {
+  const payload = Buffer.from(
+    JSON.stringify({ id: user.id, username: user.username, role: user.role }),
+  ).toString("base64url");
+  const signature = crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url");
+  return `${payload}.${signature}`;
+}
+
+/** Verify a session token and return the role/identity it carries, or null. */
+export function verifySessionToken(
+  token: string | null | undefined,
+): { id: string; username: string; role: UserRole } | null {
+  if (!token) return null;
+  const [payload, signature] = token.split(".");
+  if (!payload || !signature) return null;
+  const expected = crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url");
+  if (
+    expected.length !== signature.length ||
+    !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
+  ) {
+    return null;
+  }
+  try {
+    return JSON.parse(Buffer.from(payload, "base64url").toString("utf-8"));
+  } catch {
+    return null;
+  }
+}
+
+/** Parse the session cookie from a raw Cookie header and verify it. */
+export function getSessionFromCookieHeader(
+  cookieHeader?: string | null,
+): { id: string; username: string; role: UserRole } | null {
+  if (!cookieHeader) return null;
+  const match = cookieHeader.match(new RegExp(`${SESSION_COOKIE_NAME}=([^;]+)`));
+  if (!match || !match[1]) return null;
+  return verifySessionToken(decodeURIComponent(match[1]));
+}
+
 const IS_VERCEL = Boolean(process.env["VERCEL"] || process.env["AWS_LAMBDA_FUNCTION_NAME"]);
 const STORAGE_DIR = IS_VERCEL
   ? path.join("/tmp", "civic-storage")
@@ -38,27 +85,41 @@ const USERS_FILE = path.join(STORAGE_DIR, "civic-users.json");
 const BUNDLED_USERS_FILE = path.join(process.cwd(), "storage", "civic-users.json");
 
 export function hashPassword(raw: string): string {
-  return crypto.createHash("sha256").update(raw.trim()).digest("hex");
+  return bcrypt.hashSync(raw.trim(), 10);
 }
 
-export function verifyPassword(raw: string, storedHash: string, user?: AppUser): boolean {
-  if (!raw) return false;
-  // If user is bipinyadav, accept if password is valid length
-  if (user && user.username.toLowerCase() === "bipinyadav") {
-    if (raw.length >= 6) return true;
+export function verifyPassword(raw: string, storedHash: string): boolean {
+  if (!raw || !storedHash) return false;
+  try {
+    return bcrypt.compareSync(raw, storedHash);
+  } catch {
+    // storedHash isn't a valid bcrypt hash (e.g. legacy SHA-256 data) — reject.
+    return false;
   }
-  if (!storedHash) return false;
-  // Support both SHA-256 hash comparison and direct match
-  if (storedHash === raw || storedHash === hashPassword(raw)) return true;
-  // Support alternate passwords if defined on seed user
-  if (user?.alternatePasswords && Array.isArray(user.alternatePasswords)) {
-    if (user.alternatePasswords.includes(raw)) return true;
-  }
-  return false;
 }
 
-// Default system administrator account (guaranteed)
-export const DEFAULT_ADMIN: AppUser = INITIAL_SEEDED_USERS[0];
+// Default system administrator account, bootstrapped from ADMIN_SEED_PASSWORD.
+// Never hardcode a real admin password in source.
+const ADMIN_SEED_PASSWORD = process.env["ADMIN_SEED_PASSWORD"];
+export const DEFAULT_ADMIN: AppUser = {
+  id: "USR-ADMIN-01",
+  username: "admin",
+  passwordHash: ADMIN_SEED_PASSWORD
+    ? hashPassword(ADMIN_SEED_PASSWORD)
+    : // No seed password configured: generate a random hash so the account
+      // exists but no password will ever match it until ADMIN_SEED_PASSWORD
+      // is set and the app restarts.
+      hashPassword(crypto.randomUUID()),
+  role: "admin",
+  displayName: "Municipal Administrator",
+  createdAt: "2026-09-25T15:31:06.017Z",
+  updatedAt: "2026-09-25T15:31:06.018Z",
+};
+if (!ADMIN_SEED_PASSWORD) {
+  console.warn(
+    "[Auth Store]: ADMIN_SEED_PASSWORD is not set — the admin account has no usable password until it is configured.",
+  );
+}
 
 // In-memory cache of users initialized with all statically bundled users
 let cachedUsers: AppUser[] = [...INITIAL_SEEDED_USERS];
@@ -147,20 +208,11 @@ export function initializeAuthStore(): void {
     cachedUsers = [DEFAULT_ADMIN];
   }
 
-  // Ensure default admin always exists and credentials match
+  // Ensure the admin account exists, bootstrapped from ADMIN_SEED_PASSWORD
   const adminIndex = cachedUsers.findIndex((u) => u.username.toLowerCase() === "admin");
   if (adminIndex === -1) {
     cachedUsers.unshift(DEFAULT_ADMIN);
     persistUsersToDisk();
-  } else {
-    // Keep admin credentials guaranteed to admin / admin123
-    cachedUsers[adminIndex] = {
-      ...cachedUsers[adminIndex],
-      username: "admin",
-      passwordHash: "admin123",
-      role: "admin",
-      displayName: "Municipal Administrator",
-    };
   }
 
   initialized = true;
@@ -170,14 +222,22 @@ export function initializeAuthStore(): void {
 function persistUsersToDisk() {
   try {
     ensureStorage();
-    fs.writeFileSync(USERS_FILE, JSON.stringify(cachedUsers, null, 2), "utf-8");
+
+    // Never persist the admin row to BUNDLED_USERS_FILE — in local dev
+    // (non-Vercel) that path IS the tracked repo file, and the admin
+    // account must always be re-bootstrapped fresh from
+    // ADMIN_SEED_PASSWORD, never shipped as a committed hash.
+    const usersWithoutAdmin = cachedUsers.filter((u) => u.role !== "admin");
+    const writeTarget = USERS_FILE === BUNDLED_USERS_FILE ? usersWithoutAdmin : cachedUsers;
+
+    fs.writeFileSync(USERS_FILE, JSON.stringify(writeTarget, null, 2), "utf-8");
     if (
       !IS_VERCEL &&
       BUNDLED_USERS_FILE !== USERS_FILE &&
       fs.existsSync(path.dirname(BUNDLED_USERS_FILE))
     ) {
       try {
-        fs.writeFileSync(BUNDLED_USERS_FILE, JSON.stringify(cachedUsers, null, 2), "utf-8");
+        fs.writeFileSync(BUNDLED_USERS_FILE, JSON.stringify(usersWithoutAdmin, null, 2), "utf-8");
       } catch {}
     }
   } catch (err: any) {
@@ -223,38 +283,8 @@ export async function authenticateUser(
     return { success: false, error: "Please enter your password." };
   }
 
-  // Special instant check for Admin: username 'admin' and password 'admin123'
-  if (username.toLowerCase() === "admin") {
-    if (password === "admin123") {
-      return {
-        success: true,
-        user: toSafeUser(DEFAULT_ADMIN),
-      };
-    } else {
-      return {
-        success: false,
-        error: "Incorrect password for admin. Use 'admin123'.",
-      };
-    }
-  }
-
-  // 1. Check local cache
+  // 1. Check local cache (includes the bootstrapped admin account)
   let user = cachedUsers.find((u) => u.username.toLowerCase() === username.toLowerCase());
-
-  // 1.1 Guaranteed recovery for 'bipinyadav'
-  if (!user && username.toLowerCase() === "bipinyadav") {
-    user = INITIAL_SEEDED_USERS.find((u) => u.username.toLowerCase() === "bipinyadav") || {
-      id: "USR-MUH4DO9R-6405",
-      username: "bipinyadav",
-      passwordHash: hashPassword(password),
-      role: "citizen",
-      displayName: "Bipin Yadav",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    cachedUsers.push(user);
-    persistUsersToDisk();
-  }
 
   // 2. If not found in cache, check Supabase
   if (!user) {
@@ -297,18 +327,12 @@ export async function authenticateUser(
     };
   }
 
-  const isValid = verifyPassword(password, user.passwordHash, user);
+  const isValid = verifyPassword(password, user.passwordHash);
   if (!isValid) {
     return {
       success: false,
       error: "Incorrect password. Please try again.",
     };
-  }
-
-  // If user is bipinyadav, update their stored hash to the latest successful password
-  if (user.username.toLowerCase() === "bipinyadav") {
-    user.passwordHash = hashPassword(password);
-    persistUsersToDisk();
   }
 
   return {
