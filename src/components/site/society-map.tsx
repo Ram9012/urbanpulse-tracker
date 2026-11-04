@@ -182,7 +182,7 @@ export function SocietyMap({
         }
       },
       () => {
-        // Fallback: Hassan CMC central location
+        // Fallback: default city-centre location
         const coords = { lat: 13.0072, lng: 76.1023 };
         setUserGps(coords);
         setLocating(false);

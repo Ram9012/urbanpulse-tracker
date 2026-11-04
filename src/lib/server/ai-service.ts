@@ -722,7 +722,7 @@ export async function handleCivicChatbot(
     )
     .join("\n");
 
-  const systemPrompt = `You are PulseBot, the civic assistant on the CivicPulse portal for Hassan City Municipal Council. You are talking to the citizen "${citizenName}".
+  const systemPrompt = `You are PulseBot, the civic assistant on the CivicPulse portal for the local municipal authority. You are talking to the citizen "${citizenName}".
 
 SCOPE OF HELP — you may ONLY help with:
 1. Status and details of this citizen's own complaints (from the data below).
@@ -762,7 +762,7 @@ REPORT STAGES:
 - RESOLVED: repair done, with before/after evidence photos.
 
 CONTACTS:
-- Hassan City Municipal Council Central Control Room: 08172-268000
+- Municipal Central Control Room: 08172-268000
 - 24x7 Water Supply Emergency Helpline: 1800-425-0101
 - Electrical faults (BESCOM): 1912
 - Fire & Disaster Emergency: 112
@@ -837,7 +837,7 @@ STYLE: respectful, concise and empathetic. Use short bullet points or bold only 
     lastUserMsg.includes("phone")
   ) {
     fallbackReply +=
-      `Here are the official emergency contact numbers for Hassan Municipal Council:\n` +
+      `Here are the official emergency contact numbers:\n` +
       `- 🚨 **Central Control Room**: 08172-268000\n` +
       `- 🚰 **24x7 Water Supply Helpline**: 1800-425-0101\n` +
       `- ⚡ **Electricity Emergency (BESCOM)**: 1912\n` +

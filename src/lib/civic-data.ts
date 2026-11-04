@@ -338,7 +338,7 @@ export const REPORTS: CivicReport[] = [
     description:
       "Green signal stays on for only 5 seconds while red stays for 120 seconds. Traffic backed up all the way to society entrance road.",
     ward: "Ward 10 - Central Circle",
-    area: "Hassan Central Circle, Near CMC Tower",
+    area: "Hassan Central Circle",
     status: "verified",
     priority: "medium",
     department: "Traffic Department",

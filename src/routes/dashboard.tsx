@@ -339,7 +339,7 @@ function Dashboard() {
             }
             hint="Submitted by you"
           />
-          <Stat label="Active in Society" value={activeCount} hint="Being repaired by CMC" />
+          <Stat label="Active in Society" value={activeCount} hint="Being repaired" />
           <Stat label="Society & Ward" value={"Ward 12"} hint="Racecourse / Vidyanagar" />
         </div>
 

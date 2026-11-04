@@ -228,7 +228,7 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
 
     // 5. Municipal Search (SerpAPI / Zenserp)
     if (pathname.startsWith("/api/search/municipal") && request.method === "GET") {
-      const q = url.searchParams.get("q") || "Hassan municipal council civic complaints";
+      const q = url.searchParams.get("q") || "Hassan civic complaints grievance helpline";
       const serpApiKey =
         process.env["SERPAPI_API_KEY"] ||
         "09e538a7b57d3f0ad876a3e25dd5dd1ece56236a57dfadf95b86e5bbf3694b40";
@@ -530,7 +530,7 @@ export function civicPulseApiPlugin(): Plugin {
             const q =
               queryMatch && queryMatch[1]
                 ? decodeURIComponent(queryMatch[1])
-                : "Hassan municipal council civic complaints";
+                : "Hassan civic complaints grievance helpline";
             const serpApiKey =
               process.env["SERPAPI_API_KEY"] ||
               "09e538a7b57d3f0ad876a3e25dd5dd1ece56236a57dfadf95b86e5bbf3694b40";

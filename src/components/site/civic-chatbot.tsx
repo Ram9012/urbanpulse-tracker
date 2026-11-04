@@ -433,7 +433,7 @@ export function CivicChatbot({
         </form>
 
         <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground px-1">
-          <span>Press Enter to send · Hassan CMC Grounded</span>
+          <span>Press Enter to send</span>
           <span className="font-semibold text-primary">⚡ Ultra-low latency</span>
         </div>
       </div>

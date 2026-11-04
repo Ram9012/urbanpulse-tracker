@@ -163,9 +163,7 @@ function ReportDetails() {
   const [verifyingAi, setVerifyingAi] = useState(false);
 
   // Municipal Search state (SerpAPI)
-  const [municipalQuery, setMunicipalQuery] = useState(
-    "Hassan city municipal council grievance helpline",
-  );
+  const [municipalQuery, setMunicipalQuery] = useState("civic grievance helpline Hassan");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
@@ -654,7 +652,7 @@ function ReportDetails() {
           <StatusBadge status={report.status} />
           <PriorityBadge priority={report.priority} />
           <span className="text-sm text-muted-foreground">
-            {report.area} · {report.ward} · Hassan Municipal Corporation
+            {report.area} · {report.ward}
           </span>
           <div className="ml-auto flex items-center gap-2">
             {isConfirmingDelete ? (
@@ -1181,7 +1179,7 @@ function ReportDetails() {
               <div className="mt-4">
                 <p className="text-xs text-muted-foreground mb-2">
                   Live retrieval via <strong>SerpAPI</strong> from official Government of Karnataka
-                  & Hassan Municipal portals:
+                  & municipal portals:
                 </p>
                 <div className="flex gap-2">
                   <input
