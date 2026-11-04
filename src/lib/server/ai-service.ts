@@ -1,6 +1,7 @@
 /**
- * CivicPulse AI Engine (Groq + Secondary Providers)
+ * CivicPulse AI Engine (Groq for text, Gemini for photo vision)
  * Handles:
+ * 0. Evidence photo defect classification & severity (Gemini vision)
  * 1. Report understanding & summarization
  * 2. Priority recommendation with reasoning
  * 3. Duplicate semantic analysis
@@ -13,6 +14,13 @@ const GROQ_API_KEY =
   process.env["GROQ_API_KEY"] || "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";
 const GROQ_BASE_URL = process.env["GROQ_BASE_URL"] || "https://api.groq.com/openai/v1";
 const GROQ_MODEL = process.env["GROQ_MODEL"] || "qwen/qwen3.8-27b";
+// Image analysis uses Gemini (not Groq): this Groq account has no accessible
+// vision-capable model (confirmed 404/decommissioned on every known model id).
+const GEMINI_API_KEY = process.env["GEMINI_API_KEY"] || "";
+const GEMINI_VISION_MODEL = process.env["GEMINI_VISION_MODEL"] || "gemini-3-flash-preview";
+
+// Base64 photo payloads must stay well under the request size limit.
+const MAX_VISION_IMAGE_BYTES = 4 * 1024 * 1024;
 
 async function callGroqChat(
   messages: Array<{ role: string; content: string }>,
@@ -42,6 +50,129 @@ async function callGroqChat(
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content ?? "";
   return jsonMode ? JSON.parse(content) : content;
+}
+
+async function callGeminiVision(imageDataUrl: string, prompt: string, maxTokens = 500) {
+  if (!GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY is not configured");
+  }
+  const [header, base64Data] = imageDataUrl.split(",");
+  const mimeType = header?.match(/data:(.*);base64/)?.[1] || "image/jpeg";
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_VISION_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64Data } }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: maxTokens,
+          responseMimeType: "application/json",
+          // Gemini 3's "thinking" tokens otherwise eat the whole output budget
+          // before any JSON is emitted; this is a short classification task.
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini Vision API Error (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  const content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  return JSON.parse(content);
+}
+
+const KNOWN_DEFECT_TYPES = [
+  "pothole",
+  "road_crack",
+  "streetlight_damage",
+  "garbage_dump",
+  "drainage_overflow",
+  "damaged_footpath",
+  "exposed_wiring",
+  "traffic_signal_fault",
+  "other",
+] as const;
+
+/**
+ * AI Service 0: Vision Analysis of Uploaded Evidence Photo
+ * Classifies the civic defect visible in the photo and gives an approximate
+ * severity + size estimate. This is a qualitative vision-language estimate
+ * (not a calibrated measurement) intended for triage, not engineering use.
+ */
+export async function analyzeIssueImage(imageDataUrl: string, categoryName?: string) {
+  if (!imageDataUrl.startsWith("data:image/")) {
+    throw new Error("Expected a base64 data URL image");
+  }
+  const base64Part = imageDataUrl.split(",")[1] || "";
+  const approxBytes = Math.floor((base64Part.length * 3) / 4);
+  if (approxBytes > MAX_VISION_IMAGE_BYTES) {
+    throw new Error("Image too large for vision analysis (max 4MB)");
+  }
+
+  const prompt = `You are a municipal civic-infrastructure inspector AI. Look at this photo submitted by a citizen${
+    categoryName ? ` under the category "${categoryName}"` : ""
+  } and identify the civic defect shown.
+
+Return a strictly valid JSON object with EXACTLY this structure:
+{
+  "detected_defect_type": one of ${JSON.stringify(KNOWN_DEFECT_TYPES)},
+  "defect_confidence": number between 0 and 1,
+  "severity_score": "low" | "medium" | "high" | "critical",
+  "severity_reason": "1 short sentence explaining the severity call",
+  "estimated_dimensions": "approximate size in cm/meters, reasoned from visible reference objects (tires, pavement tiles, footpath width, person); say so plainly if no reference object is visible and the estimate is a rough guess",
+  "visual_description": "1-2 sentences describing exactly what is visible in the photo",
+  "category_match": true or false (does the defect match the citizen's selected category)
+}`;
+
+  try {
+    const raw: any = await callGeminiVision(imageDataUrl, prompt);
+
+    const defectType = KNOWN_DEFECT_TYPES.includes(raw.detected_defect_type)
+      ? raw.detected_defect_type
+      : "other";
+
+    let severity = String(raw.severity_score || "medium").toLowerCase();
+    if (!["low", "medium", "high", "critical"].includes(severity)) severity = "medium";
+
+    return {
+      detected_defect_type: defectType as (typeof KNOWN_DEFECT_TYPES)[number],
+      defect_confidence:
+        typeof raw.defect_confidence === "number"
+          ? Math.min(Math.max(raw.defect_confidence, 0), 1)
+          : 0.75,
+      severity_score: severity as "low" | "medium" | "high" | "critical",
+      severity_reason: String(raw.severity_reason || "Assessed from visible damage extent."),
+      estimated_dimensions: String(
+        raw.estimated_dimensions || "Unable to estimate — no reference object visible.",
+      ),
+      visual_description: String(raw.visual_description || "Civic defect visible in photo."),
+      category_match: Boolean(raw.category_match ?? true),
+      source: "Gemini Vision AI Engine",
+    };
+  } catch (err: any) {
+    console.warn("[Gemini Vision Analysis Fallback]:", err.message);
+    return {
+      detected_defect_type: "other" as const,
+      defect_confidence: 0.5,
+      severity_score: "medium" as const,
+      severity_reason: "Vision AI unavailable — defaulted to medium severity for manual review.",
+      estimated_dimensions: "Unable to estimate — vision analysis unavailable.",
+      visual_description: "Automatic photo analysis unavailable; manual review recommended.",
+      category_match: true,
+      source: "CivicPulse Vision Engine (Offline Fallback)",
+    };
+  }
 }
 
 /**

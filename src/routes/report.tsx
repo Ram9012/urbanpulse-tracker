@@ -107,6 +107,26 @@ const CATEGORY_TEMPLATES: Record<string, { label: string; text: string }[]> = {
   ],
 };
 
+interface VisionAnalysisResult {
+  detected_defect_type:
+    | "pothole"
+    | "road_crack"
+    | "streetlight_damage"
+    | "garbage_dump"
+    | "drainage_overflow"
+    | "damaged_footpath"
+    | "exposed_wiring"
+    | "traffic_signal_fault"
+    | "other";
+  defect_confidence: number;
+  severity_score: "low" | "medium" | "high" | "critical";
+  severity_reason: string;
+  estimated_dimensions: string;
+  visual_description: string;
+  category_match: boolean;
+  source?: string;
+}
+
 interface DuplicateCheckResult {
   is_duplicate: boolean;
   similarity_score: number;
@@ -181,6 +201,9 @@ function ReportPage() {
   const [upvoting, setUpvoting] = useState(false);
   const [upvoteSuccessMessage, setUpvoteSuccessMessage] = useState<string | null>(null);
   const [allExistingReports, setAllExistingReports] = useState<CivicReport[]>(REPORTS);
+  const [visionAnalysis, setVisionAnalysis] = useState<VisionAnalysisResult | null>(null);
+  const [visionLoading, setVisionLoading] = useState(false);
+  const [visionError, setVisionError] = useState<string | null>(null);
 
   // Fetch latest active reports from server for accurate live location-based duplicate detection
   useEffect(() => {
@@ -401,6 +424,32 @@ function ReportPage() {
     });
   };
 
+  // Gemini Vision Analysis of the first attached photo: classifies the defect
+  // and gives a qualitative severity + size estimate (not a calibrated measurement).
+  const runVisionAnalysis = async (imageDataUrl: string) => {
+    if (!imageDataUrl.startsWith("data:image/")) return; // skip blob: URLs (plain file uploads without compression)
+    setVisionLoading(true);
+    setVisionError(null);
+    try {
+      const res = await fetch("/api/ai/analyze-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageDataUrl, categoryName: category }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setVisionAnalysis(data);
+      } else {
+        setVisionError("Photo analysis is temporarily unavailable.");
+      }
+    } catch (err) {
+      console.warn("Vision analysis network error:", err);
+      setVisionError("Photo analysis is temporarily unavailable.");
+    } finally {
+      setVisionLoading(false);
+    }
+  };
+
   // Real Photo Upload Handler with Automatic Compression to persistent Data URLs
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -418,6 +467,7 @@ function ReportPage() {
           timestamp: new Date().toLocaleTimeString(),
         };
         setMediaItems((prev) => [...prev, newItem]);
+        if (!visionAnalysis && !visionLoading) runVisionAnalysis(newItem.url);
       } catch {
         const url = URL.createObjectURL(file);
         const newItem: MediaItem = {
@@ -505,13 +555,21 @@ function ReportPage() {
         timestamp: new Date().toLocaleTimeString(),
       };
       setMediaItems((prev) => [...prev, newItem]);
+      if (!visionAnalysis && !visionLoading) runVisionAnalysis(newItem.url);
     }
     stopCamera();
   };
 
   // Remove uploaded media
   const removeMedia = (id: string) => {
-    setMediaItems((prev) => prev.filter((m) => m.id !== id));
+    setMediaItems((prev) => {
+      const next = prev.filter((m) => m.id !== id);
+      if (next.every((m) => m.type !== "image")) {
+        setVisionAnalysis(null);
+        setVisionError(null);
+      }
+      return next;
+    });
   };
 
   // Voice Recognition setup (Web Speech API)
@@ -970,7 +1028,11 @@ function ReportPage() {
                       </span>
                       <button
                         type="button"
-                        onClick={() => setMediaItems([])}
+                        onClick={() => {
+                          setMediaItems([]);
+                          setVisionAnalysis(null);
+                          setVisionError(null);
+                        }}
                         className="text-xs text-destructive hover:underline"
                       >
                         Remove All
@@ -1453,6 +1515,45 @@ function ReportPage() {
             </h3>
 
             <div className="mt-4 space-y-3 text-xs">
+              {(visionLoading || visionAnalysis || visionError) && (
+                <div className="rounded-xl bg-navy-foreground/10 p-3">
+                  <span className="font-bold text-teal block uppercase tracking-wider text-[10px]">
+                    Photo Analysis (Gemini Vision)
+                  </span>
+                  {visionLoading && <p className="mt-1 text-white/80">Analyzing uploaded photo…</p>}
+                  {visionError && !visionLoading && (
+                    <p className="mt-1 text-white/70">{visionError}</p>
+                  )}
+                  {visionAnalysis && !visionLoading && (
+                    <div className="mt-1 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded font-bold uppercase bg-teal/20 text-teal text-[10px]">
+                          {visionAnalysis.detected_defect_type.replace(/_/g, " ")}
+                        </span>
+                        <span className="px-2 py-0.5 rounded font-bold uppercase bg-warm text-warm-foreground text-[10px]">
+                          {visionAnalysis.severity_score}
+                        </span>
+                        <span className="text-white/60">
+                          {Math.round(visionAnalysis.defect_confidence * 100)}% confidence
+                        </span>
+                      </div>
+                      <p className="text-white font-medium">{visionAnalysis.visual_description}</p>
+                      <p className="text-white/80">
+                        <span className="font-bold text-teal">Estimated size: </span>
+                        {visionAnalysis.estimated_dimensions}
+                      </p>
+                      <p className="text-white/80">{visionAnalysis.severity_reason}</p>
+                      {!visionAnalysis.category_match && (
+                        <p className="text-amber-200">
+                          ⚠️ The photo doesn't look like a typical "{category}" issue — double check
+                          your selected category.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {activeAi.category_mismatch && (
                 <div className="rounded-xl bg-amber-500/20 border border-amber-400/40 p-3 text-[11px] text-amber-200">
                   <span className="font-bold flex items-center gap-1.5 text-white">

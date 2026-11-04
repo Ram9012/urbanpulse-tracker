@@ -1,6 +1,7 @@
 import type { Plugin, ViteDevServer } from "vite";
 import {
   analyzeReportDescription,
+  analyzeIssueImage,
   analyzeDuplicateReport,
   verifyResolutionEvidence,
   generateWorkloadInsights,
@@ -115,6 +116,17 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       const body = await request.json();
       const { description, categoryName } = body;
       const result = await analyzeReportDescription(description || "", categoryName);
+      return Response.json(result, { status: 200 });
+    }
+
+    // 1.1 Vision Analysis of Uploaded Evidence Photo
+    if (pathname === "/api/ai/analyze-image" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      const { imageDataUrl, categoryName } = body;
+      if (!imageDataUrl) {
+        return Response.json({ error: "Missing imageDataUrl" }, { status: 400 });
+      }
+      const result = await analyzeIssueImage(imageDataUrl, categoryName);
       return Response.json(result, { status: 200 });
     }
 
@@ -342,6 +354,17 @@ export function civicPulseApiPlugin(): Plugin {
             const body = await parseJsonBody(req);
             const { description, categoryName } = body;
             const result = await analyzeReportDescription(description || "", categoryName);
+            return sendJson(res, 200, result);
+          }
+
+          // 1.1 Vision Analysis of Uploaded Evidence Photo
+          if (url === "/api/ai/analyze-image" && req.method === "POST") {
+            const body = await parseJsonBody(req).catch(() => ({}));
+            const { imageDataUrl, categoryName } = body;
+            if (!imageDataUrl) {
+              return sendJson(res, 400, { error: "Missing imageDataUrl" });
+            }
+            const result = await analyzeIssueImage(imageDataUrl, categoryName);
             return sendJson(res, 200, result);
           }
 
