@@ -21,7 +21,7 @@ export const Route = createFileRoute("/admin/reports")({
       {
         name: "description",
         content:
-          "Filter, classify, assign and resolve civic reports with Groq AI decision support and deterministic audit logging.",
+          "Filter, classify, assign and resolve civic reports with AI decision support and deterministic audit logging.",
       },
       { property: "og:title", content: "Live Report Management — CivicPulse Staff" },
       {
@@ -712,7 +712,7 @@ function ReportsTable() {
         <div>
           <h1 className="font-display text-2xl font-extrabold">Live Civic Reports Queue</h1>
           <p className="text-sm text-muted-foreground">
-            Manage reports across all stages with deterministic status rules and Groq AI decision
+            Manage reports across all stages with deterministic status rules and AI decision
             support.
           </p>
         </div>
@@ -731,7 +731,7 @@ function ReportsTable() {
             onClick={fetchAiWorkloadInsights}
             className="inline-flex items-center gap-2 rounded-xl bg-navy px-4 py-2 text-xs font-bold text-navy-foreground shadow hover:bg-navy/90 transition"
           >
-            <span>🤖</span> AI Operations Advisor (Groq)
+            <span>🤖</span> AI Operations Advisor
           </button>
           <DemoDataNote />
         </div>
@@ -1128,7 +1128,7 @@ function ReportsTable() {
 
             {aiLoading ? (
               <p className="text-xs text-muted-foreground py-8 text-center">
-                Groq AI is analyzing department queues, SLA metrics, and bottleneck wards…
+                AI is analyzing department queues, SLA metrics, and bottleneck wards…
               </p>
             ) : aiInsights ? (
               <div className="mt-4 space-y-4 text-xs">

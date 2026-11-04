@@ -1,7 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { SiteLayout } from "@/components/site/site-layout";
 import { Section } from "@/components/site/primitives";
-import { BRAND } from "@/lib/civic-data";
 
 export const Route = createFileRoute("/help")({
   head: () => ({
@@ -103,33 +102,6 @@ function Help() {
               <li>Touch targets are at least 44 pixels.</li>
             </ul>
           </article>
-        </div>
-      </Section>
-
-      <Section align="left" title="Contact support">
-        <div className="surface-card max-w-xl p-6">
-          <p className="text-sm text-muted-foreground">
-            For help with a specific report, keep your tracking ID handy.
-          </p>
-          <ul className="mt-4 space-y-2 text-sm font-semibold">
-            <li>Email: {BRAND.email}</li>
-            <li>Helpline: {BRAND.phone}</li>
-            <li>Municipal office: {BRAND.city}</li>
-          </ul>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              to="/report"
-              className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground"
-            >
-              Report an issue
-            </Link>
-            <Link
-              to="/dashboard"
-              className="inline-flex min-h-11 items-center rounded-xl border border-border px-5 text-sm font-bold hover:bg-accent"
-            >
-              Track my reports
-            </Link>
-          </div>
         </div>
       </Section>
     </SiteLayout>
