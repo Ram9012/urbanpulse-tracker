@@ -687,9 +687,6 @@ function Dashboard() {
             </div>
           </aside>
         </div>
-
-        {/* Floating Groq AI Chatbot Assistant */}
-        <CivicChatbot user={user} reports={reports} variant="floating" />
       </Section>
     </SiteLayout>
   );
