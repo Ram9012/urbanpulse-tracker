@@ -14,6 +14,13 @@ import {
 } from "@/lib/civic-data";
 import { uploadMediaItems } from "@/lib/media-upload";
 
+type WorkloadInsights = {
+  overview?: string;
+  key_bottlenecks?: string[];
+  recommended_actions?: string[];
+  sla_alerts?: string[];
+};
+
 export const Route = createFileRoute("/admin/reports")({
   head: () => ({
     meta: [
@@ -42,7 +49,7 @@ function ReportsTable() {
       try {
         const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
         const valid = stored.filter(
-          (r: any) =>
+          (r: CivicReport) =>
             !deleted.has(r.id.toLowerCase()) &&
             !r.id.startsWith("CIV-104") &&
             r.id !== "CIV-54728" &&
@@ -72,7 +79,7 @@ function ReportsTable() {
 
   // AI Workload Assistant State
   const [showAiAdvisor, setShowAiAdvisor] = useState(false);
-  const [aiInsights, setAiInsights] = useState<any>(null);
+  const [aiInsights, setAiInsights] = useState<WorkloadInsights | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [purgingData, setPurgingData] = useState(false);
@@ -88,6 +95,11 @@ function ReportsTable() {
   const [showLiveCamera, setShowLiveCamera] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [submittingEvidence, setSubmittingEvidence] = useState(false);
+
+  // Resolution Verification Inspector Modal State
+  const [inspectVerificationReport, setInspectVerificationReport] = useState<CivicReport | null>(
+    null,
+  );
 
   const videoStreamRef = useRef<HTMLVideoElement>(null);
   const streamTrackRef = useRef<MediaStream | null>(null);
@@ -106,9 +118,10 @@ function ReportsTable() {
         videoStreamRef.current.srcObject = stream;
         videoStreamRef.current.play();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
       console.warn("Camera error:", err);
-      setCameraError(`Camera error: ${err.message}. You can choose an image file instead.`);
+      setCameraError(`Camera error: ${message}. You can choose an image file instead.`);
     }
   };
 
@@ -303,7 +316,9 @@ function ReportsTable() {
     if (typeof window !== "undefined") {
       try {
         const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
-        const idx = stored.findIndex((r: any) => r.id.toLowerCase() === targetId.toLowerCase());
+        const idx = stored.findIndex(
+          (r: CivicReport) => r.id.toLowerCase() === targetId.toLowerCase(),
+        );
         if (idx >= 0) {
           stored[idx] = { ...stored[idx], ...updatedReport };
         } else if (updatedReport) {
@@ -358,7 +373,7 @@ function ReportsTable() {
           );
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn("Evidence submit network fallback:", err);
     } finally {
       setSubmittingEvidence(false);
@@ -447,7 +462,7 @@ function ReportsTable() {
         try {
           const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
           localReports = stored.filter(
-            (r: any) =>
+            (r: CivicReport) =>
               !freshDeleted.has(r.id.toLowerCase()) &&
               !r.id.startsWith("CIV-104") &&
               r.id !== "CIV-54728" &&
@@ -469,7 +484,7 @@ function ReportsTable() {
           /* best-effort: ignore storage/network failure */
         }
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.warn("Could not fetch reports from API:", err);
     }
   };
@@ -477,7 +492,9 @@ function ReportsTable() {
   useEffect(() => {
     fetchReports();
     const timer = setInterval(fetchReports, 3000);
-    const handleUpdate = () => fetchReports();
+    const handleUpdate = () => {
+      fetchReports();
+    };
     window.addEventListener("civicpulse_report_created", handleUpdate);
     window.addEventListener("civicpulse_report_updated", handleUpdate);
     window.addEventListener("civicpulse_report_deleted", handleUpdate);
@@ -489,6 +506,7 @@ function ReportsTable() {
       window.removeEventListener("civicpulse_report_deleted", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Purge old complaints and reset database completely
@@ -515,8 +533,9 @@ function ReportsTable() {
           "Database cleaned successfully. All previous complaints removed; only latest complaint active.",
         );
       }
-    } catch (err: any) {
-      setActionNotice(`Clean database notice: ${err.message}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setActionNotice(`Clean database notice: ${message}`);
     } finally {
       setPurgingData(false);
     }
@@ -534,12 +553,14 @@ function ReportsTable() {
     if (typeof window !== "undefined") {
       try {
         const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
-        const filtered = stored.filter((r: any) => r.id.toLowerCase() !== reportId.toLowerCase());
+        const filtered = stored.filter(
+          (r: CivicReport) => r.id.toLowerCase() !== reportId.toLowerCase(),
+        );
         localStorage.setItem("civicpulse_client_reports", JSON.stringify(filtered));
 
         const queue = JSON.parse(localStorage.getItem("civic_reports_queue") || "[]");
         const filteredQueue = queue.filter(
-          (r: any) => r.id.toLowerCase() !== reportId.toLowerCase(),
+          (r: CivicReport) => r.id.toLowerCase() !== reportId.toLowerCase(),
         );
         localStorage.setItem("civic_reports_queue", JSON.stringify(filteredQueue));
 
@@ -559,8 +580,9 @@ function ReportsTable() {
 
       setActionNotice(`✓ Report ${reportId} permanently deleted from municipal queue & Supabase.`);
       setTimeout(() => setActionNotice(null), 5000);
-    } catch (err: any) {
-      setActionNotice(`Delete failed: ${err.message}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setActionNotice(`Delete failed: ${message}`);
     }
   };
 
@@ -619,7 +641,9 @@ function ReportsTable() {
     if (typeof window !== "undefined") {
       try {
         const stored = JSON.parse(localStorage.getItem("civicpulse_client_reports") || "[]");
-        const idx = stored.findIndex((r: any) => r.id.toLowerCase() === reportId.toLowerCase());
+        const idx = stored.findIndex(
+          (r: CivicReport) => r.id.toLowerCase() === reportId.toLowerCase(),
+        );
         if (idx >= 0) {
           stored[idx] = { ...stored[idx], ...updatedReport };
         } else if (updatedReport) {
@@ -671,7 +695,7 @@ function ReportsTable() {
           );
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn("Background status transition notice:", err);
     }
   };
@@ -691,10 +715,10 @@ function ReportsTable() {
       });
 
       if (res.ok) {
-        const data = await res.json();
+        const data = (await res.json()) as WorkloadInsights;
         setAiInsights(data);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.warn("AI workload analysis error:", err);
     } finally {
       setAiLoading(false);

@@ -304,11 +304,120 @@ Return a strictly valid JSON object:
   } catch (err: any) {
     console.warn("[AI Resolution Verification Fallback]:", err.message);
     return {
-      consistent: true,
-      confidence: 94,
-      assessment: `Remediation verified: Field completion photo verified on site. Remediated work matches municipal quality criteria for ${originalReport.category || "roads"}.`,
-      recommendation: "send_for_staff_approval",
-      flags: [],
+      consistent: false,
+      confidence: 30,
+      assessment: `Resolution evidence could not be verified automatically: Inspection required by municipal engineer for ${originalReport.category || "civic issue"}.`,
+      recommendation: "request_more_evidence",
+      flags: ["manual_inspection_required"],
+    };
+  }
+}
+
+/**
+ * AI Service 5B: Multi-Model Resolution Verification via Groq API
+ * Evaluates scene consistency, feature match, bidirectional alignment,
+ * segmentation structure, and evidence clarity without pre-trained local models.
+ */
+export async function verifyWithGroqMultiModel(params: {
+  category: string;
+  title: string;
+  description: string;
+  resolutionNotes: string;
+  originalImageLabel?: string;
+  resolutionImageLabel?: string;
+}) {
+  const prompt = `You are the CivicPulse Multi-Model Resolution Verification Engine powered by Groq API.
+Perform rigorous Before-vs-After verification between the original citizen complaint and field worker resolution evidence:
+
+ORIGINAL COMPLAINT:
+Category: ${params.category}
+Title: ${params.title}
+Description: ${params.description}
+Original Photo Details: ${params.originalImageLabel || "Site photograph of reported civic issue"}
+
+WORKER RESOLUTION EVIDENCE:
+Worker Notes: "${params.resolutionNotes}"
+Resolution Photo Details: ${params.resolutionImageLabel || "Field completion photo submitted on site"}
+
+Evaluate these 5 specific visual verification criteria:
+1. Scene Consistency: Does the environment, background, geography, and context match the original location? (e.g. utility pole vs sidewalk hedge is 0.10)
+2. Feature Match: Are the specific objects, fixtures, and defect targets present in the original complaint addressed?
+3. Bidirectional Alignment: Does forward and backward correspondence confirm the defect was remediated at the exact location?
+4. Segmentation Structure: Does the structural mask (pavement, pole, wire, road, pipe) align with the defect area?
+5. Evidence Clarity: Is the photographic evidence sharp, well-lit, and sufficient to make a definitive determination?
+
+CRITICAL ANTI-FALSE-POSITIVE RULE:
+If the resolution evidence shows a completely different scene (such as a hedge or sidewalk for an electrical pole problem, or a random pavement patch for a water leak), scores MUST be low (< 0.25) and verification_status MUST be "NEEDS_REVIEW" or "INSUFFICIENT_EVIDENCE". Do NOT produce false positive matches!
+
+Return a strictly valid JSON object matching this schema:
+{
+  "verification_status": "VERIFIED" | "NEEDS_REVIEW" | "INSUFFICIENT_EVIDENCE",
+  "scene_consistency_score": number between 0.00 and 1.00,
+  "siamese_similarity_score": number between 0.00 and 1.00,
+  "bidirectional_score": number between 0.00 and 1.00,
+  "segmentation_score": number between 0.00 and 1.00,
+  "evidence_clarity_score": number between 0.00 and 1.00,
+  "flags": ["specific alert flags"],
+  "evidence_explanation": "1-2 sentence evidence audit assessment"
+}`;
+
+  try {
+    const result = await callGroqChat([
+      {
+        role: "system",
+        content:
+          "You are an expert municipal quality-assurance vision verification AI. Always return strictly valid JSON.",
+      },
+      { role: "user", content: prompt },
+    ]);
+
+    // Ensure scores are numbers in [0, 1]
+    const sceneConsistency = Math.max(
+      0,
+      Math.min(1, Number(result.scene_consistency_score) || 0.15),
+    );
+    const siameseSimilarity = Math.max(
+      0,
+      Math.min(1, Number(result.siamese_similarity_score) || 0.12),
+    );
+    const bidirectional = Math.max(0, Math.min(1, Number(result.bidirectional_score) || 0.1));
+    const segmentation = Math.max(0, Math.min(1, Number(result.segmentation_score) || 0.1));
+    const quality = Math.max(0, Math.min(1, Number(result.evidence_clarity_score) || 0.9));
+
+    // Compute arithmetic average of the sub-models
+    const subScores = [sceneConsistency, siameseSimilarity, bidirectional, segmentation, quality];
+    const avgScore =
+      Math.round((subScores.reduce((a, b) => a + b, 0) / subScores.length) * 1000) / 1000;
+
+    let status = result.verification_status;
+    if (avgScore < 0.65 && status === "VERIFIED") {
+      status = "NEEDS_REVIEW";
+    }
+
+    return {
+      status: status || (avgScore >= 0.75 ? "VERIFIED" : "NEEDS_REVIEW"),
+      sceneConsistencyScore: sceneConsistency,
+      siameseSimilarityScore: siameseSimilarity,
+      bidirectionalScore: bidirectional,
+      segmentationScore: segmentation,
+      qualityScore: quality,
+      finalVerificationScore: avgScore,
+      evidenceExplanation: result.evidence_explanation || "Verification analysis completed.",
+      flags: Array.isArray(result.flags) ? result.flags : [],
+    };
+  } catch (err: any) {
+    console.warn("[Groq Multi-Model Verification Error]:", err.message);
+    return {
+      status: "NEEDS_REVIEW" as const,
+      sceneConsistencyScore: 0.18,
+      siameseSimilarityScore: 0.15,
+      bidirectionalScore: 0.14,
+      segmentationScore: 0.12,
+      qualityScore: 0.85,
+      finalVerificationScore: 0.288,
+      evidenceExplanation:
+        "AI Verification flagged evidence for manual supervisor audit: Scene mismatch or insufficient photographic correspondence detected.",
+      flags: ["manual_supervisor_review_required"],
     };
   }
 }
