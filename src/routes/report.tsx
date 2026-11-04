@@ -204,6 +204,12 @@ function ReportPage() {
   const [visionAnalysis, setVisionAnalysis] = useState<VisionAnalysisResult | null>(null);
   const [visionLoading, setVisionLoading] = useState(false);
   const [visionError, setVisionError] = useState<string | null>(null);
+  // Mirrors whether vision analysis has been triggered for the current photo
+  // batch. State alone isn't enough: when multiple photos are selected at
+  // once, each loop iteration reads the same stale closure value before any
+  // re-render happens, so every photo in the batch would otherwise trigger
+  // its own call. A ref updates synchronously, so only the first one fires.
+  const visionTriggeredRef = useRef(false);
 
   // Fetch latest active reports from server for accurate live location-based duplicate detection
   useEffect(() => {
@@ -467,7 +473,10 @@ function ReportPage() {
           timestamp: new Date().toLocaleTimeString(),
         };
         setMediaItems((prev) => [...prev, newItem]);
-        if (!visionAnalysis && !visionLoading) runVisionAnalysis(newItem.url);
+        if (!visionTriggeredRef.current) {
+          visionTriggeredRef.current = true;
+          runVisionAnalysis(newItem.url);
+        }
       } catch {
         const url = URL.createObjectURL(file);
         const newItem: MediaItem = {
@@ -555,7 +564,10 @@ function ReportPage() {
         timestamp: new Date().toLocaleTimeString(),
       };
       setMediaItems((prev) => [...prev, newItem]);
-      if (!visionAnalysis && !visionLoading) runVisionAnalysis(newItem.url);
+      if (!visionTriggeredRef.current) {
+        visionTriggeredRef.current = true;
+        runVisionAnalysis(newItem.url);
+      }
     }
     stopCamera();
   };
@@ -567,6 +579,7 @@ function ReportPage() {
       if (next.every((m) => m.type !== "image")) {
         setVisionAnalysis(null);
         setVisionError(null);
+        visionTriggeredRef.current = false;
       }
       return next;
     });
@@ -1032,6 +1045,7 @@ function ReportPage() {
                           setMediaItems([]);
                           setVisionAnalysis(null);
                           setVisionError(null);
+                          visionTriggeredRef.current = false;
                         }}
                         className="text-xs text-destructive hover:underline"
                       >
