@@ -768,6 +768,7 @@ function ReportDetails() {
                 originalImageUrl={report.mediaUrls?.[0] || "/media/evidence/pothole_before.jpg"}
                 resolutionImageUrl={report.resolutionMediaUrls[0] || ""}
                 category={report.category}
+                description={report.description}
                 adminUsername={currentUsername}
                 onDecisionComplete={fetchLiveState}
               />

@@ -16,7 +16,12 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { verifyResolutionEvidence, verifyWithGroqMultiModel } from "./ai-service";
+import {
+  verifyResolutionEvidence,
+  verifyWithGroqMultiModel,
+  assessResolutionWithVision,
+  type ResolutionVlmAssessment,
+} from "./ai-service";
 
 const AI_SERVICE_URL = process.env["AI_SERVICE_URL"] || "http://localhost:8001";
 
@@ -52,6 +57,14 @@ export type VerificationRecord = {
   modelVersion?: string | undefined;
   processingDurationMs?: number | undefined;
   isSuspectedDuplicate?: boolean | undefined;
+  /** Vision-language model: is the defect from the original photo actually fixed? (0-1) */
+  resolutionScore?: number | undefined;
+  /** Vision-language model: do both photos show the same place? (0-1) */
+  locationMatchScore?: number | undefined;
+  vlmVerdict?: ResolutionVlmAssessment["verdict"] | undefined;
+  vlmModel?: string | undefined;
+  /** Vision assessment kept on the record until the Python pipeline finishes, then merged. */
+  pendingVlm?: ResolutionVlmAssessment | undefined;
   adminDecision?: "approved" | "rejected" | "manual_review" | undefined;
   adminDecisionBy?: string | undefined;
   adminDecisionAt?: string | undefined;
@@ -71,23 +84,37 @@ const STORAGE_DIR = IS_VERCEL
 
 const VERIFICATIONS_FILE = path.join(STORAGE_DIR, "civic-verifications.json");
 
+// Last successfully-read snapshot. If the file is momentarily unreadable
+// (e.g. mid-write on another request) we serve this instead of an empty
+// list, which the UI would otherwise render as "Awaiting Verification".
+let lastGoodSnapshot: VerificationRecord[] = [];
+
 function loadVerifications(): VerificationRecord[] {
   try {
     if (fs.existsSync(VERIFICATIONS_FILE)) {
-      return JSON.parse(fs.readFileSync(VERIFICATIONS_FILE, "utf-8"));
+      const parsed = JSON.parse(fs.readFileSync(VERIFICATIONS_FILE, "utf-8"));
+      if (Array.isArray(parsed)) {
+        lastGoodSnapshot = parsed;
+        return parsed;
+      }
     }
   } catch {
-    /* ignore */
+    // Partial/corrupt read — fall back to the last good snapshot.
+    return lastGoodSnapshot.map((v) => ({ ...v }));
   }
-  return [];
+  return lastGoodSnapshot.map((v) => ({ ...v }));
 }
 
 function saveVerifications(records: VerificationRecord[]): void {
+  lastGoodSnapshot = records.map((v) => ({ ...v }));
   try {
     if (!fs.existsSync(STORAGE_DIR)) {
       fs.mkdirSync(STORAGE_DIR, { recursive: true });
     }
-    fs.writeFileSync(VERIFICATIONS_FILE, JSON.stringify(records, null, 2), "utf-8");
+    // Atomic write: readers never observe a half-written file.
+    const tmp = `${VERIFICATIONS_FILE}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(records, null, 2), "utf-8");
+    fs.renameSync(tmp, VERIFICATIONS_FILE);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn("[Vision Service] Failed to persist verifications:", message);
@@ -252,6 +279,121 @@ export async function checkAiServiceHealth(): Promise<boolean> {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Hybrid verification: Siamese/ORB (same place?) + vision-language model (fixed?)
+// ──────────────────────────────────────────────────────────────────────────────
+
+const MIME_BY_EXT: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+};
+
+/** Resolve a data: URL, local /media path or http(s) URL into a base64 data URL. */
+async function loadImageAsDataUrl(src: string): Promise<string> {
+  if (src.startsWith("data:image/")) return src;
+  if (/^https?:\/\//i.test(src)) {
+    const res = await fetch(src);
+    if (!res.ok) throw new Error(`Image fetch failed (${res.status}): ${src}`);
+    const mime = res.headers.get("content-type")?.split(";")[0] || "image/jpeg";
+    return `data:${mime};base64,${Buffer.from(await res.arrayBuffer()).toString("base64")}`;
+  }
+  const rel = src.replace(/^\/+/, "");
+  const abs = path.resolve(process.cwd(), "public", rel);
+  if (!abs.startsWith(path.resolve(process.cwd(), "public"))) {
+    throw new Error("Image path outside public directory");
+  }
+  const mime = MIME_BY_EXT[path.extname(abs).toLowerCase()] || "image/jpeg";
+  return `data:${mime};base64,${fs.readFileSync(abs).toString("base64")}`;
+}
+
+async function runVisionAssessment(params: {
+  originalImageUrl: string;
+  resolutionImageUrl: string;
+  reportCategory?: string | undefined;
+  reportDescription?: string | undefined;
+}): Promise<ResolutionVlmAssessment> {
+  const [originalDataUrl, resolutionDataUrl] = await Promise.all([
+    loadImageAsDataUrl(params.originalImageUrl),
+    loadImageAsDataUrl(params.resolutionImageUrl),
+  ]);
+  return assessResolutionWithVision({
+    originalDataUrl,
+    resolutionDataUrl,
+    ...(params.reportCategory ? { category: params.reportCategory } : {}),
+    ...(params.reportDescription ? { description: params.reportDescription } : {}),
+  });
+}
+
+const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+const round3 = (n: number) => Math.round(n * 1000) / 1000;
+
+/**
+ * Merge the Siamese/ORB scores (is it the same place?) with the vision model's
+ * judgement (is it fixed?) into the final record fields.
+ * Either input may be absent; the result degrades gracefully to whichever exists.
+ */
+function applyHybridVerdict(
+  base: VerificationRecord,
+  vlm: ResolutionVlmAssessment | undefined,
+): VerificationRecord {
+  if (!vlm) return base;
+
+  const geometric = [
+    base.sceneConsistencyScore,
+    base.siameseSimilarityScore,
+    base.bidirectionalScore,
+  ].filter((n): n is number => typeof n === "number");
+  const locationMatch = geometric.length
+    ? avg([...geometric, vlm.sameLocationScore])
+    : vlm.sameLocationScore;
+  const quality =
+    typeof base.qualityScore === "number"
+      ? Math.min(base.qualityScore, vlm.evidenceClarityScore)
+      : vlm.evidenceClarityScore;
+  const finalScore = round3(0.35 * locationMatch + 0.65 * vlm.resolvedScore);
+
+  const flags = new Set([...(base.flags ?? []), ...vlm.flags]);
+  if (vlm.looksStagedOrReused) flags.add("resolution_photo_looks_staged_or_reused");
+  if (base.isSuspectedDuplicate) flags.add("duplicate_resolution_photo");
+
+  let status: VerificationOutcome;
+  if (quality < 0.25) status = "INSUFFICIENT_EVIDENCE";
+  else if (
+    vlm.verdict === "DIFFERENT_LOCATION" ||
+    locationMatch < 0.4 ||
+    base.isSuspectedDuplicate ||
+    vlm.looksStagedOrReused
+  )
+    status = "NEEDS_REVIEW";
+  else if (vlm.verdict === "RESOLVED" && vlm.resolvedScore >= 0.6 && finalScore >= 0.6)
+    status = "VERIFIED";
+  else if (vlm.verdict === "NOT_RESOLVED" && vlm.resolvedScore < 0.3)
+    status = "INSUFFICIENT_EVIDENCE";
+  else status = "NEEDS_REVIEW";
+
+  return {
+    ...base,
+    // Explicit undefined so the upsert merge clears the stored copy.
+    pendingVlm: undefined,
+    jobStatus: "completed",
+    verificationStatus: status,
+    qualityScore: round3(quality),
+    resolutionScore: round3(vlm.resolvedScore),
+    locationMatchScore: round3(locationMatch),
+    finalVerificationScore: finalScore,
+    vlmVerdict: vlm.verdict,
+    vlmModel: vlm.model,
+    evidenceExplanation: vlm.explanation,
+    flags: [...flags],
+    modelVersion: base.modelVersion
+      ? `${base.modelVersion} + ${vlm.model}`
+      : `Siamese-ORB (unavailable) + ${vlm.model}`,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // Primary public API
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -289,90 +431,88 @@ export async function submitVerificationJob(params: {
 
   await upsertVerification(pendingRecord);
 
-  // Submit to AI service asynchronously (fire and forget from the caller's perspective)
+  // Run the Siamese/ORB service and the vision-language model side by side.
   setImmediate(async () => {
-    try {
-      const response = await callAiService("/api/verification/submit", "POST", {
+    const [pythonRes, vlmRes] = await Promise.allSettled([
+      callAiService("/api/verification/submit", "POST", {
         report_id: params.reportId,
         original_image_url: params.originalImageUrl,
         resolution_image_url: params.resolutionImageUrl,
         report_category: params.reportCategory,
         report_description: params.reportDescription,
         submitted_by: params.submittedBy,
-      });
+      }),
+      runVisionAssessment(params),
+    ]);
 
-      // Update local record with AI job ID
-      const updated: VerificationRecord = {
+    const vlm = vlmRes.status === "fulfilled" ? vlmRes.value : undefined;
+    if (vlmRes.status === "rejected") {
+      console.warn(`[Vision Service] Vision model unavailable: ${String(vlmRes.reason)}`);
+    }
+
+    // Python service accepted the job: keep the VLM result on the record and
+    // merge it once polling sees the Siamese/ORB scores complete.
+    if (pythonRes.status === "fulfilled") {
+      const jobId = pythonRes.value["job_id"];
+      await replaceVerificationId(localId, {
         ...pendingRecord,
-        id: typeof response["job_id"] === "string" ? response["job_id"] : localId,
+        id: typeof jobId === "string" ? jobId : localId,
         jobStatus: "processing",
+        pendingVlm: vlm,
         updatedAt: new Date().toISOString(),
-      };
-      // Remove old local record and insert with new ID
-      await replaceVerificationId(localId, updated);
+      });
+      console.info(`[Vision Service] Verification job submitted for report ${params.reportId}`);
+      return;
+    }
 
-      console.info(
-        `[Vision Service] Verification job submitted for report ${params.reportId}: ${String(response["job_id"] ?? "")}`,
+    console.warn(
+      `[Vision Service] Python AI microservice not reachable (${String(pythonRes.reason)}).`,
+    );
+
+    // Python down, vision model worked: vision-only verdict.
+    if (vlm) {
+      await upsertVerification(
+        applyHybridVerdict({ ...pendingRecord, jobStatus: "completed" }, vlm),
       );
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.warn(
-        `[Vision Service] Python AI microservice not reachable (${message}). Running intelligent AI verification fallback engine...`,
-      );
+      return;
+    }
 
-      // Perform real-time AI verification via Groq Multi-Model Engine (eliminating pre-trained false positives)
-      try {
-        const groqCheck = await verifyWithGroqMultiModel({
-          category: params.reportCategory || "General",
-          title: params.reportCategory || "Civic Complaint",
-          description: params.reportDescription || "Field resolution photo submitted by worker.",
-          resolutionNotes: params.reportDescription || "Remediation work completed on site.",
-          originalImageLabel: "Original citizen complaint photo on site",
-          resolutionImageLabel: "Field worker resolution photo proof",
-        });
-
-        const verifiedRecord: VerificationRecord = {
-          ...pendingRecord,
-          jobStatus: "completed",
-          verificationStatus: groqCheck.status as VerificationOutcome,
-          sceneConsistencyScore: groqCheck.sceneConsistencyScore,
-          siameseSimilarityScore: groqCheck.siameseSimilarityScore,
-          bidirectionalScore: groqCheck.bidirectionalScore,
-          segmentationScore: groqCheck.segmentationScore,
-          qualityScore: groqCheck.qualityScore,
-          finalVerificationScore: groqCheck.finalVerificationScore,
-          evidenceExplanation: groqCheck.evidenceExplanation,
-          flags: groqCheck.flags,
-          modelVersion: "Groq-Qwen3.8-MultiModel-v3",
-          processingDurationMs: 412,
-          updatedAt: new Date().toISOString(),
-        };
-
-        await upsertVerification(verifiedRecord);
-        console.info(
-          `[Vision Service] AI Verification completed successfully via Groq engine for ${params.reportId}.`,
-        );
-      } catch (fallbackErr: any) {
-        console.error("[Vision Service] Fallback error:", fallbackErr);
-        const verifiedRecord: VerificationRecord = {
-          ...pendingRecord,
-          jobStatus: "completed",
-          verificationStatus: "NEEDS_REVIEW",
-          sceneConsistencyScore: 0.2,
-          siameseSimilarityScore: 0.18,
-          bidirectionalScore: 0.15,
-          segmentationScore: 0.15,
-          qualityScore: 0.85,
-          finalVerificationScore: 0.306,
-          evidenceExplanation:
-            "AI Resolution Verification flagged: Manual supervisor audit required due to inconclusive photographic alignment.",
-          flags: ["manual_supervisor_review_required"],
-          modelVersion: "Groq-Qwen3.8-MultiModel-v3",
-          processingDurationMs: 380,
-          updatedAt: new Date().toISOString(),
-        };
-        await upsertVerification(verifiedRecord);
-      }
+    // Both unavailable: last-resort text-only engine (no pixels are inspected).
+    try {
+      const groqCheck = await verifyWithGroqMultiModel({
+        category: params.reportCategory || "General",
+        title: params.reportCategory || "Civic Complaint",
+        description: params.reportDescription || "Field resolution photo submitted by worker.",
+        resolutionNotes: params.reportDescription || "Remediation work completed on site.",
+        originalImageLabel: "Original citizen complaint photo on site",
+        resolutionImageLabel: "Field worker resolution photo proof",
+      });
+      await upsertVerification({
+        ...pendingRecord,
+        jobStatus: "completed",
+        verificationStatus: groqCheck.status as VerificationOutcome,
+        sceneConsistencyScore: groqCheck.sceneConsistencyScore,
+        siameseSimilarityScore: groqCheck.siameseSimilarityScore,
+        bidirectionalScore: groqCheck.bidirectionalScore,
+        segmentationScore: groqCheck.segmentationScore,
+        qualityScore: groqCheck.qualityScore,
+        finalVerificationScore: groqCheck.finalVerificationScore,
+        evidenceExplanation: groqCheck.evidenceExplanation,
+        flags: [...groqCheck.flags, "text_only_fallback_no_image_analysis"],
+        modelVersion: "Groq text-only fallback (images not inspected)",
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (fallbackErr: unknown) {
+      console.error("[Vision Service] Fallback error:", fallbackErr);
+      await upsertVerification({
+        ...pendingRecord,
+        jobStatus: "completed",
+        verificationStatus: "NEEDS_REVIEW",
+        evidenceExplanation:
+          "Automated verification unavailable. Manual supervisor audit required.",
+        flags: ["manual_supervisor_review_required"],
+        updatedAt: new Date().toISOString(),
+      });
     }
   });
 
@@ -447,8 +587,12 @@ export async function pollVerificationResult(
             : undefined,
         updatedAt: new Date().toISOString(),
       };
-      await upsertVerification(updated);
-      return updated;
+      // Fold in the vision model's "is it fixed?" judgement once the
+      // Siamese/ORB stage has finished.
+      const merged =
+        updated.jobStatus === "completed" ? applyHybridVerdict(updated, local.pendingVlm) : updated;
+      await upsertVerification(merged);
+      return merged;
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

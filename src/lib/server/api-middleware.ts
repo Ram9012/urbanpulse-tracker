@@ -205,6 +205,22 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       return Response.json({ success: true, verification: updated }, { status: 200 });
     }
 
+    if (pathname === "/api/vision/run" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      if (!body.reportId || !body.resolutionImageUrl) {
+        return Response.json({ error: "Missing required fields" }, { status: 400 });
+      }
+      const verification = await submitVerificationJob({
+        reportId: body.reportId,
+        originalImageUrl: body.originalImageUrl || "",
+        resolutionImageUrl: body.resolutionImageUrl,
+        reportCategory: body.category,
+        reportDescription: body.description,
+        submittedBy: body.requestedBy,
+      });
+      return Response.json({ success: true, verification }, { status: 200 });
+    }
+
     if (pathname === "/api/vision/health" && request.method === "GET") {
       const healthy = await checkAiServiceHealth();
       return Response.json({ status: healthy ? "connected" : "disconnected" }, { status: 200 });
@@ -485,6 +501,22 @@ export function civicPulseApiPlugin(): Plugin {
               note,
             );
             return sendJson(res, 200, { success: true, verification: updated });
+          }
+
+          if (url === "/api/vision/run" && req.method === "POST") {
+            const body = await parseJsonBody(req).catch(() => ({}));
+            if (!body.reportId || !body.resolutionImageUrl) {
+              return sendJson(res, 400, { error: "Missing required fields" });
+            }
+            const verification = await submitVerificationJob({
+              reportId: body.reportId,
+              originalImageUrl: body.originalImageUrl || "",
+              resolutionImageUrl: body.resolutionImageUrl,
+              reportCategory: body.category,
+              reportDescription: body.description,
+              submittedBy: body.requestedBy,
+            });
+            return sendJson(res, 200, { success: true, verification });
           }
 
           if (url === "/api/vision/health" && req.method === "GET") {
