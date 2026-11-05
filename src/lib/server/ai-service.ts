@@ -839,6 +839,34 @@ STYLE: respectful, concise and empathetic. Use short bullet points or bold only 
   console.warn("[Groq Chatbot Fallback Triggered]:", lastError?.message);
   const lastUserMsg = messages[messages.length - 1]?.content?.toLowerCase() || "";
   const fallbackReports = reports;
+
+  // Category keywords a citizen might use instead of the internal category id
+  // (e.g. "pothole" -> "roads"), so the fallback can match the right report
+  // instead of always defaulting to the first one on the account.
+  const CATEGORY_KEYWORDS: Record<string, string[]> = {
+    roads: ["pothole", "road", "crack", "footpath", "pavement"],
+    electricity: ["streetlight", "street light", "light", "electric", "wire", "pole"],
+    waste: ["garbage", "waste", "trash", "dump", "sanitation"],
+    water: ["water", "drain", "drainage", "leak", "sewage", "pipe"],
+    safety: ["traffic", "signal", "safety", "accident"],
+    parks: ["park", "playground", "garden"],
+  };
+
+  function findMentionedReport() {
+    // An explicit tracking ID mention wins outright.
+    const idMatch = fallbackReports.find((r) => lastUserMsg.includes(r.id.toLowerCase()));
+    if (idMatch) return idMatch;
+
+    // Otherwise match the category the citizen's wording implies.
+    for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+      if (keywords.some((kw) => lastUserMsg.includes(kw))) {
+        const byCategory = fallbackReports.find((r) => r.category === category);
+        if (byCategory) return byCategory;
+      }
+    }
+    return fallbackReports[0];
+  }
+
   let fallbackReply = `Hello ${citizenName}! I am PulseBot, your civic assistant.\n\n`;
 
   if (
@@ -846,8 +874,8 @@ STYLE: respectful, concise and empathetic. Use short bullet points or bold only 
     lastUserMsg.includes("track") ||
     lastUserMsg.includes("civ-")
   ) {
-    if (fallbackReports.length > 0) {
-      const r = fallbackReports[0]!;
+    const r = findMentionedReport();
+    if (r) {
       fallbackReply +=
         `Here is the current status of your active report **${r.id}** (${r.title}):\n` +
         `- **Current Status**: \`${r.status.toUpperCase()}\`\n` +

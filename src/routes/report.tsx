@@ -785,6 +785,7 @@ function ReportPage() {
         : 0.05,
       upvotes: 1,
       anonymous,
+      ...(anonymous ? {} : { reportedBy: currentUsername }),
       x: 42,
       y: 50,
       mediaUrls:
