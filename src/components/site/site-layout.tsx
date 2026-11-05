@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { BRAND, LANGUAGES } from "@/lib/civic-data";
+import { BRAND, LANGUAGES, getDeletedReportIds, type CivicReport } from "@/lib/civic-data";
 import { BrandMark } from "./primitives";
 import { useAuth } from "@/lib/auth-client";
 import { CivicChatbot } from "./civic-chatbot";
@@ -296,6 +296,35 @@ function Footer() {
 
 export function SiteLayout({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const [myReports, setMyReports] = useState<CivicReport[]>([]);
+
+  useEffect(() => {
+    if (!user?.username) {
+      setMyReports([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/status/reports");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled || !Array.isArray(data.reports)) return;
+        const deleted = getDeletedReportIds();
+        const mine = data.reports.filter(
+          (r: CivicReport) =>
+            !deleted.has(r.id.toLowerCase().trim()) &&
+            r.reportedBy?.toLowerCase() === user.username.toLowerCase(),
+        );
+        setMyReports(mine);
+      } catch {
+        /* chatbot still works without report context */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.username]);
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -311,7 +340,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
       <Footer />
       {/* Floating PulseBot assistant — available on every citizen-facing page
           (SiteLayout is never used by admin routes). */}
-      <CivicChatbot user={user} variant="floating" />
+      <CivicChatbot user={user} reports={myReports} variant="floating" />
     </div>
   );
 }
