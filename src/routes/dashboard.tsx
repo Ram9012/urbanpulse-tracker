@@ -249,6 +249,13 @@ function Dashboard() {
   );
   const activeCount = reports.filter((r) => r.status !== "resolved").length;
   const resolvedCount = reports.filter((r) => r.status === "resolved").length;
+  const currentUsername = (user?.username || "bipinyadav").toLowerCase().trim();
+  // PulseBot must only ever see this citizen's own reports, never the full
+  // society-wide list — pulled out so the stat tile and the chatbot prop
+  // can't drift apart like they did before.
+  const myReports = reports.filter(
+    (r) => r.reportedBy?.toLowerCase().trim() === currentUsername || r.id === "CIV-95674",
+  );
 
   return (
     <SiteLayout>
@@ -330,15 +337,7 @@ function Dashboard() {
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label="Society Reports" value={reports.length} hint="Problems near your area" />
-          <Stat
-            label="My Reports"
-            value={
-              reports.filter(
-                (r) => r.reportedBy === (user?.username || "bipinyadav") || r.id === "CIV-95674",
-              ).length
-            }
-            hint="Submitted by you"
-          />
+          <Stat label="My Reports" value={myReports.length} hint="Submitted by you" />
           <Stat label="Active in Society" value={activeCount} hint="Being repaired" />
           <Stat label="Society & Ward" value={"Ward 12"} hint="Racecourse / Vidyanagar" />
         </div>
@@ -420,7 +419,7 @@ function Dashboard() {
               <div className="space-y-4">
                 <CivicChatbot
                   user={user}
-                  reports={reports}
+                  reports={myReports}
                   variant="inline"
                   className="h-[620px] shadow-lg"
                 />
